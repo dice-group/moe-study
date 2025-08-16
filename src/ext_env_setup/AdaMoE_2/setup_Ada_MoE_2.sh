@@ -26,4 +26,4 @@ cp loader.py LLaMA-Factory/src/llamafactory/model
 cp ../MoE-LPR/wiki_demo.txt LLaMA-Factory/scripts/data
 
 ##### Optional, directly train automatically ##### 
-#bash train_Ada_MoE_2.sh
+bash train_Ada_MoE_2.sh
