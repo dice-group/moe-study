@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e  # stop if any command fails
+set -e
 
 # repo + env name
 REPO="https://github.com/NJUNLP/MoE-LPR.git"
@@ -16,7 +16,7 @@ fi
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate "$ENV"
-echo "Environment '$ENV' ready. Add your data prep commands here."
+echo " \n ##### Environment '$ENV' ready ##### \n"
 
 # Insert files into Moe-LPR
 cp -rf scripts MoE-LPR/LLaMA-Factory/scripts/
@@ -25,6 +25,5 @@ cp -rf scripts MoE-LPR/LLaMA-Factory/scripts/
 ##### Data Preparation, simplified for now ##### 
 cp wiki_demo.txt MoE-LPR/LLaMA-Factory/scripts/data
 
-##### Training ##### 
-cd MoE-LPR/LLaMA-Factory
-bash scripts/stage1.sh
+##### Optional, directly train automatically ##### 
+bash train_MoE_LPR_stage1.sh
