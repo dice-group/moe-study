@@ -7,5 +7,5 @@ export PROJECT_ROOT="$(cd "${CUR_SCRIPT_DIR}/../../.." && pwd)"
 
 # Check if SLURM is active and source the cluster‑specific config
 if [[ "$SLURM_ACTIVE" == "true" ]]; then
-    source "$PROJECT_ROOT/src/slurm/cluster_specific_config.sh"
+    source "$PROJECT_ROOT/src/slurm/cluster_specific_config.sh" # This will load the required environment dependencies
 fi
