@@ -1,18 +1,18 @@
-cd MoE-LPR
-ROOT_DIR="$(pwd)/LLaMA-Factory" # this will be /upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/src/ext_env_setup/MoE-LPR/MoE-LPR
-echo -e "Root dir $ROOT_DIR"
-MODEL_PATH=meta-llama/Meta-Llama-3-8B
+ROOT_DIR="$(pwd)/MoE-LPR/LLaMA-Factory"
+echo "Current dir !!!!!!!!!!!! $(pwd)"
+MODEL_PATH=Qwen/Qwen2.5-1.5B
+#MODEL_PATH=meta-llama/Llama-3.1-8B-Instruct
 OUTPUT_DIR=./output_dir
 DATASET=wiki_demo
 
 export WANDB_DISABLED=true
-deepspeed --num_gpus 1 --master_port=9902 LLaMA-Factory/src/train_bash.py \
+deepspeed --num_gpus 2 --master_port=9902 $ROOT_DIR/src/train_bash.py \
     --deepspeed $ROOT_DIR/config/ds_config.json \
     --stage pt \
     --model_name_or_path $MODEL_PATH \
     --finetuning_type moe \
-    --topk 1 \6
-    --moe_num_experts 2 \
+    --topk 2 \
+    --moe_num_experts 4 \
     --aux_loss_coef 0.01 \
     --do_train \
     --dataset_dir $ROOT_DIR/data \
@@ -21,7 +21,7 @@ deepspeed --num_gpus 1 --master_port=9902 LLaMA-Factory/src/train_bash.py \
     --cutoff_len 1024 \
     --output_dir $OUTPUT_DIR \
     --overwrite_output_dir \
-    --per_device_train_batch_size 1 \
+    --per_device_train_batch_size 2 \
     --gradient_accumulation_steps 1 \
     --lr_scheduler_type cosine \
     --logging_steps 10 \
