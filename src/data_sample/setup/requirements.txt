@@ -3,3 +3,4 @@ debugpy
 requests
 ipykernel
 pandas
+scikit-learn
