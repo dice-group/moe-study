@@ -9,9 +9,8 @@ ENV="moelpr"
 [ -d MoE-LPR ] || git clone "$REPO"
 
 if ! conda env list | awk '{print $1}' | grep -Fxq "$ENV"; then
-  conda env create -n "$ENV" -f MoE-LPR/environment.yml
+  conda env create -n "$ENV" -f moe-lpr.yml
   conda run -n "$ENV" pip install --editable MoE-LPR/peft/
-  conda run -n "$ENV" pip install --editable MoE-LPR/transformers/
 fi
 
 source "$(conda info --base)/etc/profile.d/conda.sh"

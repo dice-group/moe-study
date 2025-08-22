@@ -1,5 +1,4 @@
 ROOT_DIR="$(pwd)/MoE-LPR/LLaMA-Factory"
-echo "Current dir !!!!!!!!!!!! $(pwd)"
 MODEL_PATH=Qwen/Qwen2.5-1.5B
 #MODEL_PATH=meta-llama/Llama-3.1-8B-Instruct
 OUTPUT_DIR=./output_dir

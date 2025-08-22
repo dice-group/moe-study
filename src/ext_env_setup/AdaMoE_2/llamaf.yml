@@ -23,7 +23,7 @@ dependencies:
   - xz=5.4.6=h5eee18b_1
   - zlib=1.2.13=h5eee18b_1
   - pytorch
-  - pytorch-cuda=12.4a
+  - pytorch-cuda=12.4
   - pip:
     - llamafactory
     - accelerate==0.30.1
