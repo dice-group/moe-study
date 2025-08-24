@@ -10,6 +10,7 @@ ENV="moelpr"
 
 if ! conda env list | awk '{print $1}' | grep -Fxq "$ENV"; then
   conda env create -n "$ENV" -f moe-lpr.yml
+  conda run -n "$ENV" pip install --editable MoE-LPR/transformers/
   conda run -n "$ENV" pip install --editable MoE-LPR/peft/
 fi
 

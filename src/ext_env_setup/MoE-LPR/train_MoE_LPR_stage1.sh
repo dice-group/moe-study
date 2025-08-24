@@ -1,11 +1,18 @@
 ROOT_DIR="$(pwd)/MoE-LPR/LLaMA-Factory"
-MODEL_PATH=Qwen/Qwen2.5-1.5B
-#MODEL_PATH=meta-llama/Llama-3.1-8B-Instruct
+#MODEL_PATH=Qwen/Qwen2.5-1.5B
+#MODEL_PATH=unsloth/llama-2-7b-bnb-4bit
+MODEL_PATH=unsloth/llama-2-7b-bnb-4bit
+#MODEL_PATH=unsloth/llama-2-7b
 OUTPUT_DIR=./output_dir
 DATASET=wiki_demo
 
+export CUDA_VISIBLE_DEVICES=0
+
 export WANDB_DISABLED=true
-deepspeed --num_gpus 2 --master_port=9902 $ROOT_DIR/src/train_bash.py \
+CPLUS_INCLUDE_PATH=/usr/include \
+LIBRARY_PATH=/usr/lib/x86_64-linux-gnu \
+LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu \
+deepspeed --num_gpus 1 --master_port=9902 $ROOT_DIR/src/train_bash.py \
     --deepspeed $ROOT_DIR/config/ds_config.json \
     --stage pt \
     --model_name_or_path $MODEL_PATH \
