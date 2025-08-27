@@ -1,5 +1,5 @@
 """
-AdaMoLE Model
+adamole Model
 """
 from typing import Any
 
@@ -14,7 +14,7 @@ from ..lora import LoraModel
 
 class AdaMoleModel(LoraModel):
     """
-    AdaMoLE (Adaptive Mixture of LoRA Experts) Model
+    adamole (Adaptive Mixture of LoRA Experts) Model
     """
     prefix: str = "lora_"
 

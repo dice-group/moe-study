@@ -1,5 +1,5 @@
 """
-AdaMoLE Initialization
+adamole Initialization
 """
 from .config import AdaMoleConfig
 from .layer import AdaMoleLayer, LinearAdaMoleLayer

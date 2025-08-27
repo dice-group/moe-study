@@ -1,4 +1,3 @@
-# methods/base.py
 from dataclasses import dataclass
 from typing import Iterable
 import torch.nn as nn

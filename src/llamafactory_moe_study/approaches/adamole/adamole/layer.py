@@ -1,5 +1,5 @@
 """
-AdaMoLE Layer
+adamole Layer
 """
 import math
 from abc import ABC
@@ -66,7 +66,7 @@ class AdaMoeLayer(nn.Module):
 
 class AdaMoleLayer(LoraLayer, ABC):
     """
-    AdaMoLE Layer
+    adamole Layer
     """
 
     def __init__(self, base_layer: nn.Module, **kwargs):
@@ -132,7 +132,7 @@ class AdaMoleLayer(LoraLayer, ABC):
 
 class LinearAdaMoleLayer(nn.Module, AdaMoleLayer):
     """
-    AdaMoLE Implementation in a Linear Layer
+    adamole Implementation in a Linear Layer
     """
 
     def __init__(

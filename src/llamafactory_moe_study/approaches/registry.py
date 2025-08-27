@@ -1,7 +1,6 @@
-# methods/registry.py
 import os
-from .base import LoraKnobs
-from .adamole.adapter import AdaMoLEAdapter
+from llamafactory_moe_study.core.generic_adapter import AdapterConfig
+from llamafactory_moe_study.approaches.adamole.adapter import AdaMoLEAdapter
 
 _REGISTRY = {
     "adamole": AdaMoLEAdapter(),
@@ -17,17 +16,17 @@ def get_selected_method():
         return _REGISTRY["adamole"]
     return None
 
-def build_knobs_from_lf(peft_like_cfg) -> LoraKnobs:
-    # Support both LF field names
+def build_knobs_from_lf(peft_like_cfg) -> AdapterConfig:
+    # d
     r = getattr(peft_like_cfg, "r", None) or getattr(peft_like_cfg, "lora_rank")
     alpha = getattr(peft_like_cfg, "lora_alpha")
     dropout = getattr(peft_like_cfg, "lora_dropout", 0.0)
     targets = getattr(peft_like_cfg, "target_modules", None) or getattr(peft_like_cfg, "lora_target", None) or ()
-    # Normalize containers → set of suffixes
+
     if isinstance(targets, (list, tuple, set)):
         targets = set(targets)
     elif targets is None:
         targets = set()
     else:
         targets = {targets}
-    return LoraKnobs(r=int(r), alpha=int(alpha), dropout=float(dropout), target_modules=targets)
+    return AdapterConfig(r=int(r), alpha=int(alpha), dropout=float(dropout), target_modules=targets)

@@ -1,16 +1,16 @@
 """
-AdaMoLE Configuration
+adamole Configuration
 """
 from dataclasses import dataclass, field
 
-from ..lora import LoraConfig
-from ..utils.peft_types import PeftType
+from llamafactory_moe_study.approaches.adamole.lora import LoraConfig
+from llamafactory_moe_study.approaches.adamole.utils.peft_types import PeftType
 
 
 @dataclass
 class AdaMoleConfig(LoraConfig):
     """
-    AdaMoLE Configuration
+    adamole Configuration
     """
     num_experts: int = field(default=4, metadata={"help": "The number of experts in MoE."})
     max_threshold: float = field(default=None, metadata={
