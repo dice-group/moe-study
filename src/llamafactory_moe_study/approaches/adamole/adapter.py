@@ -1,14 +1,9 @@
-import os
+import torch
 import torch.nn as nn
 
 from typing import Iterable, Optional
-from peft.utils import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING as HF_LORA_MAP
 from llamafactory_moe_study.core.generic_adapter import AdapterConfig, MethodAdapter
 from llamafactory_moe_study.approaches.adamole.adamole.layer import LinearAdaMoleLayer
-
-def _default_targets(model) -> Iterable[str]:
-    mt = getattr(getattr(model, "config", None), "model_type", None)
-    return HF_LORA_MAP.get(mt, {"q_proj","k_proj","v_proj","o_proj","up_proj","down_proj","gate_proj"})
 
 def _get_parent_and_attr(model: nn.Module, module_name: str):
     parts = module_name.split(".")
@@ -20,13 +15,15 @@ def _get_parent_and_attr(model: nn.Module, module_name: str):
 class AdaMoLEAdapter(MethodAdapter):
     name = "ADAMOLE"
 
-    def inject(self, model: nn.Module, knobs: AdapterConfig,
-               target_modules: Optional[Iterable[str]] = None) -> nn.Module:
-        n_experts = int(os.getenv("ADAMOLE_NUM_EXPERTS", "4"))
-        max_thr   = os.getenv("ADAMOLE_MAX_THRESHOLD", None)
-        max_thr_f = float(max_thr) if max_thr is not None else None
-
-        targets = set(target_modules or _default_targets(model))
+    def inject(
+            self,
+            model: nn.Module,
+            knobs: AdapterConfig,
+            target_modules: Optional[Iterable[str]] = None,
+            num_experts: int = 4,
+            max_threshold: Optional[float] = None,
+    ) -> nn.Module:
+        targets = set(target_modules)
         for name, module in list(model.named_modules()):
             if not isinstance(module, nn.Linear):
                 continue
@@ -40,18 +37,15 @@ class AdaMoLEAdapter(MethodAdapter):
                 lora_alpha=knobs.alpha,
                 lora_dropout=knobs.dropout,
                 ininit_lora_weights=True,
-                num_experts=n_experts,
-                max_threshold=max_thr_f,
+                num_experts=num_experts,
+                max_threshold=max_threshold,
             ))
         return model
 
-    # TODO:
-    def aux_loss(self, model: nn.Module):
-        import torch
+    def aux_loss(self, model: nn.Module, coef: float = 0.01):
         device = next(model.parameters()).device
         total = torch.tensor(0.0, device=device)
         for _, m in model.named_modules():
             if hasattr(m, "moe") and hasattr(m.moe, "layer_loss") and m.moe.layer_loss is not None:
                 total = total + m.moe.layer_loss.to(device)
-        coef = float(os.getenv("ADAMOLE_AUX_COEF", "0.01"))
         return coef * total

@@ -1,7 +1,5 @@
 import sys
 import argparse
-import os
-import yaml
 
 from llamafactory_moe_study.hooks.patch_llamafactory import apply_patch
 
@@ -18,16 +16,6 @@ def main():
     parser.add_argument("--adamole_aux_coef", type=float, default=0.01)
     args, extra = parser.parse_known_args()
 
-    # Debug: show YAML content before passing it on
-    print("==== DEBUG: Checking YAML config at runtime ====")
-    with open(args.config, "r") as f:
-        yaml_content = f.read()
-        print(yaml_content)
-
-    parsed_yaml = yaml.safe_load(yaml_content)
-    if "model_name_or_path" not in parsed_yaml:
-        print("⚠️  ERROR: model_name_or_path missing in YAML!")
-
     apply_patch(
         use_method=args.use_method,
         lora_r=args.lora_r,
@@ -35,11 +23,11 @@ def main():
         lora_dropout=args.lora_dropout,
         lora_targets=set(args.lora_targets.split(",")),
         adamole_aux_coef=args.adamole_aux_coef,
+        adamole_num_experts=args.adamole_num_experts,
+        adamole_max_threshold=args.adamole_max_threshold,
     )
 
     sys.argv = ["llamafactory", "train", args.config]
-    print("==== DEBUG: sys.argv passed to llamafactory ====", sys.argv)
-    print(sys.argv)
 
     from llamafactory.cli import main as lf_main
     # TODO: Wrap model

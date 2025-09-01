@@ -18,6 +18,8 @@ def apply_patch(
     lora_dropout: float = 0.0,
     lora_targets: Optional[Set[str]] = None,
     adamole_aux_coef: float = 0.01,
+    adamole_num_experts: int = 4,
+    adamole_max_threshold: Optional[float] = None,
 ):
     adapter = get_selected_method(use_method)
     if adapter is None:
@@ -35,11 +37,11 @@ def apply_patch(
         )
 
         # Inject approaches adapter
-        model = adapter.inject(model, knobs)
+        model = adapter.inject(model, knobs, num_experts=adamole_num_experts, mmax_threshold=adamole_max_threshold)
 
         # Freeze backbone; keep experts/gate/threshold trainable
         keep = lambda name: any(tok in name for tok in (".moe.", "experts.", ".gate.", ".thr."))
-        # TODO: check if freezed properly keep = lambda name: ("lora_" in name) or ("moe_layer" in name)
+        # TODO: check if freezed properly; #keep = lambda name: ("lora_" in name) or ("moe_layer" in name)
         _freeze_backbone_except(model, keep)
 
         # use approaches loss for model
