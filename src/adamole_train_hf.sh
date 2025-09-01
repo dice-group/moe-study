@@ -13,4 +13,4 @@ python -m llamafactory_moe_study.train_hf \
   --adamole_num_experts 4 \
   --adamole_max_threshold 0.25 \
   --adamole_aux_coef 0.01 \
-  --gradient_checkpointing \
+  --gradient_checkpointing

@@ -5,3 +5,6 @@ data_dir/
 
 src/ext_env_setup/AdaMoE_1/MoLA
 src/ext_env_setup/AdaMoE_2/LLaMA-Factoryly
+
+__pycache__/
+*.egg-info/

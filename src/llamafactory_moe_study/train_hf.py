@@ -73,8 +73,8 @@ def main():
     # load model
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        torch_dtype=torch.float16 if cfg.get("fp16", True) else torch.float32,
-        device_map="auto"
+        device_map="auto",
+        torch_dtype="auto"
     )
 
     # load approach, for now inject Ada Moe adapter
