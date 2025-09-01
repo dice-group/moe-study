@@ -1,0 +1,28 @@
+stage: sft
+model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
+dataset: dolly_15k_de
+dataset_dir: /upb/users/j/joeldag/profiles/unix/cs/cloned_repositories_htyllm/LLaMA-Factory/data
+template: llama3
+cutoff_len: 1024
+max_samples: 20000
+finetuning_type: lora
+ddp_backend: nccl
+
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 16
+learning_rate: 2e-4
+lr_scheduler_type: cosine
+warmup_ratio: 0.03
+num_train_epochs: 1
+
+save_steps: 500
+logging_steps: 10
+fp16: true
+bf16: false
+report_to: none
+
+do_train: true
+resize_vocab: true
+
+output_dir: /upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/outputs/adamole-llama3-8b-sft
+overwrite_output_dir: true

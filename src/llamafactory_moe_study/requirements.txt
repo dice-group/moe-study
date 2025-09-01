@@ -6,3 +6,4 @@ accelerate
 datasets
 scipy
 tqdm
+llama-factory

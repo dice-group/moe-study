@@ -2,3 +2,6 @@ src/ext_env_setup/MoE-LPR/MoE-LPR
 src/virt-envs/
 data_dir/
 .idea
+
+src/ext_env_setup/AdaMoE_1/MoLA
+src/ext_env_setup/AdaMoE_2/LLaMA-Factoryly

@@ -15,7 +15,7 @@ class AuxLossWrapper(nn.Module):
             if callable(getter):
                 aux = getter()
                 if isinstance(aux, torch.Tensor):
-                    out.loss = out.loss + aux
+                    out.loss = out.loss + self.coef * aux
         return out
 
     def __getattr__(self, n):

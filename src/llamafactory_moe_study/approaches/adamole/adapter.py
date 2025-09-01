@@ -34,15 +34,18 @@ class AdaMoLEAdapter(MethodAdapter):
                 continue
             parent, attr = _get_parent_and_attr(model, name)
             setattr(parent, attr, LinearAdaMoleLayer(
-                base_linear=module,
+                base_layer=module,
+                adapter_name="default",
+                lora_rank=knobs.r,
+                lora_alpha=knobs.alpha,
+                lora_dropout=knobs.dropout,
+                ininit_lora_weights=True,
                 num_experts=n_experts,
-                r=knobs.r,
-                alpha=knobs.alpha,
-                dropout=knobs.dropout,
                 max_threshold=max_thr_f,
             ))
         return model
 
+    # TODO:
     def aux_loss(self, model: nn.Module):
         import torch
         device = next(model.parameters()).device

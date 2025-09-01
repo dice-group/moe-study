@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llamafactory-moe-study"
+version = "0.1.0"
+
+[tool.setuptools.packages.find]
+include = [
+    "llamafactory_moe_study*",
+    "core*",
+    "hooks*",
+    "routing*",
+    "approaches*"
+]
