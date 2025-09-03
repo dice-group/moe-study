@@ -9,7 +9,7 @@ from llamafactory_moe_study.approaches.mola.mola_mapping_hacked import get_peft_
 from llamafactory_moe_study.approaches.mola.mola_lora_hacked import LoraConfig
 
 
-class MoLAAdapter(MethodAdapter):
+class MolaAdapter(MethodAdapter):
     """Adapter wrapper for MoLA hacked logic"""
 
     name = "mola"

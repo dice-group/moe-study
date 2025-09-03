@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Dict
 # )
 
 ##newmodified
-from src.mola_peft_model_hacked import (
+from .mola_peft_model_hacked import (
     PeftModel,
     PeftModelForCausalLM,
     PeftModelForQuestionAnswering,
@@ -30,8 +30,8 @@ from peft.tuners import (
     PromptEncoderConfig,
     PromptTuningConfig,
 )
-from src.mola_lora_hacked import LoraConfig
-from peft.utils import PromptLearningConfig
+from .mola_lora_hacked import LoraConfig
+from peft.config import PromptLearningConfig
 
 
 if TYPE_CHECKING:

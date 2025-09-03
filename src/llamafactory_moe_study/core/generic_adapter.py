@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+from typing import Tuple
 from dataclasses import dataclass
 from typing import Iterable
 from transformers import PreTrainedModel, PreTrainedTokenizerBase

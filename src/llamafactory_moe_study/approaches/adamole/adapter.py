@@ -6,7 +6,7 @@ import torch
 from llamafactory_moe_study.core.generic_adapter import MethodAdapter
 from llamafactory_moe_study.approaches.adamole.adamole.config import AdaMoleConfig
 from llamafactory_moe_study.approaches.adamole.utils.peft_types import TaskType
-from llamafactory_moe_study.approaches.adamole.utils.save_and_load import PeftModelForCausalLM
+from llamafactory_moe_study.approaches.adamole.peft_model import PeftModelForCausalLM
 
 
 class AdaMoLEAdapter(MethodAdapter):
