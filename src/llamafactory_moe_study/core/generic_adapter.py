@@ -1,6 +1,8 @@
+import torch.nn as nn
+
 from dataclasses import dataclass
 from typing import Iterable
-import torch.nn as nn
+from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
 @dataclass
 class AdapterConfig:
@@ -16,8 +18,13 @@ class MethodAdapter:
     """Interface that each adapter method must implement."""
     name: str = "BASE"
 
-    def inject(self, model: nn.Module, cfg: AdapterConfig) -> nn.Module:
-        """Replace target modules in model using given adapter config."""
+    def apply(
+        self,
+        model_args,
+        data_args,
+        training_args,
+    ) -> Tuple[PreTrainedModel, PreTrainedTokenizerBase]:
+        """Apply the adapter method to the base model and return the adapted model and tokenizer."""
         raise NotImplementedError
 
     def aux_loss(self, model: nn.Module):

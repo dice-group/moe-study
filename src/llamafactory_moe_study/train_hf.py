@@ -31,6 +31,10 @@ def main():
     parser.add_argument("--adamole_num_experts", type=int, default=4)
     parser.add_argument("--adamole_max_threshold", type=float, default=0.25)
     parser.add_argument("--adamole_aux_coef", type=float, default=0.01)
+    
+    # mola
+    parser.add_argument("--mola_num_experts", type=int, default=4)
+    parser.add_argument("--mola_top_k", type=int, default=2)
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save_total_limit", type=int, default=2)
@@ -65,33 +69,16 @@ def main():
     # easy tokenizing for now
     def tokenize_fn(examples):
         return tokenizer(examples["text"], truncation=True, max_length=cutoff_len)
-
     dataset = dataset.map(tokenize_fn, batched=True, remove_columns=dataset["train"].column_names)
     if max_samples is not None:
         dataset["train"] = dataset["train"].select(range(min(max_samples, len(dataset["train"]))))
 
-    # load model
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        device_map="auto",
-        torch_dtype="auto"
-    )
-
     # load approach, for now inject Ada Moe adapter
     adapter = get_selected_method(args.use_method)
-    knobs = AdapterConfig(
-        r=args.lora_r,
-        alpha=args.lora_alpha,
-        dropout=args.lora_dropout,
-        target_modules=args.lora_targets.split(","),
-    )
-    
-    model = adapter.inject(
-        model,
-        knobs,
-        target_modules=args.lora_targets.split(","),
-        num_experts=args.adamole_num_experts,
-        max_threshold=args.adamole_max_threshold,
+    model, tokenizer, _ = adapter.apply(
+        vars(args),
+        {"dataset": dataset_name, "dataset_dir": dataset_dir, "cutoff_len": cutoff_len},
+        args,
     )
     model.to("cuda")
 
@@ -131,9 +118,7 @@ def main():
         train_dataset=dataset["train"],
         data_collator=data_collator,
     )
-
     trainer.train()
-
 
 if __name__ == "__main__":
     main()
