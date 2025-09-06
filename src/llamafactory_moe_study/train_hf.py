@@ -76,7 +76,7 @@ def main():
     # load approach, for now inject Ada Moe adapter
     adapter = get_selected_method(args.use_method)
     model, tokenizer, _ = adapter.apply(
-        vars(args),
+        cfg,
         {"dataset": dataset_name, "dataset_dir": dataset_dir, "cutoff_len": cutoff_len},
         args,
     )

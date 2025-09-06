@@ -17,6 +17,12 @@ class MolaAdapter(MethodAdapter):
     def apply(self, model_args, data_args, training_args):
         # Load hacked llama model
         config = AutoConfig.from_pretrained(model_args["model_name_or_path"])
+        config.lora_target_modules = training_args.lora_targets.split(",")
+        num_layers = config.num_hidden_layers
+        number_experts = [training_args.mola_num_experts] * num_layers
+        top_k = [training_args.mola_top_k] * num_layers
+
+        
         model = LlamaForCausalLM_d.from_pretrained(
             model_args["model_name_or_path"],
             config=config,
@@ -43,8 +49,8 @@ class MolaAdapter(MethodAdapter):
         model = get_peft_model(
             model,
             lora_config,
-            number_experts=[training_args.mola_num_experts] * len(training_args.lora_targets.split(",")),
-            top_k=[training_args.mola_top_k] * len(training_args.lora_targets.split(",")),
+            number_experts=number_experts,
+            top_k=top_k,
         )
 
         return model, tokenizer, {}

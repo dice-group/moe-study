@@ -60,7 +60,7 @@ class PeftModel(PushToHubMixin, torch.nn.Module):
         self.active_adapter = adapter_name
         self.peft_type = peft_config.peft_type
         peft_model = PEFT_TYPE_TO_MODEL_MAPPING[peft_config.peft_type]
-        self.base_model = peft_model(model, {adapter_name: peft_config}, adapter_name)
+        self.base_model = peft_model(model, peft_config, adapter_name)
         self.set_additional_trainable_modules(peft_config, adapter_name)
 
         if getattr(model, "is_gradient_checkpointing", True):

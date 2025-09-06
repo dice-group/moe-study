@@ -1133,6 +1133,7 @@ class LlamaForCausalLM_d(LlamaPreTrainedModel):
         images: Optional[torch.FloatTensor] = None,
         output_router_logits: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        **kwargs,
     ) -> Union[Tuple, CausalLMOutputWithPast]:
         r"""
         Args:

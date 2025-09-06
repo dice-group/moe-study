@@ -74,3 +74,9 @@ class AdaMoleModel(LoraModel):
                 model_loss += layer_loss
 
         return model_loss
+    
+    def enable_adapter_layers(self):
+        pass
+
+    def disable_adapter_layers(self):
+        pass

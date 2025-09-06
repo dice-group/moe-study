@@ -6,11 +6,12 @@ shared by the HuggingFace Inc. team and used according to terms
 described in the Apache License 2.0.
 """
 from typing import Any
+import warnings
 
 import torch
 from peft import PeftConfig
 from peft.tuners.tuners_utils import BaseTuner, BaseTunerLayer, check_target_module_exists
-from peft.utils import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
+from peft.utils import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING, ModulesToSaveWrapper
 from torch import nn
 from transformers import PretrainedConfig
 
@@ -158,3 +159,52 @@ class LoraModel(BaseTuner):
                         module.bias.requires_grad = True
             else:
                 raise NotImplementedError(f"Requested bias: {bias}, is not implemented.")
+
+    def _set_adapter_layers(self, enabled: bool = True) -> None:
+        for module in self.model.modules():
+            if isinstance(module, (BaseTunerLayer, ModulesToSaveWrapper)):
+                module.enable_adapters(enabled)
+
+    def enable_adapter_layers(self) -> None:
+        """Enable all adapters. Call this if you have previously disabled all adapters and want to re-enable them."""
+        self._set_adapter_layers(enabled=True)
+
+    def disable_adapter_layers(self) -> None:
+        """
+        Disable all adapters.
+
+        When disabling all adapters, the model output corresponds to the output of the base model.
+        """
+        for active_adapter in self.active_adapters:
+            val = self.peft_config[active_adapter].bias
+            if val != "none":
+                msg = (
+                    f"Careful, disabling adapter layers with bias configured to be '{val}' does not produce the same "
+                    "output as the base model would without adaption."
+                )
+                warnings.warn(msg)
+        self._set_adapter_layers(enabled=False)
+
+    def set_adapter(self, adapter_name: str | list[str]) -> None:
+        """
+        Set the active adapter(s).
+
+        Additionally, this function will set the specified adapters to trainable (i.e., requires_grad=True). If this is
+        not desired, use the following code.
+
+        ```py
+        >>> for name, param in model_peft.named_parameters():
+        ...     if ...: # some check on name (ex. if 'lora' in name)
+        ...         param.requires_grad = False
+        ```
+
+        Args:
+            adapter_name (`str` or `list[str]`): Name of the adapter(s) to be activated.
+        """
+        for module in self.model.modules():
+            if isinstance(module, LoraLayer):
+                if module.merged:
+                    warnings.warn("Adapter cannot be set when the model is merged. Unmerging the model first.")
+                    module.unmerge()
+                module.set_adapter(adapter_name)
+        self.active_adapter = adapter_name
