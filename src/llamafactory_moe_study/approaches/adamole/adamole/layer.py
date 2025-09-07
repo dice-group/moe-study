@@ -27,6 +27,9 @@ class AdaMoeLayer(nn.Module):
         self.threshold_fn = threshold_fn
         self.max_threshold = max_threshold
         self.layer_loss = None
+        self.num_experts = len(experts)
+        self.total_steps = 0
+        self.avg_sel = 0.0
 
     def get_layer_loss(self, gate_logits: torch.Tensor, selected_experts: torch.Tensor) -> torch.Tensor:
         """
@@ -50,6 +53,13 @@ class AdaMoeLayer(nn.Module):
         thresholds = F.sigmoid(self.threshold_fn(flattened_inputs)) * self.max_threshold
         adapted_gate_logits = gate_logits - thresholds
         selected_experts = torch.ge(adapted_gate_logits, 0).to(torch.float)
+        if log.isEnabledFor(logging.DEBUG) and self.total_steps % 50 == 0:
+            log.debug(
+                f"gate_logits={gate_logits[0].tolist()} "
+                f"thresholds={thresholds[0].tolist()} "
+                f"adapted={adapted_gate_logits[0].tolist()} "
+                f"selected={selected_experts[0].tolist()}"
+            )
         weights = adapted_gate_logits * selected_experts
         weight_sums = torch.sum(weights, dim=-1, keepdim=True, dtype=inputs.dtype)
         weight_sums = torch.where(weight_sums == 0, torch.ones_like(weight_sums), weight_sums)
@@ -57,9 +67,7 @@ class AdaMoeLayer(nn.Module):
         results = torch.zeros_like(self.experts[0](flattened_inputs))
 
         if log.isEnabledFor(logging.DEBUG):
-            log.debug(f"gate_mean={gate_logits.mean().item():.4f} "
-                      f"tau_mean={thresholds.mean().item():.4f} "
-                      f"sel_avg={selected_experts.sum(dim=-1).float().mean().item():.2f}")
+            self._log_debug(gate_logits, thresholds, selected_experts)
 
         for i, expert in enumerate(self.experts):
             batch_idx = torch.where(selected_experts[:, i])[0]
@@ -70,6 +78,35 @@ class AdaMoeLayer(nn.Module):
         if inputs.requires_grad:
             self.layer_loss = self.get_layer_loss(gate_logits=adapted_gate_logits, selected_experts=selected_experts)
         return results
+
+    def _log_debug(self, gate_logits: torch.Tensor, thresholds: torch.Tensor, selected_experts: torch.Tensor):
+        """Debug logging for AdaMoLE gating/threshold behavior"""
+        sel_counts = selected_experts.sum(-1)
+        sel_hist = torch.bincount(sel_counts.to(torch.int64), minlength=self.num_experts + 1)
+        usage = selected_experts.float().mean(0)
+
+        self.total_steps += 1
+        self.avg_sel += sel_counts.float().mean().item()
+
+        if self.total_steps % 50 == 0:
+            i = 0
+            log.debug(
+                f"[SAMPLE] probs={gate_logits[i].tolist()} "
+                f"τ={thresholds[i].item():.4f} "
+                f"adapted={(gate_logits[i] - thresholds[i]).tolist()} "
+                f"selected={selected_experts[i].tolist()}"
+            )
+
+            avg_sel = self.avg_sel / 50
+            self.avg_sel = 0.0
+
+            log.debug(
+                f"[SUMMARY] step={self.total_steps} "
+                f"τ_mean={thresholds.mean().item():.4f} "
+                f"sel_avg={avg_sel:.2f} "
+                f"sel_hist={sel_hist.tolist()} "
+                f"expert_usage={[round(x, 3) for x in usage.tolist()]}"
+            )
 
 
 class AdaMoleLayer(LoraLayer, ABC):
