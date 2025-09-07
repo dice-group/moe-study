@@ -42,6 +42,7 @@ class AdaMoeLayer(nn.Module):
         """
         Forward propagation
         """
+        self.layer_loss = None
         flattened_inputs = inputs.view((-1, inputs.shape[-1]))
         gate_logits = F.softmax(self.gate(flattened_inputs), dim=-1)
         thresholds = F.sigmoid(self.threshold_fn(flattened_inputs)) * self.max_threshold

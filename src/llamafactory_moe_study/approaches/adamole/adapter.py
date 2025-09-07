@@ -1,6 +1,5 @@
 import torch
-import torch
-
+import warnings
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from llamafactory_moe_study.core.generic_adapter import MethodAdapter
@@ -41,8 +40,6 @@ class AdaMoLEAdapter(MethodAdapter):
             num_experts=training_args.adamole_num_experts,
             max_threshold=training_args.adamole_max_threshold,
         )
-        print(">> DEBUG: adapter_name =", getattr(peft_config, "adapter_name", None))
-        print(">> DEBUG: peft_config dict =", peft_config.__dict__)
 
         # load hacked admole model
         model = PeftModelForCausalLM(base_model, peft_config)
