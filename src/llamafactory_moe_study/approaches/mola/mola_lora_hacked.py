@@ -650,8 +650,8 @@ class LoraMoE_Layer:
             lora_dropout_layer = nn.Identity()
 
         self.lora_dropout.update(nn.ModuleDict({adapter_name: lora_dropout_layer}))
+        self.router.update(nn.ModuleDict({'router': nn.Linear(self.in_features, self.number_experts, bias=False)}))
         if isinstance(r, list):
-            self.router.update(nn.ModuleDict({'router': nn.Linear(self.in_features, self.number_experts, bias=False)}))
             for i in range(4):
                 adapter_name_moe = adapter_name + '_' + str(i)
                 self.lora_A.update(nn.ModuleDict({adapter_name_moe: nn.Linear(self.in_features, r[layer_index], bias=False)}))
@@ -667,7 +667,7 @@ class LoraMoE_Layer:
                 self.reset_lora_parameters_MoE(adapter_name)
             else:
                 self.reset_lora_parameters(adapter_name)
-        self.to(self.weight.device)
+        self.to(self.weight.device, dtype=self.weight.dtype)
 
     def update_layer_conv2d(self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights):
         self.r[adapter_name] = r
