@@ -75,7 +75,7 @@ class AdaMoeLayer(nn.Module):
                 results[batch_idx] += weights[batch_idx, i, None] * expert(flattened_inputs[batch_idx])
 
         results = results.view((*inputs.shape[:-1], results.shape[-1]))
-        if inputs.requires_grad:
+        if self.training:
             self.layer_loss = self.get_layer_loss(gate_logits=adapted_gate_logits, selected_experts=selected_experts)
         return results
 

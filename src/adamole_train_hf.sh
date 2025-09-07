@@ -13,6 +13,6 @@ python -m llamafactory_moe_study.train_hf \
   --lora_targets "q_proj,k_proj,v_proj,o_proj" \
   --adamole_num_experts 8 \
   --adamole_max_threshold 0.25 \
-  --adamole_aux_coef 0.02 \
+  --adamole_aux_coef 0.001 \
   --gradient_checkpointing \
   |& tee output.log

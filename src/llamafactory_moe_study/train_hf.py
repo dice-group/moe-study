@@ -13,7 +13,7 @@ from transformers import (
 from .moe_peft_trainer import PeftTrainer
 
 from llamafactory_moe_study.approaches.registry import get_selected_method
-
+from llamafactory_moe_study.core.wrappers import AuxLossWrapper
 
 def load_yaml_config(path: str):
     with open(path, "r") as f:
@@ -81,6 +81,7 @@ def main():
         args,
     )
     model.to("cuda")
+    model = AuxLossWrapper(model, coef=args.adamole_aux_coef)
 
     # define training argumetn
     training_args = TrainingArguments(
@@ -107,12 +108,11 @@ def main():
     data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
     aux_coeff = args.adamole_aux_coef if args.use_method.lower() == "adamole" else None
 
-    trainer = PeftTrainer(
+    trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
-        data_collator=data_collator,
-        aux_loss_coeff=aux_coeff,
+        data_collator=data_collator
     )
     trainer.train()
 

@@ -16,7 +16,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="llamafactory_moe_study.train_hf" />
-    <option name="PARAMETERS" value="--config $PROJECT_DIR$/src/llamafactory_moe_study/config/train_adamole_hf.yaml --use_method adamole --lora_r 8 --lora_alpha 32 --lora_dropout 0.05 --lora_targets &quot;q_proj,k_proj,v_proj,o_proj,up_proj,down_proj,gate_proj&quot; --adamole_num_experts 4 --adamole_max_threshold 0.25 --adamole_aux_coef 0.01 --gradient_checkpointing" />
+    <option name="PARAMETERS" value="--config $PROJECT_DIR$/src/llamafactory_moe_study/config/train_adamole_hf.yaml --use_method adamole --lora_r 4 --lora_alpha 16 --lora_dropout 0.05 --lora_targets &quot;q_proj,k_proj,v_proj,o_proj&quot; --adamole_num_experts 8 --adamole_max_threshold 0.25 --adamole_aux_coef 0.001 --gradient_checkpointing" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="true" />
