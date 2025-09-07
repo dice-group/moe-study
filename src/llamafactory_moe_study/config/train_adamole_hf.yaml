@@ -1,5 +1,5 @@
 stage: sft
-model_name_or_path: meta-llama/Llama-2-7b-hf
+model_name_or_path: meta-llama/Llama-3.1-8B
 dataset: dolly_15k_de
 dataset_dir: /upb/users/j/joeldag/profiles/unix/cs/cloned_repositories_htyllm/LLaMA-Factory/data
 template: llama3
