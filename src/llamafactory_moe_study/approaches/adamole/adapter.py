@@ -1,7 +1,7 @@
-# approaches/adamole/adapter.py
+import torch
+import torch
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
 
 from llamafactory_moe_study.core.generic_adapter import MethodAdapter
 from llamafactory_moe_study.approaches.adamole.adamole.config import AdaMoleConfig
@@ -41,6 +41,8 @@ class AdaMoLEAdapter(MethodAdapter):
             num_experts=training_args.adamole_num_experts,
             max_threshold=training_args.adamole_max_threshold,
         )
+        print(">> DEBUG: adapter_name =", getattr(peft_config, "adapter_name", None))
+        print(">> DEBUG: peft_config dict =", peft_config.__dict__)
 
         # load hacked admole model
         model = PeftModelForCausalLM(base_model, peft_config)
@@ -48,9 +50,14 @@ class AdaMoLEAdapter(MethodAdapter):
         model.print_trainable_parameters()
 
         return model, tokenizer, {}
-    
+
     def aux_loss(self, model):
-        # should inter
-        if hasattr(model, "aux_loss"):
-            return model.aux_loss
+        if hasattr(model, "aux_loss") and callable(model.get_aux_loss):
+            aux = model.get_aux_loss()
+            if aux is None or not isinstance(aux, torch.Tensor):
+                warnings.warn("aux_loss returned None or invalid type, using 0.0 tensor instead.")
+                return torch.tensor(0.0, device=next(model.parameters()).device)
+            return aux
+        warnings.warn("Model has no get_aux_loss, using 0.0 tensor.")
         return torch.tensor(0.0, device=next(model.parameters()).device)
+

@@ -53,6 +53,10 @@ class AdaMoeLayer(nn.Module):
         weights = weights / weight_sums
         results = torch.zeros_like(self.experts[0](flattened_inputs))
 
+        #print(f"[AdaMoLE] Gate logits: {gate_logits[0].detach().cpu().numpy()}")
+        #print(f"[AdaMoLE] Thresholds: {thresholds[0].detach().cpu().numpy()}")
+        #print(f"[AdaMoLE] Selected experts: {selected_experts[0].detach().cpu().numpy()}")
+
         for i, expert in enumerate(self.experts):
             batch_idx = torch.where(selected_experts[:, i])[0]
             if len(batch_idx) > 0:

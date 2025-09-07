@@ -1,5 +1,3 @@
-# approaches/mola/adapter.py
-
 import torch
 from transformers import AutoConfig, LlamaTokenizer
 from llamafactory_moe_study.core.generic_adapter import MethodAdapter

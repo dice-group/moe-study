@@ -71,7 +71,8 @@ class AdaMoleModel(LoraModel):
         for name, module in self.model.named_modules():
             if name.endswith('moe_layer'):
                 layer_loss = module[adapter_name].layer_loss
-                model_loss += layer_loss
+                if layer_loss is not None:
+                    model_loss += layer_loss
 
         return model_loss
     
