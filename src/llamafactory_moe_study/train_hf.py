@@ -13,8 +13,6 @@ from transformers import (
 from .moe_peft_trainer import PeftTrainer
 
 from llamafactory_moe_study.approaches.registry import get_selected_method
-from llamafactory_moe_study.core.generic_adapter import AdapterConfig
-from llamafactory_moe_study.core.wrappers import AuxLossWrapper
 
 
 def load_yaml_config(path: str):
@@ -82,8 +80,6 @@ def main():
         {"dataset": dataset_name, "dataset_dir": dataset_dir, "cutoff_len": cutoff_len},
         args,
     )
-    #if args.use_method == "adamole":
-    #    model = AuxLossWrapper(model, coef=args.adamole_aux_coef)
     model.to("cuda")
 
     # define training argumetn

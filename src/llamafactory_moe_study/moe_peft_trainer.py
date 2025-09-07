@@ -2,12 +2,14 @@
 Trainer
 """
 import os
-from typing import Optional, Any, Union
-
 import torch
+
+from typing import Optional, Any, Union
 from torch import nn
 from transformers import Trainer
 from transformers.trainer import TRAINING_ARGS_NAME, logger
+
+from llamafactory_moe_study.core.logger import log
 
 
 class PeftTrainer(Trainer):
@@ -63,7 +65,7 @@ class PeftTrainer(Trainer):
             aux = model.get_aux_loss()
             if isinstance(aux, torch.Tensor):
                 loss = loss + self.aux_loss_coeff * aux
-
+                log.debug(f"step={self.state.global_step} loss={loss.item():.4f} aux={aux.item():.6f}")
         if (
             self.args.average_tokens_across_devices
             and num_items_in_batch is not None

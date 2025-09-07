@@ -25,19 +25,20 @@ def apply_patch(
     if adapter is None:
         raise ValueError(f"The selected method {use_method} is not valid. Please choose a valid approach.")
 
-    orig_from_pretrained = AutoModelForCausalLM.from_pretrained
+    original_load_model = llamafactory.model.loader.load_model
 
-    def patched_from_pretrained(*args, **kwargs):
-        model = orig_from_pretrained(*args, **kwargs)
+    def patched_load_model(*args, **kwargs):
+        model = original_load_model(*args, **kwargs)
         knobs = AdapterConfig(
             r=lora_r,
             alpha=lora_alpha,
             dropout=lora_dropout,
             target_modules=lora_targets or set(),
         )
+        print("!!!!!!!!!!!!!PATCH is called !!!!!!!!!!!!!!!!")
 
         # Inject approaches adapter
-        model = adapter.inject(model, knobs, num_experts=adamole_num_experts, mmax_threshold=adamole_max_threshold)
+        model = adapter.inject(model, knobs, num_experts=adamole_num_experts, max_threshold=adamole_max_threshold)
 
         # Freeze backbone; keep experts/gate/threshold trainable
         keep = lambda name: any(tok in name for tok in (".moe.", "experts.", ".gate.", ".thr."))
@@ -51,4 +52,6 @@ def apply_patch(
 
         return AuxLossWrapper(model, coef=adamole_aux_coef)
 
-    AutoModelForCausalLM.from_pretrained = patched_from_pretrained
+    llamafactory.model.loader.load_model = patched_load_model
+
+print("!!!!!!!!!!!!!patch_llamafactory.py is loaded!!!!!!!!!!!!!!")

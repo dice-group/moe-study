@@ -1,17 +1,19 @@
 """
 adamole Layer
 """
+import logging
 import math
-from abc import ABC
-from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from abc import ABC
+from typing import Optional
+
+from llamafactory_moe_study.core.logger import log
 from ..lora import LoraLayer
 from ..mole.layer import LoraExpert
-
 
 class AdaMoeLayer(nn.Module):
     """
@@ -54,9 +56,10 @@ class AdaMoeLayer(nn.Module):
         weights = weights / weight_sums
         results = torch.zeros_like(self.experts[0](flattened_inputs))
 
-        #print(f"[AdaMoLE] Gate logits: {gate_logits[0].detach().cpu().numpy()}")
-        #print(f"[AdaMoLE] Thresholds: {thresholds[0].detach().cpu().numpy()}")
-        #print(f"[AdaMoLE] Selected experts: {selected_experts[0].detach().cpu().numpy()}")
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(f"gate_mean={gate_logits.mean().item():.4f} "
+                      f"tau_mean={thresholds.mean().item():.4f} "
+                      f"sel_avg={selected_experts.sum(dim=-1).float().mean().item():.2f}")
 
         for i, expert in enumerate(self.experts):
             batch_idx = torch.where(selected_experts[:, i])[0]
