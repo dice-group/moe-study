@@ -3,7 +3,7 @@ from llamafactory_moe_study.approaches.mola.adapter import MolaAdapter
 
 _REGISTRY = {
     "adamole": AdaMoLEAdapter(),
-    "adamoe_mola": MolaAdapter(),
+    "mola": MolaAdapter(),
     "adamoe_2": "", #tbd
 }
 

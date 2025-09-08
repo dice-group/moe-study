@@ -1,64 +1,47 @@
 import torch
-from transformers import AutoConfig, LlamaTokenizer
-from llamafactory_moe_study.core.generic_adapter import MethodAdapter
+import warnings
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
-from llamafactory_moe_study.approaches.mola.mola_modeling_llama_hacked import LlamaForCausalLM_d
-from llamafactory_moe_study.approaches.mola.mola_mapping_hacked import get_peft_model
-from llamafactory_moe_study.approaches.mola.mola_lora_hacked import LoraConfig
+from llamafactory_moe_study.core.generic_adapter import MethodAdapter
+from llamafactory_moe_study.approaches.mola.model import MolaModel
+from llamafactory_moe_study.approaches.mola.config import MolaConfig
 
 
 class MolaAdapter(MethodAdapter):
-    """Adapter wrapper for MoLA hacked logic"""
+    """Adapter wrapper for MoLA"""
 
     name = "mola"
 
     def apply(self, model_args, data_args, training_args):
-        # Load hacked llama model
-        config = AutoConfig.from_pretrained(model_args["model_name_or_path"], trust_remote_code=True)
-        config.lora_target_modules = training_args.lora_targets.split(",")
-        num_layers = config.num_hidden_layers
-        number_experts = [training_args.mola_num_experts] * num_layers
-        top_k = [training_args.mola_top_k] * num_layers
-        obalance = getattr(training_args, "mola_obalance", False)
-
-        
-        model = LlamaForCausalLM_d.from_pretrained(
+        base_model = AutoModelForCausalLM.from_pretrained(
             model_args["model_name_or_path"],
-            config=config,
             torch_dtype=torch.float16,
-            device_map="auto",
-            trust_remote_code=True,
         )
-        model.get_new_parameters(number_experts, top_k, obalance)
 
         # Tokenizer
-        tokenizer = LlamaTokenizer.from_pretrained(model_args["model_name_or_path"],  trust_remote_code=True,)
-        tokenizer.pad_token_id = 0
-        tokenizer.padding_side = "left"
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_args["model_name_or_path"],
+            padding_side="left",
+            use_fast=True,
+        )
+        tokenizer.pad_token = tokenizer.eos_token
 
-        # mola approach loraconfig
-        lora_config = LoraConfig(
-            r=[training_args.lora_r] * num_layers,
+        # Load MoLA model
+        mola_config = MolaConfig(
+            lora_rank=training_args.lora_r,
             lora_alpha=training_args.lora_alpha,
-            target_modules=training_args.lora_targets.split(","),
             lora_dropout=training_args.lora_dropout,
-            bias="none",
-            task_type="CAUSAL_LM",
+            target_modules=training_args.lora_targets.split(","),
+            mola_num_experts=training_args.mola_num_experts,
+            mola_top_k=training_args.mola_top_k,
         )
-
-        # load patched AdaMoE mola model
-        model = get_peft_model(
-            model,
-            lora_config,
-            number_experts=number_experts,
-            top_k=top_k,
-        )
-
-        # TODO: for resume check point
-        # set_peft_model_state_dict_moe(model, adapters)
+        model = MolaModel(base_model, mola_config)
+        model.print_trainable_parameters()
 
         return model, tokenizer, {}
-    
+
     def aux_loss(self, model):
-        # not necessary, TODO: remove in parent MethodAdapter?
+        if hasattr(model, "get_aux_loss") and callable(model.get_aux_loss):
+            return model.get_aux_loss()
+        warnings.warn("Model has no get_aux_loss, using 0.0 tensor.")
         return torch.tensor(0.0, device=next(model.parameters()).device)

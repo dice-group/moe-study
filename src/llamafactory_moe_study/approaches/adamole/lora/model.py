@@ -208,3 +208,25 @@ class LoraModel(BaseTuner):
                     module.unmerge()
                 module.set_adapter(adapter_name)
         self.active_adapter = adapter_name
+
+    def get_nb_trainable_parameters(self) -> tuple[int, int]:
+        """
+        Return the number of trainable parameters and the number of all parameters in the model
+        """
+        trainable_params = 0
+        all_param = 0
+        for _, param in self.named_parameters():
+            num_params = param.numel()
+            all_param += num_params
+            if param.requires_grad:
+                trainable_params += num_params
+        return trainable_params, all_param
+
+    def print_trainable_parameters(self) -> None:
+        """
+        Prints the number of trainable parameters in the model
+        """
+        trainable_params, all_param = self.get_nb_trainable_parameters()
+        print(
+            f"trainable params: {trainable_params:,d} || all params: {all_param:,d} || "
+            f"trainable: {trainable_params / all_param:.2%}")

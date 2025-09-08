@@ -15,8 +15,11 @@ class AuxLossWrapper(nn.Module):
             if callable(getter):
                 aux = getter()
                 if isinstance(aux, torch.Tensor):
+                    print(f"[AuxLossWrapper] out.loss.requires_grad: {out.loss.requires_grad}")
+                    print(f"[AuxLossWrapper] aux.requires_grad: {aux.requires_grad}")
                     print(f"[AuxLossWrapper] Adding aux={aux.item()} with coef={self.coef}")
                     out.loss = out.loss + self.coef * aux
+                    print(f"[AuxLossWrapper] new out.loss.requires_grad: {out.loss.requires_grad}")
 
                     # otherwise aux loss
                     for _, module in self.base.named_modules():
