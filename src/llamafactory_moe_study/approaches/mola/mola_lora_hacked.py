@@ -827,7 +827,7 @@ class Linear_MoE(nn.Linear, LoraMoE_Layer):
             (batch_size * sequence_length, self.out_features), dtype=x.dtype, device=x.device
         )
 
-        for expert_idx in range(4):
+        for expert_idx in range(self.number_experts):
             adapter_name_moe = self.active_adapter + '_' + str(expert_idx)
             idx, top_x = torch.where(expert_mask[expert_idx])
 
@@ -838,6 +838,7 @@ class Linear_MoE(nn.Linear, LoraMoE_Layer):
             idx_list = idx.tolist()
 
             current_state = x[None, top_x_list].reshape(-1, hidden_dim)
+            current_state = current_state.to(self.lora_A[adapter_name_moe].weight.dtype)
             expert_output = (
                     self.lora_B[adapter_name_moe](
                         self.lora_A[adapter_name_moe](self.lora_dropout[self.active_adapter](current_state))

@@ -14,11 +14,12 @@ class MolaAdapter(MethodAdapter):
 
     def apply(self, model_args, data_args, training_args):
         # Load hacked llama model
-        config = AutoConfig.from_pretrained(model_args["model_name_or_path"])
+        config = AutoConfig.from_pretrained(model_args["model_name_or_path"], trust_remote_code=True)
         config.lora_target_modules = training_args.lora_targets.split(",")
         num_layers = config.num_hidden_layers
         number_experts = [training_args.mola_num_experts] * num_layers
         top_k = [training_args.mola_top_k] * num_layers
+        obalance = getattr(training_args, "mola_obalance", False)
 
         
         model = LlamaForCausalLM_d.from_pretrained(
@@ -26,16 +27,18 @@ class MolaAdapter(MethodAdapter):
             config=config,
             torch_dtype=torch.float16,
             device_map="auto",
+            trust_remote_code=True,
         )
+        model.get_new_parameters(number_experts, top_k, obalance)
 
         # Tokenizer
-        tokenizer = LlamaTokenizer.from_pretrained(model_args["model_name_or_path"])
+        tokenizer = LlamaTokenizer.from_pretrained(model_args["model_name_or_path"],  trust_remote_code=True,)
         tokenizer.pad_token_id = 0
         tokenizer.padding_side = "left"
 
         # mola approach loraconfig
         lora_config = LoraConfig(
-            r=training_args.lora_r,
+            r=[training_args.lora_r] * num_layers,
             lora_alpha=training_args.lora_alpha,
             target_modules=training_args.lora_targets.split(","),
             lora_dropout=training_args.lora_dropout,
@@ -50,6 +53,9 @@ class MolaAdapter(MethodAdapter):
             number_experts=number_experts,
             top_k=top_k,
         )
+
+        # TODO: for resume check point
+        # set_peft_model_state_dict_moe(model, adapters)
 
         return model, tokenizer, {}
     
