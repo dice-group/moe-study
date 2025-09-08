@@ -569,7 +569,8 @@ class LoraLayer:
                 self.scaling[adapter_name] = lora_alpha / r
         if init_lora_weights:
             self.reset_lora_parameters(adapter_name)
-        self.to(self.weight.device)
+        self.to(self.weight.device, dtype=self.weight.dtype)
+
 
     def update_layer_conv2d(self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights):
         self.r[adapter_name] = r
@@ -593,7 +594,7 @@ class LoraLayer:
             self.scaling[adapter_name] = lora_alpha / r
         if init_lora_weights:
             self.reset_lora_parameters(adapter_name)
-        self.to(self.weight.device)
+        self.to(device=self.weight.device, dtype=self.weight.dtype)
 
     def update_layer_embedding(self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights):
         self.r[adapter_name] = r
@@ -614,7 +615,7 @@ class LoraLayer:
             self.scaling[adapter_name] = lora_alpha / r
         if init_lora_weights:
             self.reset_lora_parameters(adapter_name)
-        self.to(self.weight.device)
+        self.to(device=self.weight.device, dtype=self.weight.dtype)
 
     def reset_lora_parameters(self, adapter_name):
         if adapter_name in self.lora_A.keys():
@@ -651,6 +652,7 @@ class LoraMoE_Layer:
 
         self.lora_dropout.update(nn.ModuleDict({adapter_name: lora_dropout_layer}))
         self.router.update(nn.ModuleDict({'router': nn.Linear(self.in_features, self.number_experts, bias=False)}))
+        self.router['router'].to(device=self.weight.device, dtype=self.weight.dtype)
         if isinstance(r, list):
             for i in range(4):
                 adapter_name_moe = adapter_name + '_' + str(i)
@@ -691,7 +693,7 @@ class LoraMoE_Layer:
             self.scaling[adapter_name] = lora_alpha / r
         if init_lora_weights:
             self.reset_lora_parameters(adapter_name)
-        self.to(self.weight.device)
+        self.to(device=self.weight.device, dtype=self.weight.dtype)
 
     def update_layer_embedding(self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights):
         self.r[adapter_name] = r
@@ -712,7 +714,7 @@ class LoraMoE_Layer:
             self.scaling[adapter_name] = lora_alpha / r
         if init_lora_weights:
             self.reset_lora_parameters(adapter_name)
-        self.to(self.weight.device)
+        self.to(device=self.weight.device, dtype=self.weight.dtype)
     def reset_lora_parameters_MoE(self, adapter_name):
         nn.init.kaiming_uniform_(self.router['router'].weight, a=math.sqrt(5))
         for i in range(4):
@@ -804,7 +806,9 @@ class Linear_MoE(nn.Linear, LoraMoE_Layer):
         result = F.linear(x, transpose(self.weight, self.fan_in_fan_out), bias=self.bias)
         batch_size, sequence_length, hidden_dim = x.shape
         x = x.view(-1, hidden_dim)
-        router_logits = self.router['router'](x)
+        #router_logits = self.router['router'](x)
+        router_input = x.to(self.router['router'].weight.dtype)
+        router_logits = self.router['router'](router_input)
         routing_weights_before = F.softmax(router_logits, dim=1, dtype=torch.float)
         routing_weights, selected_experts = torch.topk(routing_weights_before, self.top_k, dim=-1)
 
