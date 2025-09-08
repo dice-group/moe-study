@@ -35,6 +35,10 @@ class MolaModel(LoraModel):
             "init_lora_weights": lora_config.init_lora_weights,
             "num_experts": lora_config.mola_num_experts,
             "top_k": lora_config.mola_top_k,
+            "use_null_expert": lora_config.mola_use_null_expert,
+            "router_aux_loss_coef": lora_config.mola_router_aux_loss_coef,
+            "null_expert_penalty": lora_config.mola_null_expert_penalty,
+            "aux_loss_annealing": lora_config.mola_aux_loss_annealing,
         }
 
         if isinstance(target, MolaLayer):

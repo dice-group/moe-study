@@ -35,6 +35,10 @@ def main():
     # mola
     parser.add_argument("--mola_num_experts", type=int, default=4)
     parser.add_argument("--mola_top_k", type=int, default=2)
+    parser.add_argument("--mola_use_null_expert", action="store_true")
+    parser.add_argument("--mola_router_aux_loss_coef", type=float, default=0.01)
+    parser.add_argument("--mola_null_expert_penalty", type=float, default=0.1)
+    parser.add_argument("--mola_aux_loss_annealing", action="store_true")
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save_total_limit", type=int, default=2)
