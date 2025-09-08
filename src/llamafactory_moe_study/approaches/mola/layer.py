@@ -10,6 +10,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from llamafactory_moe_study.approaches.adamole.lora import LoraLayer
+from llamafactory_moe_study.core.logger import get_logger
+
+log = get_logger("mola")
 
 
 class NullExpert(nn.Module):
@@ -27,7 +30,7 @@ class TopKMoeLayer(nn.Module):
     Adapted from https://github.com/mistralai/mistral-src
     """
 
-    def __init__(self, experts: nn.ModuleList, gate: nn.Module, top_k: int, use_null_expert: bool, router_aux_loss_coef: float, null_expert_penalty: float, aux_loss_annealing: bool):
+    def __init__(self, experts: nn.ModuleList, gate: nn.Module, top_k: int, use_null_expert: bool, router_aux_loss_coef: float, null_expert_penalty: float, aux_loss_annealing: bool, debug_mode: bool):
         super().__init__()
         self.experts = experts
         self.gate = gate
@@ -36,6 +39,7 @@ class TopKMoeLayer(nn.Module):
         self.router_aux_loss_coef = router_aux_loss_coef
         self.null_expert_penalty = null_expert_penalty
         self.aux_loss_annealing = aux_loss_annealing
+        self.debug_mode = debug_mode
         self.layer_loss = torch.tensor(0.0, device=next(gate.parameters()).device)
 
     def get_layer_loss(self, gate_logits: torch.Tensor, selected_experts: torch.Tensor) -> torch.Tensor:
@@ -47,19 +51,26 @@ class TopKMoeLayer(nn.Module):
         expert_counts = torch.bincount(selected_experts.reshape(-1), minlength=num_experts)
         expert_fractions = expert_counts / num_inputs
         expert_probs = torch.sum(gate_logits, dim=0) / num_inputs
-        
+        if self.debug_mode:
+            log.info(f"expert_fractions: {expert_fractions}")
+            log.info(f"expert_probs: {expert_probs}")
+
         if self.use_null_expert:
             # AdaMoE loss
             # Last expert is the null expert
             true_expert_fractions = expert_fractions[:-1]
             true_expert_probs = expert_probs[:-1]
             null_expert_fraction = expert_fractions[-1]
-            
+            if self.debug_mode:
+                log.info(f"null_expert_fraction: {null_expert_fraction}")
+
             loss = self.router_aux_loss_coef * (torch.sum(true_expert_fractions * true_expert_probs) - self.null_expert_penalty * null_expert_fraction)
         else:
             # Standard load balancing loss
             loss = self.router_aux_loss_coef * num_experts * torch.sum(expert_fractions * expert_probs)
-            
+
+        if self.debug_mode:
+            log.info(f"loss: {loss}")
         return loss
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
@@ -68,7 +79,13 @@ class TopKMoeLayer(nn.Module):
         """
         flattened_inputs = inputs.view((-1, inputs.shape[-1]))
         gate_logits = F.softmax(self.gate(flattened_inputs), dim=-1)
+        if self.debug_mode:
+            log.info(f"self.gate.weight.requires_grad: {self.gate.weight.requires_grad}")
+            log.info(f"gate_logits.requires_grad: {gate_logits.requires_grad}")
         weights, selected_experts = torch.topk(input=gate_logits, k=self.top_k, dim=-1)
+        if self.debug_mode:
+            log.info(f"selected_experts: {selected_experts}")
+            log.info(f"weights: {weights}")
         weights = weights / torch.sum(weights, dim=-1, keepdim=True, dtype=inputs.dtype)
         results = torch.zeros_like(self.experts[0](flattened_inputs))
 
@@ -117,7 +134,7 @@ class MolaLayer(LoraLayer, ABC):
 
     def update_layer(
         self, adapter_name: str, lora_rank: int, lora_alpha: int, lora_dropout: float, init_lora_weights: bool,
-        num_experts: int, top_k: int, use_null_expert: bool, router_aux_loss_coef: float, null_expert_penalty: float, aux_loss_annealing: bool,
+        num_experts: int, top_k: int, use_null_expert: bool, router_aux_loss_coef: float, null_expert_penalty: float, aux_loss_annealing: bool, mola_debug_mode: bool
     ) -> None:
         """
         Update the layer
@@ -160,7 +177,7 @@ class MolaLayer(LoraLayer, ABC):
 
         self.moe_layer[adapter_name] = TopKMoeLayer(
             experts=experts, gate=self.lora_gating[adapter_name], top_k=top_k, use_null_expert=use_null_expert,
-            router_aux_loss_coef=router_aux_loss_coef, null_expert_penalty=null_expert_penalty, aux_loss_annealing=aux_loss_annealing
+            router_aux_loss_coef=router_aux_loss_coef, null_expert_penalty=null_expert_penalty, aux_loss_annealing=aux_loss_annealing, debug_mode=mola_debug_mode
         ).to(self.base_layer.weight.device)
 
         self.reset_parameters(adapter_name, init_lora_weights)
@@ -197,6 +214,7 @@ class LinearMolaLayer(nn.Module, MolaLayer):
         router_aux_loss_coef: float = 0.01,
         null_expert_penalty: float = 0.1,
         aux_loss_annealing: bool = False,
+        mola_debug_mode: bool = False,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -204,7 +222,7 @@ class LinearMolaLayer(nn.Module, MolaLayer):
         self._active_adapter = adapter_name
         self.update_layer(
             adapter_name, lora_rank, lora_alpha, lora_dropout, init_lora_weights, num_experts, top_k,
-            use_null_expert, router_aux_loss_coef, null_expert_penalty, aux_loss_annealing)
+            use_null_expert, router_aux_loss_coef, null_expert_penalty, aux_loss_annealing, mola_debug_mode)
 
     def merge(self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None) -> None:
         """

@@ -38,6 +38,7 @@ class MolaAdapter(MethodAdapter):
             mola_router_aux_loss_coef=training_args.mola_router_aux_loss_coef,
             mola_null_expert_penalty=training_args.mola_null_expert_penalty,
             mola_aux_loss_annealing=training_args.mola_aux_loss_annealing,
+            mola_debug_mode=training_args.mola_debug_mode,
         )
         model = MolaModel(base_model, mola_config)
         model.print_trainable_parameters()

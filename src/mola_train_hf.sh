@@ -13,5 +13,6 @@ python -m llamafactory_moe_study.train_hf \
   --lora_targets "q_proj,k_proj,v_proj,o_proj" \
   --mola_num_experts 4 \
   --mola_top_k 2 \
+  --mola_debug_mode \
   
   |& tee output.log

@@ -39,6 +39,7 @@ class MolaModel(LoraModel):
             "router_aux_loss_coef": lora_config.mola_router_aux_loss_coef,
             "null_expert_penalty": lora_config.mola_null_expert_penalty,
             "aux_loss_annealing": lora_config.mola_aux_loss_annealing,
+            "mola_debug_mode": lora_config.mola_debug_mode,
         }
 
         if isinstance(target, MolaLayer):
