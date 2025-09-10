@@ -83,9 +83,6 @@ class TopKMoeLayer(nn.Module):
             log.info(f"self.gate.weight.requires_grad: {self.gate.weight.requires_grad}")
             log.info(f"gate_logits.requires_grad: {gate_logits.requires_grad}")
         weights, selected_experts = torch.topk(input=gate_logits, k=self.top_k, dim=-1)
-        if self.debug_mode:
-            log.info(f"selected_experts: {selected_experts}")
-            log.info(f"weights: {weights}")
         weights = weights / torch.sum(weights, dim=-1, keepdim=True, dtype=inputs.dtype)
         results = torch.zeros_like(self.experts[0](flattened_inputs))
 

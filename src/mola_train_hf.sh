@@ -14,5 +14,4 @@ python -m llamafactory_moe_study.train_hf \
   --mola_num_experts 4 \
   --mola_top_k 2 \
   --mola_debug_mode \
-  
-  |& tee output.log
+  --mola_use_null_exper |& tee output.log

@@ -6,7 +6,7 @@ from llamafactory_moe_study.core.generic_adapter import MethodAdapter
 from llamafactory_moe_study.approaches.adamole.adamole.config import AdaMoleConfig
 from llamafactory_moe_study.approaches.adamole.utils.peft_types import TaskType
 from llamafactory_moe_study.approaches.adamole.peft_model import PeftModelForCausalLM
-from llamafactory_moe_study.core.logger import log_adamole_architecture
+from llamafactory_moe_study.core.logger import log_adapter_architecture
 
 
 class AdaMoLEAdapter(MethodAdapter):
@@ -47,7 +47,7 @@ class AdaMoLEAdapter(MethodAdapter):
         model.enable_input_require_grads()
         model.print_trainable_parameters()
 
-        log_adamole_architecture(model)
+        log_adapter_architecture(model)
         return model, tokenizer, {}
 
     def aux_loss(self, model):
