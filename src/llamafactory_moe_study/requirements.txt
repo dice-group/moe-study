@@ -8,3 +8,4 @@ scipy
 tqdm
 llama-factory
 lm-eval
+wandb

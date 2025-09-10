@@ -1,3 +1,5 @@
+import wandb
+
 from lm_eval import evaluator, tasks
 from lm_eval.models.huggingface import HFLM
 from transformers import Trainer
@@ -20,7 +22,7 @@ def evaluate_on_harness(model, tasks_list):
     return results
 
 class HarnessTrainer(Trainer):
-    def __init__(self, *args, harness_tasks=None, do_harness_eval=False, **kwargs):
+    def __init__(self, *args, harness_tasks=None, do_harness_eval=False, wandb_project="merlin_moe_study", **kwargs):
         self.harness_tasks = harness_tasks or []
         self.do_harness_eval = do_harness_eval
         super().__init__(*args, **kwargs)
@@ -34,7 +36,7 @@ class HarnessTrainer(Trainer):
             print("Running lm-harness evaluation...")
             
             hflm = HFLM(pretrained=self.model, tokenizer=self.tokenizer)
-            results = evaluate_on_harness(hflm, self.tokenizer, self.harness_tasks)
+            results = evaluate_on_harness(hflm, self.harness_tasks)
             
             # Log the results
             for task_name, task_results in results['results'].items():
@@ -43,5 +45,6 @@ class HarnessTrainer(Trainer):
                         metrics[f"{metric_key_prefix}_harness_{task_name}_{metric}"] = value
             
             self.log(metrics)
+            wandb.log(metrics)
 
         return metrics

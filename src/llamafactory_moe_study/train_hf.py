@@ -1,6 +1,7 @@
 import argparse
 import yaml
-import torch
+import wandb
+
 from datasets import load_dataset
 from transformers import (
     AutoTokenizer,
@@ -9,7 +10,6 @@ from transformers import (
 )
 
 from llamafactory_moe_study.evaluation import HarnessTrainer
-
 from llamafactory_moe_study.approaches.registry import get_selected_method
 from llamafactory_moe_study.core.wrappers import AuxLossWrapper
 
@@ -48,10 +48,12 @@ def main():
     parser.add_argument("--do_harness_eval", action="store_true")
     parser.add_argument("--harness_eval_steps", type=int, default=None)
     parser.add_argument("--harness_tasks", nargs="+", default=["belebele"])
+    parser.add_argument("--wandb_project", type=str, default="moe-study")
     args = parser.parse_args()
 
     # load yaml config
     cfg = load_yaml_config(args.config)
+    wandb.init(project=args.wandb_project)
 
     model_name = cfg["model_name_or_path"]
     dataset_name = cfg["dataset"]
@@ -107,7 +109,7 @@ def main():
         bf16=cfg.get("bf16", False),
         gradient_checkpointing=args.gradient_checkpointing,
         logging_first_step=args.logging_first_step,
-        report_to=cfg.get("report_to", []),
+        report_to="wandb",
         remove_unused_columns=False,
         eval_strategy=args.evaluation_strategy,
         eval_steps=args.eval_steps,
