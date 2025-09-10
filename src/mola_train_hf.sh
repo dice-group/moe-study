@@ -13,5 +13,8 @@ python -m llamafactory_moe_study.train_hf \
   --lora_targets "q_proj,k_proj,v_proj,o_proj" \
   --mola_num_experts 4 \
   --mola_top_k 2 \
-  --mola_debug_mode \
-  --mola_use_null_exper |& tee output.log
+  --mola_use_null_exper \
+  --evaluation_strategy steps \
+  --eval_steps 10 \
+  --do_harness_eval \
+  --harness_tasks winogrande |& tee output.log

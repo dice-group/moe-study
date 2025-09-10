@@ -1,16 +1,14 @@
 import argparse
 import yaml
 import torch
-from datasets import load_from_disk, load_dataset
+from datasets import load_dataset
 from transformers import (
     AutoTokenizer,
-    AutoModelForCausalLM,
-    Trainer,
     TrainingArguments,
     DataCollatorForLanguageModeling,
 )
 
-from .moe_peft_trainer import PeftTrainer
+from llamafactory_moe_study.evaluation import HarnessTrainer
 
 from llamafactory_moe_study.approaches.registry import get_selected_method
 from llamafactory_moe_study.core.wrappers import AuxLossWrapper
@@ -18,7 +16,6 @@ from llamafactory_moe_study.core.wrappers import AuxLossWrapper
 def load_yaml_config(path: str):
     with open(path, "r") as f:
         return yaml.safe_load(f)
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -45,8 +42,12 @@ def main():
     parser.add_argument("--save_total_limit", type=int, default=2)
     parser.add_argument("--gradient_checkpointing", action="store_true")
     parser.add_argument("--logging_first_step", action="store_true")
-    parser.add_argument("--eval_steps", type=int, default=None)
+    
     parser.add_argument("--evaluation_strategy", default="no", choices=["no", "steps", "epoch"])
+    parser.add_argument("--eval_steps", type=int, default=None)
+    parser.add_argument("--do_harness_eval", action="store_true")
+    parser.add_argument("--harness_eval_steps", type=int, default=None)
+    parser.add_argument("--harness_tasks", nargs="+", default=["belebele"])
     args = parser.parse_args()
 
     # load yaml config
@@ -78,7 +79,7 @@ def main():
     if max_samples is not None:
         dataset["train"] = dataset["train"].select(range(min(max_samples, len(dataset["train"]))))
 
-    # load approach, for now inject Ada Moe adapter
+    # load approach, inject specific adapter with specialised MoE approach logic
     adapter = get_selected_method(args.use_method)
     model, tokenizer, _ = adapter.apply(
         cfg,
@@ -108,16 +109,21 @@ def main():
         logging_first_step=args.logging_first_step,
         report_to=cfg.get("report_to", []),
         remove_unused_columns=False,
+        eval_strategy=args.evaluation_strategy,
+        eval_steps=args.eval_steps,
+        do_eval=args.do_harness_eval,
     )
 
     data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
-    aux_coeff = args.adamole_aux_coef if args.use_method.lower() == "adamole" else None
-
-    trainer = Trainer(
+    
+    trainer = HarnessTrainer(
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
-        data_collator=data_collator
+        eval_dataset=dataset["test"],
+        data_collator=data_collator,
+        harness_tasks=args.harness_tasks,
+        do_harness_eval=args.do_harness_eval,
     )
     trainer.train()
 

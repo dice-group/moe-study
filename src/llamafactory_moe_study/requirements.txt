@@ -7,3 +7,4 @@ datasets
 scipy
 tqdm
 llama-factory
+lm-eval
