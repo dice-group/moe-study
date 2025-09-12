@@ -4,8 +4,8 @@ set -e
 export CUDA_VISIBLE_DEVICES=0
 export LOG_LEVEL=DEBUG
 
-python -m llamafactory_moe_study.train_hf \
-  --config /upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/src/llamafactory_moe_study/config/train_adamole_hf.yaml \
+python src/train_hf.py \
+  --config /upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/configs/train_adamole_hf.yaml \
   --use_method adamole \
   --lora_r 4 \
   --lora_alpha 16 \

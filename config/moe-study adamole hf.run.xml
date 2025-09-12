@@ -1,0 +1,27 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="moe-study adamole hf" type="PythonConfigurationType" factoryName="Python">
+    <module name="moe-study" />
+    <option name="ENV_FILES" value="" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="PARENT_ENVS" value="true" />
+    <envs>
+      <env name="PYTHONUNBUFFERED" value="1" />
+      <env name="CUDA_VISIBLE_DEVICES" value="0" />
+      <env name="HF_HOME" value="/data/shared_home_cache" />
+    </envs>
+    <option name="SDK_HOME" value="" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="IS_MODULE_SDK" value="true" />
+    <option name="ADD_CONTENT_ROOTS" value="true" />
+    <option name="ADD_SOURCE_ROOTS" value="true" />
+    <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/train_hf.py" />
+    <option name="PARAMETERS" value="--config $PROJECT_DIR$/configs/train_adamole_hf.yaml --use_method adamole --lora_r 4 --lora_alpha 16 --lora_dropout 0.05 --lora_targets &quot;q_proj,k_proj,v_proj,o_proj&quot; --adamole_num_experts 8 --adamole_max_threshold 0.25 --adamole_aux_coef 0.001 --gradient_checkpointing" />
+    <option name="SHOW_COMMAND_LINE" value="false" />
+    <option name="EMULATE_TERMINAL" value="false" />
+    <option name="MODULE_MODE" value="false" />
+    <option name="REDIRECT_INPUT" value="false" />
+    <option name="INPUT_FILE" value="" />
+    <method v="2" />
+  </configuration>
+</component>

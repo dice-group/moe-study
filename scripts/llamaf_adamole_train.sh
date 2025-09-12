@@ -1,4 +1,5 @@
 #!/bin/bash
+# TODO: obsolete for now
 set -e
 export PYTORCH_NO_CUDA_MEMORY_CACHING=1 #TODO: this currently prevents CUDA operation not supported error
 
