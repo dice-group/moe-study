@@ -3,8 +3,8 @@ import warnings
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from core.generic_adapter import MethodAdapter
-from approaches.moelpr.model import MoelprModel
-from approaches.moelpr.config import MoelprConfig
+from approaches.moelpr.model import MoeModel
+from approaches.moelpr.config import MoeConfig
 
 
 class MoelprAdapter(MethodAdapter):
@@ -25,17 +25,27 @@ class MoelprAdapter(MethodAdapter):
         )
         tokenizer.pad_token = tokenizer.eos_token
 
-        moelpr_config = MoelprConfig(
-            lora_rank=training_args.lora_r,
-            lora_alpha=training_args.lora_alpha,
-            lora_dropout=training_args.lora_dropout,
-            target_modules=training_args.lora_targets.split(","),
-            moelpr_num_experts=training_args.moelpr_num_experts,
-            moelpr_top_k=training_args.moelpr_top_k,
-            moelpr_lpr_loss_coef=training_args.moelpr_lpr_loss_coef,
+        if getattr(training_args, "moelpr_layers_to_transform", None):
+            try:
+                layers = [int(x) for x in str(training_args.moelpr_layers_to_transform).split(",") if x != ""]
+            except ValueError:
+                layers = []
+        else:
+            layers = []
+
+        moelpr_config = MoeConfig(
+            num_experts=training_args.moelpr_num_experts,
+            topk=training_args.moelpr_top_k,
+            lpr_loss_coef=training_args.moelpr_lpr_loss_coef,
+            layers_to_transform=layers,
         )
-        model = MoelprModel(base_model, moelpr_config)
-        model.print_trainable_parameters()
+        model = MoeModel(base_model, moelpr_config, adapter_name="default")
+
+        # Ensure AuxLossWrapper can call a getter without error
+        if not hasattr(model, "get_aux_loss"):
+            def _zero_aux():
+                return torch.tensor(0.0, device=next(model.parameters()).device)
+            model.get_aux_loss = _zero_aux
 
         return model, tokenizer, {}
 
