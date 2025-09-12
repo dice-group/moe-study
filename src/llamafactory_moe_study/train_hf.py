@@ -38,6 +38,11 @@ def main():
     parser.add_argument("--mola_aux_loss_annealing", action="store_true")
     parser.add_argument("--mola_debug_mode", action="store_true")
 
+    # moelpr
+    parser.add_argument("--moelpr_num_experts", type=int, default=4)
+    parser.add_argument("--moelpr_top_k", type=int, default=2)
+    parser.add_argument("--moelpr_lpr_loss_coef", type=float, default=0.01)
+
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save_total_limit", type=int, default=2)
     parser.add_argument("--gradient_checkpointing", action="store_true")
