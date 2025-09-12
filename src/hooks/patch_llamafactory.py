@@ -1,11 +1,8 @@
-import os
-
 from typing import Set, Optional
-from transformers import AutoModelForCausalLM
 
-from llamafactory_moe_study.approaches.registry import get_selected_method
-from llamafactory_moe_study.core.generic_adapter import AdapterConfig
-from llamafactory_moe_study.core.wrappers import AuxLossWrapper
+from approaches import get_selected_method
+from core.generic_adapter import AdapterConfig
+from core.wrappers import AuxLossWrapper
 
 def _freeze_backbone_except(model, keep_pred):
     for n, p in model.named_parameters():

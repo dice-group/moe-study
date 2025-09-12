@@ -2,11 +2,11 @@ import torch
 import warnings
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-from llamafactory_moe_study.core.generic_adapter import MethodAdapter
-from llamafactory_moe_study.approaches.adamole.adamole.config import AdaMoleConfig
-from llamafactory_moe_study.approaches.adamole.utils.peft_types import TaskType
-from llamafactory_moe_study.approaches.adamole.peft_model import PeftModelForCausalLM
-from llamafactory_moe_study.core.logger import log_adapter_architecture
+from core.generic_adapter import MethodAdapter
+from approaches.adamole.adamole.config import AdaMoleConfig
+from approaches.adamole.utils.peft_types import TaskType
+from approaches.adamole.peft_model import PeftModelForCausalLM
+from core.logger import log_adapter_architecture
 
 
 class AdaMoLEAdapter(MethodAdapter):

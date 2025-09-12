@@ -9,9 +9,9 @@ from transformers import (
     DataCollatorForLanguageModeling,
 )
 
-from llamafactory_moe_study.evaluation import HarnessTrainer
-from llamafactory_moe_study.approaches.registry import get_selected_method
-from llamafactory_moe_study.core.wrappers import AuxLossWrapper
+from src import HarnessTrainer
+from approaches import get_selected_method
+from core.wrappers import AuxLossWrapper
 
 def load_yaml_config(path: str):
     with open(path, "r") as f:

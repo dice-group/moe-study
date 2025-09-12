@@ -2,9 +2,9 @@ import torch
 import warnings
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-from llamafactory_moe_study.core.generic_adapter import MethodAdapter
-from llamafactory_moe_study.approaches.moelpr.model import MoelprModel
-from llamafactory_moe_study.approaches.moelpr.config import MoelprConfig
+from core.generic_adapter import MethodAdapter
+from approaches.moelpr.model import MoelprModel
+from approaches.moelpr.config import MoelprConfig
 
 
 class MoelprAdapter(MethodAdapter):

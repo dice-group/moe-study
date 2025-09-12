@@ -21,8 +21,8 @@ def log_adapter_architecture(model):
     """
     Logs a minimal summary of AdaMoLE or MoLA adapters.
     """
-    from llamafactory_moe_study.approaches.adamole.adamole.layer import LinearAdaMoleLayer
-    from llamafactory_moe_study.approaches.mola.layer import LinearMolaLayer
+    from approaches.adamole.adamole import LinearAdaMoleLayer
+    from approaches.mola.layer import LinearMolaLayer
 
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)

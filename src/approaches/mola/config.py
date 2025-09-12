@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from llamafactory_moe_study.approaches.adamole.lora.config import LoraConfig
+from approaches.adamole.lora.config import LoraConfig
 
 @dataclass
 class MolaConfig(LoraConfig):

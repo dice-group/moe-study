@@ -1,7 +1,7 @@
 import sys
 import argparse
 
-from llamafactory_moe_study.hooks.patch_llamafactory import apply_patch
+from hooks.patch_llamafactory import apply_patch
 
 def main():
     parser = argparse.ArgumentParser()

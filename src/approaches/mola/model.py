@@ -9,7 +9,7 @@ from torch import nn
 
 from .config import MolaConfig
 from .layer import MolaLayer, LinearMolaLayer
-from llamafactory_moe_study.approaches.adamole.lora import LoraModel
+from approaches.adamole.lora import LoraModel
 
 
 class MolaModel(LoraModel):

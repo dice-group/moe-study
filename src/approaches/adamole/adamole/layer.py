@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from abc import ABC
 from typing import Optional
 
-from llamafactory_moe_study.core.logger import log
+from core.logger import log
 from ..lora import LoraLayer
 from ..mole.layer import LoraExpert
 

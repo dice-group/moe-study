@@ -9,7 +9,7 @@ from torch import nn
 from transformers import Trainer
 from transformers.trainer import TRAINING_ARGS_NAME, logger
 
-from llamafactory_moe_study.core.logger import log
+from core.logger import log
 
 # TODO: remove?
 class PeftTrainer(Trainer):

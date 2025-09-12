@@ -9,8 +9,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from llamafactory_moe_study.approaches.adamole.lora import LoraLayer
-from llamafactory_moe_study.core.logger import get_logger
+from approaches.adamole.lora import LoraLayer
+from core.logger import get_logger
 
 log = get_logger("mola")
 

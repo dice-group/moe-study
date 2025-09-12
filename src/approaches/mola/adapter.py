@@ -2,9 +2,9 @@ import torch
 import warnings
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-from llamafactory_moe_study.core.generic_adapter import MethodAdapter
-from llamafactory_moe_study.approaches.mola.model import MolaModel
-from llamafactory_moe_study.approaches.mola.config import MolaConfig
+from core.generic_adapter import MethodAdapter
+from approaches.mola.model import MolaModel
+from approaches.mola.config import MolaConfig
 
 
 class MolaAdapter(MethodAdapter):

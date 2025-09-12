@@ -3,8 +3,8 @@ adamole Configuration
 """
 from dataclasses import dataclass, field
 
-from llamafactory_moe_study.approaches.adamole.lora import LoraConfig
-from llamafactory_moe_study.approaches.adamole.utils.peft_types import PeftType
+from approaches.adamole.lora import LoraConfig
+from approaches.adamole.utils.peft_types import PeftType
 
 
 @dataclass

@@ -1,5 +1,5 @@
-from llamafactory_moe_study.approaches.adamole.adapter import AdaMoLEAdapter
-from llamafactory_moe_study.approaches.mola.adapter import MolaAdapter
+from approaches.adamole.adapter import AdaMoLEAdapter
+from approaches.mola.adapter import MolaAdapter
 
 _REGISTRY = {
     "adamole": AdaMoLEAdapter(),
