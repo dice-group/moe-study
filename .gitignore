@@ -10,3 +10,4 @@ __pycache__/
 *.egg-info/
 src/ext_env_setup/*
 src/llamafactory_moe_study/output.txt
+wandb

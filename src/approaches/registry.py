@@ -1,10 +1,10 @@
 from approaches.adamole.adapter import AdaMoLEAdapter
-from approaches.mola.adapter import MolaAdapter
+from approaches.adamoe_1.adapter import MolaAdapter
 
 _REGISTRY = {
     "adamole": AdaMoLEAdapter(),
     "mola": MolaAdapter(),
-    "adamoe_2": "", #tbd
+    "moelpr": "", #tbd
 }
 
 def get_selected_method(name: str):

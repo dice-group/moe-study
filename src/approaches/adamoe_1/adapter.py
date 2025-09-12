@@ -3,8 +3,8 @@ import warnings
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from core.generic_adapter import MethodAdapter
-from approaches.mola.model import MolaModel
-from approaches.mola.config import MolaConfig
+from approaches.adamoe_1.model import MolaModel
+from approaches.adamoe_1.config import MolaConfig
 
 
 class MolaAdapter(MethodAdapter):

@@ -9,9 +9,10 @@ from transformers import (
     DataCollatorForLanguageModeling,
 )
 
-from src import HarnessTrainer
-from approaches import get_selected_method
+from approaches.registry import get_selected_method
 from core.wrappers import AuxLossWrapper
+from evaluation import HarnessTrainer
+
 
 def load_yaml_config(path: str):
     with open(path, "r") as f:
