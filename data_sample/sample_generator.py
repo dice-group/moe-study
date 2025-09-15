@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 from datasets import load_dataset
+from tqdm import tqdm
 
 # Config
 SAMPLE_PERCENTAGE = 1          # % of rows to sample (adjust as needed)
@@ -51,7 +52,7 @@ def process_language_subset(subset: str, name: str, doc_count: int) -> None:
         samples = []
         # TODO: Review this decision
         # NOTE: We are sampling in series, while this might reduce diversity of sources, it maintains consistency and takes less time
-        for i, example in enumerate(fw):
+        for i, example in tqdm(enumerate(fw), desc='Reading samples..'):
             if i >= sample_size:
                 break
             samples.append(example)
@@ -74,7 +75,7 @@ def process_english() -> None:
         sample_size = _calc_sample_size(SAMPLE_PERCENTAGE, 25_900_000_000)
 
         samples = []
-        for i, example in enumerate(fw):
+        for i, example in tqdm(enumerate(fw), desc='Reading samples..'):
             if i >= sample_size:
                 break
             samples.append(example)
@@ -86,9 +87,11 @@ def process_english() -> None:
 def main() -> None:
     # Load metadata CSV once
     metadata_df = pd.read_csv(METADATA_PATH)
+    
+    rows_list = [row for _, row in metadata_df.iterrows()]
 
     # Process each language/subset row
-    for _, row in metadata_df.iterrows():
+    for row in tqdm(rows_list, desc='Processing FineWeb2 Languages'):
         process_language_subset(row["subset"], row["name"], int(row["documents"]))
 
     # Finally handle English (default) split

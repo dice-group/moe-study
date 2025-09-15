@@ -7,9 +7,9 @@ MODE=$1
 # Determine the directory of the current script
 CUR_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # This gets overriden on the next 'source' call
 
-SETUP_DIR=$CUR_SCRIPT_DIR
+SETUP_DIR=$CUR_SCRIPT_DIR/setup
 
-source $CUR_SCRIPT_DIR/env.sh
+source $SETUP_DIR/env.sh
 
 CUR_VENV_NAME=data_sample_venv
 CUR_VENV_DIR=$PROJECT_ROOT/src/virt-envs/$CUR_VENV_NAME
