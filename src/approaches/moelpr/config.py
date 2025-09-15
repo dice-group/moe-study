@@ -19,9 +19,13 @@ from typing import List, Optional, Union
 from peft.config import PeftConfig
 from peft.utils import PeftType
 
+if not hasattr(PeftType, "MOE"):
+    PeftType.MOE = "MOE"
+
 
 @dataclass
 class MoeConfig(PeftConfig):
+    target_modules: Optional[Union[List[str], str]] = field(default=None)
     init_moe_weights: bool = field(
         default=True,
         metadata={
@@ -76,6 +80,12 @@ class MoeConfig(PeftConfig):
                 "The weight of the lpr loss. Only will be used if set."
             ),
         },
+    )
+    stage: int = field(
+        default=1,
+        metadata={
+            "help": "Training stage for MoE-LPR. Stage 1 is for training new experts, Stage 2 is for router review."
+        }
     )
 
     def __post_init__(self):

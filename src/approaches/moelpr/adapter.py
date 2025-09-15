@@ -38,6 +38,7 @@ class MoelprAdapter(MethodAdapter):
             topk=training_args.moelpr_top_k,
             lpr_loss_coef=training_args.moelpr_lpr_loss_coef,
             layers_to_transform=layers,
+            stage=getattr(training_args, "moelpr_stage", 1),
         )
         model = MoeModel(base_model, moelpr_config, adapter_name="default")
 

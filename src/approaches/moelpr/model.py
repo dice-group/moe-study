@@ -37,8 +37,7 @@ from peft.utils import (
 )
 
 from .config import MoeConfig
-from .layer import MLP, MoeLayer
-
+from .layer import MLP, MoeLayer, lpr_loss_func, load_balancing_loss_func
 
 
 class MoeModel(BaseTuner):
@@ -47,8 +46,88 @@ class MoeModel(BaseTuner):
     def __init__(self, model, config, adapter_name) -> None:
         moe_layers = config.layers_to_transform if isinstance(config, MoeConfig) else config[adapter_name].layers_to_transform
         self.moe_layers = moe_layers.copy()
+        self.moe_mlp_layers = []
         #要进入tuner去替换
         super().__init__(model, config, adapter_name)
+
+    def forward(self, *args, **kwargs):
+        """
+        This model is a wrapper around the base model
+        We need to forward all calls to the base model, but first we need to pass the lang_mask and attention_mask
+        to the MLP layers.
+        """
+        lang_mask = kwargs.pop("lang_mask", None)
+        attention_mask = kwargs.get("attention_mask", None)  # don't pop, might be needed by base model
+
+        for module in self.moe_mlp_layers:
+            module.lang_mask = lang_mask
+            module.attention_mask = attention_mask
+
+        return self.model(*args, **kwargs)
+
+    def get_aux_loss(self):
+        """
+        Calculates and returns the auxiliary loss for MoE-LPR based on the current training stage.
+        """
+        total_aux_loss = torch.tensor(0.0, device=self.device)
+        active_adapter = self.active_adapter
+        if isinstance(active_adapter, list):
+            active_adapter = active_adapter[0]
+        active_adapter_config = self.peft_config[active_adapter]
+        stage = active_adapter_config.stage
+
+        # No aux loss if not training or no coef is set
+        if not self.training:
+            return total_aux_loss
+
+        all_router_logits = []
+        for module in self.model.modules():
+            if isinstance(module, MLP) and module.latest_router_logits is not None:
+                all_router_logits.append(module.latest_router_logits)
+
+        if not all_router_logits:
+            return total_aux_loss
+
+        if stage == 1 and active_adapter_config.aux_loss_coef is not None:
+            # Stage 1: Load-balancing loss
+            balance_loss = []
+            for layer_router_logits in all_router_logits:
+                # get attention_mask from the layer
+                attention_mask = None
+                for module in self.model.modules():
+                    if isinstance(module, MLP):
+                        attention_mask = module.attention_mask
+                        break
+
+                balance_loss.append(load_balancing_loss_func(
+                    (layer_router_logits,),
+                    active_adapter_config.num_experts,
+                    active_adapter_config.topk,
+                    attention_mask,
+                ))
+            balance_loss = torch.stack(balance_loss)
+            balance_loss = torch.mean(balance_loss)
+            total_aux_loss += active_adapter_config.aux_loss_coef * balance_loss
+
+        elif stage == 2 and active_adapter_config.lpr_loss_coef is not None:
+            # Stage 2: LPR loss
+            lang_mask = None
+            for module in self.model.modules():
+                if isinstance(module, MLP):
+                    lang_mask = module.lang_mask
+                    break
+
+            if lang_mask is None:
+                warnings.warn("LPR loss requires a `lang_mask` but it was not provided. Skipping LPR loss.")
+                return total_aux_loss
+
+            lpr_loss = lpr_loss_func(
+                all_router_logits,
+                lang_mask=lang_mask,
+            )
+            total_aux_loss += active_adapter_config.lpr_loss_coef * lpr_loss
+
+        return total_aux_loss
 
     def _check_new_adapter_config(self, config: MoeConfig) -> None:
         """
@@ -93,6 +172,7 @@ class MoeModel(BaseTuner):
         #decoderlayer_module = self.model.get_submodule(".".join(current_key.split(".")[:-2]))
         #mlp_name = current_key.split(".")[-2]
         new_module = self._create_new_module(moe_config, adapter_name, target, layerid=layerid)
+        self.moe_mlp_layers.append(new_module)
         if adapter_name != self.active_adapter:
             # adding an additional adapter: it is not automatically trainable
             new_module.requires_grad_(False)
@@ -137,8 +217,8 @@ class MoeModel(BaseTuner):
 
     @staticmethod
     def _create_new_module(moe_config, adapter_name, target, **kwargs):
-        new_module = MLP(target, adapter_name, 
-                         num_experts=moe_config.num_experts, 
+        new_module = MLP(target, adapter_name,
+                         num_experts=moe_config.num_experts,
                          init_moe_weights=moe_config.init_moe_weights,
                          topk=moe_config.topk,
                          aux_loss_coef=moe_config.aux_loss_coef,
