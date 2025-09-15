@@ -7,3 +7,4 @@ __pycache__/
 wandb
 *output.log
 .vscode/
+outputs/*

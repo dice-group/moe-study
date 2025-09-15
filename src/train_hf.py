@@ -12,6 +12,9 @@ from transformers import (
 from approaches.registry import get_selected_method
 from core.wrappers import AuxLossWrapper
 from evaluation import HarnessTrainer
+from core.logger import get_logger
+
+log = get_logger("moelpr")
 
 
 def load_yaml_config(path: str):
@@ -76,12 +79,16 @@ def main():
     tokenizer.pad_token = tokenizer.eos_token
 
     # load data
-    # for testing, TODO:
+    if args.use_method == "moelpr":
+        log.info(f"[moelpr] Running MoE-LPR in Stage {args.moelpr_stage}")
+
     if args.use_method == "moelpr" and args.moelpr_stage == 2:
         dataset_path = cfg.get("dataset_stage2", "Yelp/yelp_review_full") # fallback for testing
+        log.info(f"[moelpr] Loading Stage 2 dataset from: {dataset_path}")
         dataset = load_dataset(dataset_path, split="train[:1000]")
     else:
         dataset_path = cfg.get("dataset", "Yelp/yelp_review_full") # fallback for testing
+        log.info(f"Loading dataset from: {dataset_path}")
         dataset = load_dataset(dataset_path, split="train[:1000]")
     dataset = dataset.train_test_split(test_size=0.1)
 
@@ -89,14 +96,17 @@ def main():
     def tokenize_fn(examples):
         tokenized = tokenizer(examples["text"], truncation=True, max_length=cutoff_len)
         if args.use_method == "moelpr" and args.moelpr_stage == 2:
-            # This assumes the dataset has a 'lang' column.
-            # The column name and identifier for the original language should be configurable.
             lang_column = cfg.get("language_column", "lang")
             original_lang = cfg.get("original_language_identifier", "en")
             
             if lang_column in examples:
                 lang_mask = [1 if lang == original_lang else 0 for lang in examples[lang_column]]
                 tokenized["lang_mask"] = lang_mask
+                if args.moelpr_debug_mode:
+                    num_original = sum(lang_mask)
+                    if num_original > 0:
+                        log.info(f"[moelpr] Found {num_original}/{len(lang_mask)} samples from original language ('{original_lang}') in this batch.")
+                        log.info(f"[moelpr] Sample lang_mask: {lang_mask[:10]}")
         return tokenized
 
     dataset = dataset.map(tokenize_fn, batched=True, remove_columns=dataset["train"].column_names)
@@ -158,6 +168,16 @@ def main():
         do_harness_eval=args.do_harness_eval,
     )
     trainer.train()
+
+    if args.use_method == "moelpr" and args.moelpr_stage == 1:
+        log.info("[moelpr] save full model of stage 1")
+        trainer.save_model(cfg["output_dir"])
+    else:
+        model.model.save_pretrained(cfg["output_dir"])
+
+    tokenizer.save_pretrained(cfg["output_dir"])
+    model.model.config.save_pretrained(cfg["output_dir"])
+
 
 if __name__ == "__main__":
     main()

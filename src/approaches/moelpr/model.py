@@ -36,6 +36,7 @@ from peft.utils import (
     get_quantization_config,
 )
 
+from core.logger import log
 from .config import MoeConfig
 from .layer import MLP, MoeLayer, lpr_loss_func, load_balancing_loss_func
 
@@ -128,6 +129,8 @@ class MoeModel(BaseTuner):
                 lang_mask=lang_mask,
             )
             total_aux_loss += active_adapter_config.lpr_loss_coef * lpr_loss
+            if active_adapter_config.moelpr_debug_mode:
+                log.info(f"[Stage 2] LPR loss: {total_aux_loss.item():.4f}")
 
         return total_aux_loss
 

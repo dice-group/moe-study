@@ -5,6 +5,7 @@ overwrite_output_dir: true
 
 # --- Data ---
 # Dataset for the original language replay (should be a small sample)
+dataset: "Yelp/yelp_review_full" # Base dataset, required by the script
 dataset_stage2: "Yelp/yelp_review_full"
 language_column: "lang" # The name of the column in your dataset that contains the language identifier
 original_language_identifier: "en" # The identifier for the original language (e.g., 'en' for English)

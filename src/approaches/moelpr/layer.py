@@ -132,14 +132,20 @@ class MLP(nn.Module, MoeLayer):
             num_inputs = router_logits.shape[0]
             num_experts = router_logits.shape[1]
             expert_counts = torch.bincount(selected_experts.reshape(-1), minlength=num_experts)
-            expert_fractions = expert_counts / num_inputs
-            expert_probs = torch.sum(router_logits, dim=0) / num_inputs
-            log.info(f"expert_fractions: {expert_fractions}")
-            log.info(f"expert_probs: {expert_probs}")
-            loss = self.aux_loss_coef * num_experts * torch.sum(expert_fractions * expert_probs)
-            log.info(f"loss: {loss}")
-            log.info(f"router.weight.requires_grad: {router.weight.requires_grad}")
-            log.info(f"router_logits.requires_grad: {router_logits.requires_grad}")
+            log.info(f"Expert counts: {expert_counts.tolist()}")
+
+            if hasattr(self, "lang_mask") and self.lang_mask is not None:
+                lang_mask_flat = self.lang_mask.view(-1)
+                if lang_mask_flat.shape[0] == selected_experts.shape[0]:
+                    original_lang_tokens = selected_experts[lang_mask_flat == 1]
+                    new_lang_tokens = selected_experts[lang_mask_flat == 0]
+
+                    if original_lang_tokens.numel() > 0:
+                        original_expert_counts = torch.bincount(original_lang_tokens.reshape(-1), minlength=num_experts)
+                        log.info(f"  - Original lang expert counts: {original_expert_counts.tolist()}")
+                    if new_lang_tokens.numel() > 0:
+                        new_expert_counts = torch.bincount(new_lang_tokens.reshape(-1), minlength=num_experts)
+                        log.info(f"  - New lang expert counts: {new_expert_counts.tolist()}")
 
         routing_weights = routing_weights.to(hidden_states.dtype)
 
