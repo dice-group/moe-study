@@ -87,8 +87,7 @@ class MoeConfig(PeftConfig):
             "help": "Training stage for MoE-LPR. Stage 1 is for training new experts, Stage 2 is for router review."
         }
     )
+    moelpr_debug_mode: bool = field(default=False, metadata={"help": "Enable debug mode for MoE-LPR."})
 
     def __post_init__(self):
         self.peft_type = PeftType.MOE
-        if self.lpr_loss_coef is not None and self.aux_loss_coef is not None:
-            raise NotImplementedError

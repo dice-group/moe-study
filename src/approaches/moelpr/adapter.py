@@ -36,9 +36,11 @@ class MoelprAdapter(MethodAdapter):
         moelpr_config = MoeConfig(
             num_experts=training_args.moelpr_num_experts,
             topk=training_args.moelpr_top_k,
+            aux_loss_coef=training_args.moelpr_aux_loss_coef,
             lpr_loss_coef=training_args.moelpr_lpr_loss_coef,
             layers_to_transform=layers,
             stage=getattr(training_args, "moelpr_stage", 1),
+            moelpr_debug_mode=getattr(training_args, "moelpr_debug_mode", False)
         )
         model = MoeModel(base_model, moelpr_config, adapter_name="default")
 

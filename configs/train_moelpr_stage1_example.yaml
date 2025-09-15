@@ -1,0 +1,23 @@
+# MoE-LPR Stage 1: Training new experts on new languages
+model_name_or_path: "meta-llama/Llama-2-7b-hf"
+output_dir: "./outputs/moelpr-7b-stage1"
+overwrite_output_dir: true
+
+# Dataset for the new languages
+dataset: "Yelp/yelp_review_full"
+dataset_dir: "data" # Unused if using HF datasets
+cutoff_len: 1024
+max_samples: 100000
+
+# --- Training ---
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 16
+learning_rate: 2.0e-5
+lr_scheduler_type: "cosine"
+warmup_ratio: 0.03
+num_train_epochs: 3
+logging_steps: 10
+save_steps: 100
+
+fp16: true
+bf16: false

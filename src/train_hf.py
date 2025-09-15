@@ -42,8 +42,11 @@ def main():
     # moelpr
     parser.add_argument("--moelpr_num_experts", type=int, default=4)
     parser.add_argument("--moelpr_top_k", type=int, default=2)
+    parser.add_argument("--moelpr_aux_loss_coef", type=float, default=0.01)
     parser.add_argument("--moelpr_lpr_loss_coef", type=float, default=0.01)
     parser.add_argument("--moelpr_layers_to_transform", type=str, default=None, help="layer ids to upcycle to MoE")
+    parser.add_argument("--moelpr_stage", type=int, default=1, choices=[1, 2], help="MoE-LPR training stage")
+    parser.add_argument("--moelpr_debug_mode", action="store_true")
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save_total_limit", type=int, default=2)
@@ -73,17 +76,29 @@ def main():
     tokenizer.pad_token = tokenizer.eos_token
 
     # load data
-    # try:
-    #     dataset = load_from_disk(dataset_dir)
-    # except Exception:
-    #     dataset = load_dataset("json", data_files={ "train": f"{dataset_dir}/{dataset_name}.json" })#
-    # for testing, TODO:    
-    dataset = load_dataset("Yelp/yelp_review_full", split="train[:1000]")
-    dataset = dataset.train_test_split(test_size=0.1) 
+    # for testing, TODO:
+    if args.use_method == "moelpr" and args.moelpr_stage == 2:
+        dataset_path = cfg.get("dataset_stage2", "Yelp/yelp_review_full") # fallback for testing
+        dataset = load_dataset(dataset_path, split="train[:1000]")
+    else:
+        dataset_path = cfg.get("dataset", "Yelp/yelp_review_full") # fallback for testing
+        dataset = load_dataset(dataset_path, split="train[:1000]")
+    dataset = dataset.train_test_split(test_size=0.1)
 
     # easy tokenizing for now
     def tokenize_fn(examples):
-        return tokenizer(examples["text"], truncation=True, max_length=cutoff_len)
+        tokenized = tokenizer(examples["text"], truncation=True, max_length=cutoff_len)
+        if args.use_method == "moelpr" and args.moelpr_stage == 2:
+            # This assumes the dataset has a 'lang' column.
+            # The column name and identifier for the original language should be configurable.
+            lang_column = cfg.get("language_column", "lang")
+            original_lang = cfg.get("original_language_identifier", "en")
+            
+            if lang_column in examples:
+                lang_mask = [1 if lang == original_lang else 0 for lang in examples[lang_column]]
+                tokenized["lang_mask"] = lang_mask
+        return tokenized
+
     dataset = dataset.map(tokenize_fn, batched=True, remove_columns=dataset["train"].column_names)
     if max_samples is not None:
         dataset["train"] = dataset["train"].select(range(min(max_samples, len(dataset["train"]))))
@@ -96,7 +111,15 @@ def main():
         args,
     )
     model.to("cuda")
-    model = AuxLossWrapper(model, coef=args.adamole_aux_coef)
+
+    aux_loss_coef = 0.0
+    if args.use_method == "adamole":
+        aux_loss_coef = args.adamole_aux_coef
+    elif args.use_method == "mola":
+        aux_loss_coef = args.mola_router_aux_loss_coef
+    elif args.use_method == "moelpr":
+        aux_loss_coef = args.moelpr_aux_loss_coef
+    model = AuxLossWrapper(model, coef=aux_loss_coef)
 
     # define training argumetn
     training_args = TrainingArguments(

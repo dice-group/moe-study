@@ -1,0 +1,27 @@
+# MoE-LPR Stage 2: Refining the router with original languages
+model_name_or_path: "./outputs/moelpr-7b-stage1" # Path to the checkpoint from Stage 1
+output_dir: "./outputs/moelpr-7b-stage2"
+overwrite_output_dir: true
+
+# --- Data ---
+# Dataset for the original language replay (should be a small sample)
+dataset_stage2: "Yelp/yelp_review_full"
+language_column: "lang" # The name of the column in your dataset that contains the language identifier
+original_language_identifier: "en" # The identifier for the original language (e.g., 'en' for English)
+dataset_dir: "data" # Unused if using HF datasets
+cutoff_len: 1024
+max_samples: 10000 # Small replay
+
+# --- Training ---
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 16
+learning_rate: 2.0e-6 # Lower learning rate for refinement
+lr_scheduler_type: "cosine"
+warmup_ratio: 0.03
+num_train_epochs: 1
+logging_steps: 10
+save_steps: 100
+
+# --- Precision ---
+fp16: true
+bf16: false

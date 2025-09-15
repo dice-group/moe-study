@@ -25,6 +25,9 @@ import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss
 
 from peft.tuners.tuners_utils import BaseTunerLayer
+from core.logger import get_logger
+
+log = get_logger("moelpr")
 
 
 class MoeLayer(BaseTunerLayer):
@@ -87,14 +90,17 @@ class MLP(nn.Module, MoeLayer):
             topk: int = None,
             aux_loss_coef: float = None,
             lpr_loss_coef: float = None,
+            moelpr_debug_mode: bool = False,
             **kwargs,
     ) -> None:
         super().__init__()
         MoeLayer.__init__(self, base_layer)
+        print(f"aux_loss_coef: {aux_loss_coef}")
 
         self.aux_loss_coef = aux_loss_coef
         self.topk = topk
         self.lpr_loss_coef = lpr_loss_coef
+        self.debug_mode = moelpr_debug_mode
         self._active_adapter = adapter_name
         self.update_layer(base_layer, adapter_name, num_experts, init_moe_weights)
         self.latest_router_logits = None
@@ -121,6 +127,19 @@ class MLP(nn.Module, MoeLayer):
         routing_weights, selected_experts = torch.topk(routing_weights, self.topk, dim=-1)
         if self.topk != 1:
             routing_weights /= routing_weights.sum(dim=-1, keepdim=True)
+
+        if self.debug_mode:
+            num_inputs = router_logits.shape[0]
+            num_experts = router_logits.shape[1]
+            expert_counts = torch.bincount(selected_experts.reshape(-1), minlength=num_experts)
+            expert_fractions = expert_counts / num_inputs
+            expert_probs = torch.sum(router_logits, dim=0) / num_inputs
+            log.info(f"expert_fractions: {expert_fractions}")
+            log.info(f"expert_probs: {expert_probs}")
+            loss = self.aux_loss_coef * num_experts * torch.sum(expert_fractions * expert_probs)
+            log.info(f"loss: {loss}")
+            log.info(f"router.weight.requires_grad: {router.weight.requires_grad}")
+            log.info(f"router_logits.requires_grad: {router_logits.requires_grad}")
 
         routing_weights = routing_weights.to(hidden_states.dtype)
 

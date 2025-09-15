@@ -16,7 +16,7 @@ num_train_epochs: 1
 
 save_steps: 500
 logging_steps: 10
-fp16: true
+fp16: false
 bf16: false
 report_to: none
 

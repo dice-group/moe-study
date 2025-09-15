@@ -52,16 +52,18 @@ class MoeModel(BaseTuner):
 
     def forward(self, *args, **kwargs):
         """
-        This model is a wrapper around the base model
+        This model is a wrapper around the base model.
         We need to forward all calls to the base model, but first we need to pass the lang_mask and attention_mask
-        to the MLP layers.
+        to the MLP layers so they can be accessed by the get_aux_loss method.
         """
-        lang_mask = kwargs.pop("lang_mask", None)
-        attention_mask = kwargs.get("attention_mask", None)  # don't pop, might be needed by base model
+        lang_mask = kwargs.get("lang_mask", None)
+        attention_mask = kwargs.get("attention_mask", None)
 
-        for module in self.moe_mlp_layers:
-            module.lang_mask = lang_mask
-            module.attention_mask = attention_mask
+        # Set masks on MLP layers
+        for module in self.model.modules():
+            if isinstance(module, MLP):
+                module.lang_mask = lang_mask
+                module.attention_mask = attention_mask
 
         return self.model(*args, **kwargs)
 
@@ -223,6 +225,7 @@ class MoeModel(BaseTuner):
                          topk=moe_config.topk,
                          aux_loss_coef=moe_config.aux_loss_coef,
                          lpr_loss_coef=moe_config.lpr_loss_coef,
+                         moelpr_debug_mode=moe_config.moelpr_debug_mode,
                          **kwargs)
         return new_module
 
