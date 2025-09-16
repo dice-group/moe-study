@@ -33,7 +33,7 @@ def _output_path(filename: str) -> str:
     return os.path.join(OUTPUT_DIR, filename)
 
 # write rows line‑by‑line to a temp file
-def _write_samples_to_temp(samples_iter, final_path: str) -> None:
+def _write_samples_to_temp(samples_iter, sample_size, final_path: str) -> None:
     # Ensure output directory exists
     os.makedirs(os.path.dirname(final_path), exist_ok=True)
 
@@ -42,7 +42,7 @@ def _write_samples_to_temp(samples_iter, final_path: str) -> None:
     try:
         with os.fdopen(fd, "w", newline="", encoding="utf-8") as tmp_file:
             writer = None
-            for i, row in enumerate(samples_iter, start=1):
+            for i, row in enumerate(tqdm(samples_iter, total=sample_size), start=1):
                 if writer is None:
                     # Initialise writer with fieldnames from the first row
                     writer = csv.DictWriter(tmp_file, fieldnames=row.keys(), delimiter="\t")
@@ -69,6 +69,8 @@ def _process_subset(subset: str | None, name: str, doc_count: int, is_english: b
     Load the appropriate FineWeb dataset, compute the sample size, stream,
     and write the first ``sample_size`` rows to a TSV file.
     """
+    print(f'Total documents: {doc_count}\n', flush=True)
+    
     out_file = f"{subset}_sample.tsv" if subset else "english_sample.tsv"
     out_path = _output_path(out_file)
 
@@ -100,7 +102,7 @@ def _process_subset(subset: str | None, name: str, doc_count: int, is_english: b
                     break
                 yield example
 
-        _write_samples_to_temp(_sample_gen(), out_path)
+        _write_samples_to_temp(_sample_gen(), sample_size, out_path)
         print(f"Saved {sample_size} samples to {out_path}")
     except Exception as e:
         print(f"Error processing {name}: {e}")
