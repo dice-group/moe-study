@@ -1,3 +1,4 @@
+# Sample usage: bash data_sample/pylauncher.sh normal data_sample.sample_generator
 import os
 import pandas as pd
 import csv
@@ -82,6 +83,7 @@ def _process_subset(subset: str | None, name: str, doc_count: int, is_english: b
             "split": "train",
             "streaming": True,
         }
+        # NOTE: May lead to "Too Many Requests" issue if using without a login / access token
         fw = load_dataset(
             "HuggingFaceFW/fineweb" if is_english else "HuggingFaceFW/fineweb-2",
             **dataset_kwargs,
@@ -130,7 +132,7 @@ def _submit_slurm_job(row: dict | None, is_english: bool = False) -> None:
         f"--output={os.path.join(log_dir, '%x__slurm-%j.out')}",
         "--cpus-per-task=4",
         "--mem=5G", # Each chunk (parquet) is around 4.85 GB (maximum)
-        "--time=10:00:00",   # TODO: make this dynamic if needed
+        "--time=20:00:00",   # TODO: make this dynamic if needed
         "data_sample/pylauncher.sh",
         "nested",
         f"{__spec__.name}",
