@@ -1,8 +1,6 @@
 #!/bin/bash
 set -eu
 
-echo Current arguments "${@}"
-
 PY_MODULE=$2
 MODE=$1
 
@@ -37,10 +35,6 @@ if [ "$MODE" != "nested" ]; then
     # activating custom enviroment
     conda activate $CUR_VENV_DIR
 fi
-
-
-echo Current venv: $CONDA_PREFIX
-which python
 
 if [ "$MODE" == "debug" ]; then
     echo "Debug mode enabled, waiting for remote debugger to attach.."

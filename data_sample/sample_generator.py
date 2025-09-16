@@ -10,7 +10,7 @@ from datasets import load_dataset
 
 # Config
 SAMPLE_PERCENTAGE = 1          # % of rows to sample (adjust as needed)
-METADATA_PATH = "data_dir/fineweb2_metadata/llm_nested_samples/debug.csv" # covering all selected languages
+METADATA_PATH = "data_dir/fineweb2_metadata/llm_nested_samples/199_representative_mediods.csv" # covering all selected languages
 OUTPUT_DIR = "data_dir/fw_samples/"                # folder where *.tsv files will be written
 MIN_DOC_COUNT = 10_000  # minimum threshold to apply sampling logic
 FLUSH_EVERY=10_000
@@ -49,6 +49,7 @@ def _write_samples_to_temp(samples_iter, final_path: str) -> None:
                 writer.writerow(row)
                 
                 if i % FLUSH_EVERY == 0:
+                    print(f'Processed {i} documents\n', flush=True)
                     tmp_file.flush()
 
         # replace the target file with the temp file
@@ -62,116 +63,94 @@ def _write_samples_to_temp(samples_iter, final_path: str) -> None:
         raise
 
 
-def process_language_subset(subset: str, name: str, doc_count: int) -> None:
-    out_file = f"{subset}_sample.tsv"
+def _process_subset(subset: str | None, name: str, doc_count: int, is_english: bool = False) -> None:
+    """
+    Load the appropriate FineWeb dataset, compute the sample size, stream,
+    and write the first ``sample_size`` rows to a TSV file.
+    """
+    out_file = f"{subset}_sample.tsv" if subset else "english_sample.tsv"
     out_path = _output_path(out_file)
 
     if os.path.isfile(out_path):
-        print(f"Skipping {name} ({subset}) – {out_file} already exists.")
+        print(f"Skipping {name} – {out_file} already exists.")
         return
 
-    print(f"Processing language: {name} ({subset})")
+    print(f"Processing {'English' if is_english else name} data...")
     try:
+        dataset_kwargs = {
+            "name": "default" if is_english else subset,
+            "split": "train",
+            "streaming": True,
+        }
         fw = load_dataset(
-            "HuggingFaceFW/fineweb-2",
-            name=subset,
-            split="train",
-            streaming=True,
+            "HuggingFaceFW/fineweb" if is_english else "HuggingFaceFW/fineweb-2",
+            **dataset_kwargs,
         )
-
         sample_size = _calc_sample_size(SAMPLE_PERCENTAGE, doc_count)
+        
+        print(f'Sample size: {sample_size}\n', flush=True)
 
-        # Build a generator that yields exactly ``sample_size`` rows
         def _sample_gen():
+            # TODO: Review this decision
+            # NOTE: We are sampling in series, while this might reduce diversity of sources, it maintains consistency and takes less time
             for i, example in enumerate(fw):
-                # TODO: Review this decision
-                # NOTE: We are sampling in series, while this might reduce diversity of sources, it maintains consistency and takes less time
                 if i >= sample_size:
                     break
                 yield example
 
         _write_samples_to_temp(_sample_gen(), out_path)
-        
         print(f"Saved {sample_size} samples to {out_path}")
     except Exception as e:
-        print(f"Error processing {name} ({subset}): {e}")
+        print(f"Error processing {name}: {e}")
 
+
+def process_language_subset(subset: str, name: str, doc_count: int) -> None:
+    _process_subset(subset, name, doc_count, is_english=False)
 
 def process_english() -> None:
-    out_file = "english_sample.tsv"
-    out_path = _output_path(out_file)
+    _process_subset(
+        subset=None,
+        name="English",
+        doc_count=25_900_000_000,   # total docs for the default English split
+        is_english=True,
+    )
 
-    if os.path.isfile(out_path):
-        print(f"Skipping English – {out_file} already exists.")
-        return
 
-    print("Processing English data from fineweb...")
-    try:
-        fw = load_dataset(
-            "HuggingFaceFW/fineweb",
-            name="default",
-            split="train",
-            streaming=True,
-        )
-        sample_size = _calc_sample_size(SAMPLE_PERCENTAGE, 25_900_000_000) # As per https://huggingface.co/datasets/HuggingFaceFW/fineweb, the train split has 25.9 billion documents
-
-        def _sample_gen():
-            for i, example in enumerate(fw):
-                if i >= sample_size:
-                    break
-                yield example
-
-        _write_samples_to_temp(_sample_gen(), out_path)
-    except Exception as e:
-        print(f"Error processing English data: {e}")
-        
-def _submit_slurm_job(row):
-    """Create and submit a simple Slurm job that runs this script for one subset."""
-
-    # Create a unique job name (e.g., based on the row name and a timestamp)
-    job_name = f"{row['subset']}"
-
-    # Directory where Slurm logs will be stored – adjust as needed
+def _submit_slurm_job(row: dict | None, is_english: bool = False) -> None:
+    """
+    Submit a Slurm job for either a language row or the English split.
+    """
+    job_name = "english" if is_english else f"{row['subset']}"
     log_dir = os.path.join(OUTPUT_DIR, "slurm_logs")
-    
     os.makedirs(log_dir, exist_ok=True)
-    
-    # Submit via sbatch with job‑name and output‑file options
-    # NOTE: This will already pass on the loaded module and activated environment to the job
-    subprocess.run([
+
+    base_cmd = [
         "sbatch",
         f"--job-name={job_name}",
         f"--output={os.path.join(log_dir, '%x__slurm-%j.out')}",
-        f"--cpus-per-task=4",
-        f"--mem=2G",
-        f"--time=10:00:00", # TODO: Compute this based on number of documents
-        f"data_sample/pylauncher.sh", # Command starts here
-        f"nested",
+        "--cpus-per-task=4",
+        "--mem=5G", # Each chunk (parquet) is around 4.85 GB (maximum)
+        "--time=10:00:00",   # TODO: make this dynamic if needed
+        "data_sample/pylauncher.sh",
+        "nested",
         f"{__spec__.name}",
-        f"--subset={row['subset']}",
-        f"--name=\"{row['name']}\"",
-        f"--documents={row['documents']}",
-    ], check=True)
+    ]
+
+    if is_english:
+        base_cmd.append("--english")
+    else:
+        base_cmd.extend([
+            f"--subset={row['subset']}",
+            f"--name=\"{row['name']}\"",
+            f"--documents={row['documents']}",
+        ])
+    
+    # NOTE: This will already pass on the loaded module and activated environment to the job
+    subprocess.run(base_cmd, check=True)
 
 
 def _submit_english_slurm_job():
-    """Submit a Slurm job that processes the English split."""
-    log_dir = os.path.join(OUTPUT_DIR, "slurm_logs")
-    os.makedirs(log_dir, exist_ok=True)
-    
-    # NOTE: This will already pass on the loaded module and activated environment to the job
-    subprocess.run([
-        "sbatch",
-        f"--job-name=english",
-        f"--output={os.path.join(log_dir, '%x__slurm-%j.out')}",
-        f"--cpus-per-task=4",
-        f"--mem=2G",
-        f"--time=10:00:00",
-        f"data_sample/pylauncher.sh",
-        f"nested",
-        f"{__spec__.name}",
-        f"--english",
-    ], check=True)
+    _submit_slurm_job(row=None, is_english=True)
 
 def _process_row(row):
     """Helper for multiprocessing – calls process_language_subset for a row."""
