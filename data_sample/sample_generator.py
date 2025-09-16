@@ -131,7 +131,7 @@ def _submit_slurm_job(row: dict | None, is_english: bool = False) -> None:
         f"--job-name={job_name}",
         f"--output={os.path.join(log_dir, '%x__slurm-%j.out')}",
         "--cpus-per-task=4",
-        "--mem=5G", # Each chunk (parquet) is around 4.85 GB (maximum)
+        "--mem=10G", # Each chunk (parquet) is around 4.85 GB (maximum)
         "--time=20:00:00",   # TODO: make this dynamic if needed
         "data_sample/pylauncher.sh",
         "nested",
