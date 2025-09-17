@@ -1,7 +1,7 @@
 stage: sft
 model_name_or_path: meta-llama/Llama-3.1-8B
-dataset: sampled_scienceqa
-dataset_dir: ./sampled_data
+dataset: "/upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/data_dir/fineweb_stage1.jsonl"
+dataset_dir: "data_dir"
 cutoff_len: 256
 max_samples: null
 finetuning_type: mola

@@ -1,7 +1,7 @@
 stage: sft
 model_name_or_path: meta-llama/Llama-3.1-8B
-dataset: dolly_15k_de
-dataset_dir: /upb/users/j/joeldag/profiles/unix/cs/cloned_repositories_htyllm/LLaMA-Factory/data
+dataset: "/upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/data_dir/fineweb_stage1.jsonl"
+dataset_dir: "data_dirs"
 template: llama3
 cutoff_len: 1024
 max_samples: 20000

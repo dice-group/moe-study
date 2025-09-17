@@ -1,5 +1,5 @@
 # MoE-LPR Stage 1: Training new experts on new languages
-model_name_or_path: "meta-llama/Llama-2-7b-hf"
+model_name_or_path: "meta-llama/Llama-3.2-1B"
 output_dir: "./outputs/moelpr-7b-stage1"
 overwrite_output_dir: true
 
@@ -19,5 +19,5 @@ num_train_epochs: 3
 logging_steps: 10
 save_steps: 100
 
-fp16: true
+fp16: false
 bf16: false

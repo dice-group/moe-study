@@ -11,7 +11,6 @@ from transformers import (
 
 from approaches.registry import get_selected_method
 from core.wrappers import AuxLossWrapper
-from evaluation import HarnessTrainer
 from core.logger import get_logger
 
 log = get_logger("moelpr")
@@ -85,11 +84,11 @@ def main():
     if args.use_method == "moelpr" and args.moelpr_stage == 2:
         dataset_path = cfg.get("dataset_stage2", "Yelp/yelp_review_full") # fallback for testing
         log.info(f"[moelpr] Loading Stage 2 dataset from: {dataset_path}")
-        dataset = load_dataset(dataset_path, split="train[:1000]")
+        dataset = load_dataset("json", data_files=dataset_path, split="train")
     else:
         dataset_path = cfg.get("dataset", "Yelp/yelp_review_full") # fallback for testing
         log.info(f"Loading dataset from: {dataset_path}")
-        dataset = load_dataset(dataset_path, split="train[:1000]")
+        dataset = load_dataset("json", data_files=dataset_path, split="train")
     dataset = dataset.train_test_split(test_size=0.1)
 
     # easy tokenizing for now
@@ -171,7 +170,7 @@ def main():
 
     if args.use_method == "moelpr" and args.moelpr_stage == 1:
         log.info("[moelpr] save full model of stage 1")
-        trainer.save_model(cfg["output_dir"])
+        model.model.save_pretrained(cfg["output_dir"])
     else:
         model.model.save_pretrained(cfg["output_dir"])
 
