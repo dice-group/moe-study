@@ -14,7 +14,7 @@ SAMPLE_PERCENTAGE = 1          # % of rows to sample (adjust as needed)
 METADATA_PATH = "data_dir/fineweb2_metadata/llm_nested_samples/199_representative_mediods.csv" # covering all selected languages
 OUTPUT_DIR = "data_dir/fw_samples/"                # folder where *.tsv files will be written
 MIN_DOC_COUNT = 10_000  # minimum threshold to apply sampling logic
-FLUSH_EVERY=10_000
+FLUSH_EVERY=1_000_000
 
 # Helpers
 def _calc_sample_size(percent: float, estimate: int) -> int:
