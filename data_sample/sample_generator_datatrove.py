@@ -1,3 +1,4 @@
+# Sample usage: bash data_sample/pylauncher.sh normal data_sample.sample_generator_datatrove
 import os
 import pandas as pd
 from datatrove.pipeline.readers import ParquetReader
