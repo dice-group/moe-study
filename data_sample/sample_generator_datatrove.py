@@ -44,7 +44,7 @@ def _get_subset_args(subset: str, doc_count: int):
     output_filepath = _output_path('samples', subset)
     
     jsonl_writer = JsonlWriter(output_filepath)
-    parquet_reader = ParquetReader(ds_path, limit=sample_size)
+    parquet_reader = ParquetReader(ds_path, limit=sample_size, file_progress=True, doc_progress=True)
     
     return jsonl_writer, parquet_reader
 
@@ -74,10 +74,10 @@ def get_spe_instance(subset: str, name: str, doc_count: int):
         tasks=TASKS_PER_SUBSET,
         job_name=f"sampling__{subset}",
         requeue=False, # If the job fails, shows the proper error message
-        qos="cont", # PC² specific QoS
+        qos="cont", # PC² specific QoS # TODO: Fix this, this gets assigned automatically based on available budget but the default qos is causing error.
         logging_dir=log_dir, # Scripts and other aux files are also stored in this
         time="20:00:00",
-        partition="normal",
+        partition="normal", # Cluster specific, remains same for PC²
         cpus_per_task=4,
         mem_per_cpu_gb=5
     )
