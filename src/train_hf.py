@@ -12,6 +12,7 @@ from transformers import (
 from approaches.registry import get_selected_method
 from core.wrappers import AuxLossWrapper
 from core.logger import get_logger
+from evaluation import HarnessTrainer
 
 log = get_logger("moelpr")
 

@@ -15,6 +15,6 @@ python src/train_hf.py \
   --mola_top_k 2 \
   --mola_use_null_exper \
   --evaluation_strategy steps \
-  --eval_steps 10 \
+  --eval_steps 500 \
   --do_harness_eval \
   --harness_tasks winogrande |& tee output.log

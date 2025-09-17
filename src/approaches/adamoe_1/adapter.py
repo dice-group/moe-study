@@ -41,7 +41,20 @@ class MolaAdapter(MethodAdapter):
             mola_debug_mode=training_args.mola_debug_mode,
         )
         model = MolaModel(base_model, mola_config)
+
+        # unfreeze embedding layers
+        for param in model.get_input_embeddings().parameters():
+            param.requires_grad = True
+        for param in model.get_output_embeddings().parameters():
+            param.requires_grad = True
+
         model.print_trainable_parameters()
+
+        #print("\n--- Verifying Trainable Parameters (MoLA) ---")
+        #for name, param in model.named_parameters():
+        #    if param.requires_grad:
+        #        print(f"  - {name}")
+        #print("---------------------------------------------\n")
 
         return model, tokenizer, {}
 
