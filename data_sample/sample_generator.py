@@ -9,6 +9,8 @@ import multiprocessing
 from tqdm import tqdm
 from datasets import load_dataset
 
+# TODO: In future we should try reimplementing this with DataTrove LocalPipelineExecutor and SlurmPipelineExecutor to reduce the boilerplate code.
+
 # Config
 SAMPLE_PERCENTAGE = 1          # % of rows to sample (adjust as needed)
 METADATA_PATH = "data_dir/fineweb2_metadata/llm_nested_samples/199_representative_mediods.csv" # covering all selected languages
