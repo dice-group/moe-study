@@ -18,7 +18,7 @@ class AdaMoLEAdapter(MethodAdapter):
         # TODO: we first load base model and then use PeftModel loading, differnt than MoLa adapter, is this okay for comparison, does this make a difference?
         base_model = AutoModelForCausalLM.from_pretrained(
             model_args["model_name_or_path"],
-            torch_dtype=torch.float16,
+            torch_dtype=torch.bfloat16,
             device_map="auto",
         )
 
