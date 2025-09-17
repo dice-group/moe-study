@@ -1,5 +1,5 @@
 stage: sft
-model_name_or_path: meta-llama/Llama-3.1-8B
+model_name_or_path: meta-llama/Llama-3.2-1B
 dataset: "/upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/data_dir/fineweb_stage1.jsonl"
 dataset_dir: "data_dirs"
 template: llama3

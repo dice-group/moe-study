@@ -55,6 +55,8 @@ def main():
     parser.add_argument("--save_total_limit", type=int, default=2)
     parser.add_argument("--gradient_checkpointing", action="store_true")
     parser.add_argument("--logging_first_step", action="store_true")
+    parser.add_argument("--logging_steps", type=int, default=500)
+    parser.add_argument("--save_steps", type=int, default=500)
     
     parser.add_argument("--evaluation_strategy", default="no", choices=["no", "steps", "epoch"])
     parser.add_argument("--eval_steps", type=int, default=None)
@@ -154,6 +156,7 @@ def main():
         eval_strategy=args.evaluation_strategy,
         eval_steps=args.eval_steps,
         do_eval=args.do_harness_eval,
+        max_grad_norm=1.0,
     )
 
     data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)

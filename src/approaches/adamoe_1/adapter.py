@@ -15,7 +15,7 @@ class MolaAdapter(MethodAdapter):
     def apply(self, model_args, data_args, training_args):
         base_model = AutoModelForCausalLM.from_pretrained(
             model_args["model_name_or_path"],
-            torch_dtype=torch.float16,
+            torch_dtype=torch.bfloat16,
         )
 
         # Tokenizer

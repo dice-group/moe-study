@@ -250,3 +250,11 @@ class LinearMolaLayer(nn.Module, MolaLayer):
 
         result = result.to(x.device, dtype=previous_dtype)
         return result
+
+# FOR DEBUG, TODO: remove if not necessary anymore
+def check_tensor(name: str, t: torch.Tensor):
+    if torch.isnan(t).any() or torch.isinf(t).any():
+        raise RuntimeError(f"[NaN DETECTED] {name} "
+                           f"dtype={t.dtype} "
+                           f"max={t.max().item() if t.numel() > 0 and not torch.isnan(t).any() else 'nan'} "
+                           f"min={t.min().item() if t.numel() > 0 and not torch.isnan(t).any() else 'nan'}")
