@@ -2,6 +2,7 @@
 adamole Configuration
 """
 from dataclasses import dataclass, field
+from typing import List, Optional
 
 from approaches.adamole.lora import LoraConfig
 from approaches.adamole.utils.peft_types import PeftType
@@ -16,6 +17,12 @@ class AdaMoleConfig(LoraConfig):
     max_threshold: float = field(default=None, metadata={
         "help": "The maximum threshold for selecting experts in the threshold function. "
                 "The default value will be 1 / number of experts"})
+    modules_to_save: Optional[List[str]] = field(
+        default=None,
+        metadata={
+            "help": "List of modules apart from adapter layers to be set as trainable and saved in the final checkpoint."
+        },
+    )
 
     def __post_init__(self):
         self.peft_type = PeftType.ADAMOLE

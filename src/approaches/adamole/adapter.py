@@ -40,12 +40,19 @@ class AdaMoLEAdapter(MethodAdapter):
             bias="none",
             num_experts=training_args.adamole_num_experts,
             max_threshold=training_args.adamole_max_threshold,
+            modules_to_save=["model.embed_tokens", "lm_head"],
         )
 
         # load hacked admole model
         model = PeftModelForCausalLM(base_model, peft_config)
         model.enable_input_require_grads()
         model.print_trainable_parameters()
+
+        #print("\n--- Verifying Trainable Parameters (AdaMoLE) ---")
+        #for name, param in model.named_parameters():
+        #    if param.requires_grad:
+        #        print(f"  - {name}")
+        #print("------------------------------------------------\n")
 
         log_adapter_architecture(model)
         return model, tokenizer, {}

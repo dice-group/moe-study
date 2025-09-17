@@ -123,7 +123,17 @@ class PeftModel(PushToHubMixin, torch.nn.Module):
                 self.modules_to_save = set(peft_config.modules_to_save)
             else:
                 self.modules_to_save.update(peft_config.modules_to_save)
-            _set_trainable(self, adapter_name)
+
+            # unfreeze embedding layer
+            base_model = self.get_base_model()
+
+            for module_name in self.modules_to_save:
+                try:
+                    module = base_model.get_submodule(module_name)
+                    for param in module.parameters():
+                        param.requires_grad = True
+                except AttributeError:
+                    raise AttributeError(f"Module {module_name} not found in the base model.")
 
     def _prepare_model_for_gradient_checkpointing(self, model: PreTrainedModel):
         """
