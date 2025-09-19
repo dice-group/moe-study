@@ -64,6 +64,8 @@ def main():
     parser.add_argument("--harness_eval_steps", type=int, default=None)
     parser.add_argument("--harness_tasks", nargs="+", default=["belebele"])
     parser.add_argument("--wandb_project", type=str, default="moe-study")
+    parser.add_argument("--track_flops", action="store_true", help="Enable FLOPs tracking.")
+    
     args = parser.parse_args()
 
     # load yaml config
@@ -174,9 +176,9 @@ def main():
 
     if args.use_method == "moelpr" and args.moelpr_stage == 1:
         log.info("[moelpr] save full model of stage 1")
-        model.model.save_pretrained(cfg["output_dir"])
+        model.model.save_pretrained(cfg["output_dir"], safe_serialization=False)
     else:
-        model.model.save_pretrained(cfg["output_dir"])
+        model.model.save_pretrained(cfg["output_dir"], safe_serialization=False)
 
     tokenizer.save_pretrained(cfg["output_dir"])
     model.model.config.save_pretrained(cfg["output_dir"])
