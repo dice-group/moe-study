@@ -14,6 +14,7 @@ MIN_DOC_COUNT = 10_000  # minimum threshold to apply sampling logic
 
 TASKS_PER_SUBSET = 1
 ENGLISH_DOC_COUNT = 25_900_000_000 # 25.9 billion documents in fineweb
+ENGLISH_UNDERSAMPLED_COUNT = ENGLISH_DOC_COUNT // 5 # Undersampling English since it's highly overrepresented
 
 # Helpers
 def _calc_sample_size(percent: float, estimate: int) -> int:
@@ -72,9 +73,9 @@ def get_spe_instance(subset: str, name: str, doc_count: int):
             jsonl_writer
         ],
         tasks=TASKS_PER_SUBSET,
-        job_name=f"sampling__{subset}",
+        job_name=f"{subset}__sampling",
         requeue=False, # If the job fails, shows the proper error message
-        qos="cont", # PC² specific QoS # TODO: Fix this, this gets assigned automatically based on available budget but the default qos is causing error.
+        qos="", # leaving it blank because the default qos causes error
         logging_dir=log_dir, # Scripts and other aux files are also stored in this
         time="20:00:00",
         partition="normal", # Cluster specific, remains same for PC²
@@ -100,7 +101,7 @@ def main() -> None:
     for row in rows_list:
         executor_list.append(exec_factory(row["subset"], row["name"], int(row["documents"])))
     # For English (fineweb)
-    executor_list.append(exec_factory('english', 'English', ENGLISH_DOC_COUNT))    
+    executor_list.append(exec_factory('english', 'English', ENGLISH_UNDERSAMPLED_COUNT))
     for exec in executor_list:
         exec.run()
 
