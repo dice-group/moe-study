@@ -34,13 +34,11 @@ def _output_path(*parts: str) -> str:
     return os.path.join(OUTPUT_DIR, *parts)
 
 
-def _get_subset_args(subset: str, doc_count: int):
+def _get_subset_args(subset: str, sample_size: int):
     # English is sampled from a different dataset
     ds_path = f"hf://datasets/HuggingFaceFW/fineweb-2/data/{subset}/train"
     if subset.lower() == 'english':
         ds_path = f"hf://datasets/HuggingFaceFW/fineweb/data/" # All of the data, for other subsets look into: https://huggingface.co/datasets/HuggingFaceFW/fineweb#using-%F0%9F%8F%AD-datatrove
-    
-    sample_size = _calc_sample_size(SAMPLE_PERCENTAGE, doc_count)
     
     output_filepath = _output_path('samples', subset)
     
@@ -50,8 +48,8 @@ def _get_subset_args(subset: str, doc_count: int):
     return jsonl_writer, parquet_reader
 
 # Executor factory functions
-def get_lpe_instance(subset: str, name: str, doc_count: int):
-    jsonl_writer, parquet_reader = _get_subset_args(subset, doc_count)
+def get_lpe_instance(subset: str, sample_size: int):
+    jsonl_writer, parquet_reader = _get_subset_args(subset, sample_size)
     pipeline_exec = LocalPipelineExecutor(
         pipeline=[
             parquet_reader,
@@ -61,8 +59,8 @@ def get_lpe_instance(subset: str, name: str, doc_count: int):
     )
     return pipeline_exec
 
-def get_spe_instance(subset: str, name: str, doc_count: int):
-    jsonl_writer, parquet_reader = _get_subset_args(subset, doc_count)
+def get_spe_instance(subset: str, sample_size: int):
+    jsonl_writer, parquet_reader = _get_subset_args(subset, sample_size)
     
     log_dir = _output_path('slurm_dir', subset) # this needs to be different for every subset
     os.makedirs(log_dir, exist_ok=True)
@@ -84,6 +82,15 @@ def get_spe_instance(subset: str, name: str, doc_count: int):
     )
     return pipeline_exec
 
+def _write_sample_sizes(sample_info):
+    
+    sample_sizes_tsv_filepath = _output_path("sample_sizes.tsv")
+    
+    with open(sample_sizes_tsv_filepath, "w", encoding="utf-8") as f:
+        f.write("subset\tname\tresource_category\tsample_size\n")
+        for subset, lang_name, res_cat, sample_size in sample_info:
+            f.write(f"{subset}\t{lang_name}\t{res_cat}\t{sample_size}\n")
+
 def main() -> None:
     # Load metadata CSV once
     metadata_df = pd.read_csv(METADATA_PATH)
@@ -97,11 +104,30 @@ def main() -> None:
     else:
         exec_factory = get_lpe_instance
     
+    # Compute the sample size beforehand and write it to a tsv file before starting executor run
+    sample_sizes = []
     # For fineweb2
     for row in rows_list:
-        executor_list.append(exec_factory(row["subset"], row["name"], int(row["documents"])))
+        doc_count = int(row["documents"])
+        sample_size = _calc_sample_size(SAMPLE_PERCENTAGE, doc_count)
+        subset = row["subset"]
+        lang_name = row["name"]
+        res_cat = row["resource_category"]
+        sample_sizes.append((subset, lang_name, res_cat, sample_size))
+        # Get language executor
+        executor_list.append(exec_factory(subset, sample_size))
+    
     # For English (fineweb)
-    executor_list.append(exec_factory('english', 'English', ENGLISH_UNDERSAMPLED_COUNT))
+    eng_subset = 'english'
+    eng_lang_name = 'English'
+    eng_res_cat = 'high'
+    eng_sample_size = _calc_sample_size(SAMPLE_PERCENTAGE, ENGLISH_UNDERSAMPLED_COUNT)
+    sample_sizes.append((eng_subset, eng_lang_name, eng_res_cat, eng_sample_size))
+    # Get English executor
+    executor_list.append(exec_factory(eng_subset, eng_sample_size))
+    # Write the TSV before launching any executors
+    _write_sample_sizes(sample_sizes)
+    # Run all executors
     for exec in executor_list:
         exec.run()
 
