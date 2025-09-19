@@ -21,4 +21,5 @@ srun python $SCRIPT \
     --output_dir $OUTPUT_DIR \
     --base_model $BASE_MODEL \
     --min_freq $MIN_FREQ \
-    --target_vocab $TARGET_VOCAB
+    --target_vocab $TARGET_VOCAB \
+    --debug

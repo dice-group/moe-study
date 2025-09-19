@@ -16,7 +16,15 @@ def set_seed(seed: int):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-
+        
+def count_docs(file_list):
+    """Count total docs across files"""
+    total = 0
+    for fpath in file_list:
+        with gzip.open(fpath, "rt", encoding="utf-8") as f:
+            for _ in f:
+                total += 1
+    return total
 
 def iter_jsonl_gz(file_list, max_docs=None):
     """Yield text from a list of .jsonl.gz files"""
@@ -52,19 +60,46 @@ def collect_files(data_root, slurm_task_id, slurm_ntasks):
     return shard
 
 
-def collect_token_frequencies(files, base_vocab, out_file, max_docs):
+def collect_token_frequencies(files, tokenizer, base_vocab, out_file, max_docs, task_id=0, debug=False):
     """collect new tokens and their frequency"""
-    counter = Counter()
+    if debug:
+        print(f"[Task {task_id}][DEBUG] Shard files = {files}")
+
+    if not files:
+        print(f"[Task {task_id}] No files assigned!")
+        return
+
+    total = count_docs(files) if not max_docs else max_docs
+    print(f"[Task {task_id}] Total docs to process: {total}")
+
+    counter, processed = Counter(), 0
     for text in iter_jsonl_gz(files, max_docs=max_docs):
-        for token in text.split():
+        if debug and processed < 3:  # show first 3 texts for inspection
+            print(f"[Task {task_id}][DEBUG] Sample text: {text[:200]}...")
+
+        tokens = tokenizer.tokenize(text)
+        if debug and processed < 3:
+            print(f"[Task {task_id}][DEBUG] Tokenized: {tokens[:20]}")
+
+        for token in tokens:
             if token not in base_vocab:
                 counter[token] += 1
+
+        processed += 1
+        if processed % 1000 == 0:
+            pct = (processed / total) * 100
+            print(f"[Task {task_id}] {processed}/{total} docs ({pct:.1f}%)", flush=True)
 
     Path(os.path.dirname(out_file)).mkdir(parents=True, exist_ok=True)
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(counter, f, ensure_ascii=False)
-    print(f"[Task] Collected {len(counter)} unique unknown tokens -> {out_file}")
 
+    print(f"[Task {task_id}] Collected {len(counter)} unique unknown tokens -> {out_file}")
+    if debug and len(counter) == 0:
+        print(f"[Task {task_id}][DEBUG] No OOV tokens found — possible causes: "
+              f"(1) tokenizer already covers everything, "
+              f"(2) filtering condition too strict, "
+              f"(3) shard has no usable text.")
 
 def merge_tokens(base_model, shard_files, output_dir, min_freq, target_vocab):
     """ Merge tokens and add the most frequent ones """
@@ -108,6 +143,7 @@ def main():
     parser.add_argument("--merge", action="store_true", help="Run merge step only")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--min_freq", type=int, default=10, help="Min frequency to keep token")
+    parser.add_argument("--debug", action="store_true", help="Enable debug output")
     parser.add_argument("--target_vocab", type=int, default=5000, help="Max vocab size to add")
     args = parser.parse_args()
 
@@ -123,7 +159,7 @@ def main():
 
         out_file = os.path.join(args.output_dir, f"tokens_{task_id}.json")
         print(f"[Task {task_id}] Processing {len(shard_files)} files")
-        collect_token_frequencies(shard_files, base_vocab, out_file, args.max_docs)
+        collect_token_frequencies(shard_files, tokenizer, base_vocab, out_file, args.max_docs, task_id, debug=args.debug)
     else:
         shard_files = [os.path.join(args.output_dir, f"tokens_{i}.json") for i in range(ntasks)]
         merge_tokens(args.base_model, shard_files, args.output_dir,
