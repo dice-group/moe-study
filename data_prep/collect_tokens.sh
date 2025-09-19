@@ -1,15 +1,16 @@
 #!/bin/bash
 #SBATCH --job-name=tok-collect
-#SBATCH --array=12
+#SBATCH --array=0-15
 #SBATCH --time=12:00:00
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
 #SBATCH --output=logs/tok_collect_%A_%a.out
 #SBATCH --error=logs/tok_collect_%A_%a.err
+#SBATCH -p normal 
 
 DATA_ROOT=/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/samples
 OUTPUT_DIR=/scratch/hpc-prf-merlin/project_data/moe_study/tokenizer_ext
-SCRIPT=extend_llama_tokenizer_freq.py
+SCRIPT=extend_llama_tokenizer.py
 BASE_MODEL=meta-llama/Llama-3.2-1b
 MIN_FREQ=20
 TARGET_VOCAB=5000
