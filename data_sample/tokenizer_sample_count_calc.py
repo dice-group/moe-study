@@ -17,7 +17,19 @@ df = pd.read_csv(INPUT_PATH, sep='\t')
 # Temperature-based weighting:
 # Higher T: weights become more uniform (closer to 1.0)
 # Lower T: weights emphasize larger sample sizes more strongly
-df['weight'] = np.power(df['sample_size'], 1.0 / T)
+
+## Power-law based scaling
+#df['weight'] = np.power(df['sample_size'], 1.0 / T) # normalizing values
+
+## Standard softmax temperature scaling # Reference paper: https://arxiv.org/pdf/2502.20604v1
+# df['weight'] = np.exp(df['sample_size'] / T) # Leading to infinite weight values
+
+## Softmax temperature scaling with numerical stability
+log_sample_sizes = np.log(df['sample_size'])
+scaled = log_sample_sizes / T
+max_scaled = scaled.max()
+df['weight'] = np.exp(scaled - max_scaled)
+
 df['prob']   = df['weight'] / df['weight'].sum()
 
 raw = df['prob'] * TARGET
