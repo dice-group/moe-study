@@ -19,14 +19,19 @@ def process_language(row):
     if not os.path.exists(lang_dir):
         return f"skip {subset}, dir not found"
 
-    ds = load_dataset("json", data_files=f"{lang_dir}/*.jsonl.gz", split="train")
-    ds = ds.remove_columns([c for c in ["id", "metadata"] if c in ds.column_names])
-    texts = list(ds["text"])
+    # streaming to prevent OOM issues
+    texts = []
+    for file in os.listdir(lang_dir):
+        if file.endswith(".jsonl.gz"):
+            with gzip.open(os.path.join(lang_dir, file), "rt", encoding="utf-8") as f:
+                for line in f:
+                    obj = json.loads(line)
+                    texts.append(obj["text"])
 
     if final_count <= sample_size:
         sampled = random.sample(texts, final_count)
     else:
-        multiplier, rem = divmod(final_count, sample_size) # multiply and add remaining random
+        multiplier, rem = divmod(final_count, sample_size)
         sampled = texts * multiplier + random.sample(texts, rem)
         random.shuffle(sampled)
 
@@ -37,7 +42,7 @@ def process_language(row):
 
     return f"{subset}: {len(sampled)} lines"
 
-# simple parallel
+# simple parallelization
 with ProcessPoolExecutor(max_workers=16) as ex:
     futures = {ex.submit(process_language, row): i for i, row in enumerate(df.to_dict(orient="records"), 1)}
     for future in as_completed(futures):
