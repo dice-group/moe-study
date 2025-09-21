@@ -11,6 +11,6 @@
 
 srun python train_tokenizer.py \
     --data_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/samples \
+    --sample_sizes_tsv /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/tokenizer_lang_sample_sizes.tsv \
     --output_dir /scratch/hpc-prf-merlin/project_data/moe_study/trained_tokenizer \
-    --vocab_size 250000 \
-    --chunk_size 50000
+    --vocab_size 250000
