@@ -5,6 +5,7 @@ import argparse
 import random
 import numpy as np
 import torch
+import unicodedata
 
 from pathlib import Path
 from collections import Counter
@@ -16,6 +17,11 @@ def set_seed(seed: int):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+        
+# remove cleaning
+def clean_text(text: str) -> str:
+    text = unicodedata.normalize("NFC", text)
+    return "".join(ch for ch in text if ch.isprintable()) # should filter out sth like \x00, \x1f
         
 def count_docs(file_list):
     """Count total docs across files"""
@@ -36,6 +42,7 @@ def iter_jsonl_gz(file_list, max_docs=None):
                     obj = json.loads(line)
                     text = obj.get("text", "")
                     if text:
+                        text = clean_text(text)
                         yield text
                         count += 1
                         if max_docs and count >= max_docs:
@@ -61,7 +68,7 @@ def collect_files(data_root, slurm_task_id, slurm_ntasks):
 
 
 def collect_token_frequencies(files, tokenizer, base_vocab, out_file, max_docs, task_id=0, debug=False):
-    """collect new tokens and their frequency"""
+    """collect OOV words and their frequency"""
     if debug:
         print(f"[Task {task_id}][DEBUG] Shard files = {files}")
 
@@ -74,16 +81,15 @@ def collect_token_frequencies(files, tokenizer, base_vocab, out_file, max_docs, 
 
     counter, processed = Counter(), 0
     for text in iter_jsonl_gz(files, max_docs=max_docs):
-        if debug and processed < 3:  # show first 3 texts for inspection
-            print(f"[Task {task_id}][DEBUG] Sample text: {text[:200]}...")
-
-        tokens = tokenizer.tokenize(text)
         if debug and processed < 3:
-            print(f"[Task {task_id}][DEBUG] Tokenized: {tokens[:20]}")
-
-        for token in tokens:
-            if token not in base_vocab:
-                counter[token] += 1
+            print(f"[Task {task_id}][DEBUG] Sample text: {text[:200]}...")
+        
+        for word in text.split():
+            if word not in base_vocab:   # out of vocab word
+                counter[word] += 1
+                if debug and processed < 3:
+                    pieces = tokenizer.tokenize(word)
+                    print(f"[Task {task_id}][DEBUG] Word='{word}' -> Pieces={pieces}")
 
         processed += 1
         if processed % 1000 == 0:
@@ -94,12 +100,10 @@ def collect_token_frequencies(files, tokenizer, base_vocab, out_file, max_docs, 
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(counter, f, ensure_ascii=False)
 
-    print(f"[Task {task_id}] Collected {len(counter)} unique unknown tokens -> {out_file}")
+    print(f"[Task {task_id}] Collected {len(counter)} OOV words -> {out_file}")
     if debug and len(counter) == 0:
-        print(f"[Task {task_id}][DEBUG] No OOV tokens found — possible causes: "
-              f"(1) tokenizer already covers everything, "
-              f"(2) filtering condition too strict, "
-              f"(3) shard has no usable text.")
+        print(f"[Task {task_id}][DEBUG] No OOV words found — maybe tokenizer already covers this shard.")
+
 
 def merge_tokens(base_model, shard_files, output_dir, min_freq, target_vocab):
     """ Merge tokens and add the most frequent ones """
@@ -115,11 +119,9 @@ def merge_tokens(base_model, shard_files, output_dir, min_freq, target_vocab):
             merged_counter.update(shard_counts)
     print(f"[Merge] Total candidate tokens: {len(merged_counter)}")
 
-    # filter by frequency
+    # filter by frequency and sort
     filtered = {tok: cnt for tok, cnt in merged_counter.items() if cnt >= min_freq}
     print(f"[Merge] After min_freq={min_freq}: {len(filtered)} tokens")
-
-    # sort by frequency
     sorted_tokens = sorted(filtered.items(), key=lambda x: -x[1])
 
     # cut to target vocab size
