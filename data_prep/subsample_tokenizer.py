@@ -19,7 +19,7 @@ def process_language(row):
     if not os.path.exists(lang_dir):
         return f"skip {subset}, dir not found"
 
-    # streaming to prevent OOM issues
+    # streaming TODO: prevent OOM issues with chunk_size or otherwise if necessary with bigger data samples
     texts = []
     for file in os.listdir(lang_dir):
         if file.endswith(".jsonl.gz"):
