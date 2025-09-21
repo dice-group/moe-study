@@ -18,7 +18,7 @@ df = pd.read_csv(INPUT_PATH, sep='\t')
 # Higher T: weights become more uniform (closer to 1.0)
 # Lower T: weights emphasize larger sample sizes more strongly
 
-## Power-law based scaling
+## Power-law based scaling # Cannot find much literature support for this
 #df['weight'] = np.power(df['sample_size'], 1.0 / T) # applying temperature 
 
 ## Standard softmax temperature scaling # Reference paper: https://arxiv.org/pdf/2502.20604v1
