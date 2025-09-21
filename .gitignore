@@ -8,3 +8,4 @@ wandb
 *output.log
 .vscode/
 outputs/*
+data_prep/*logs*/
