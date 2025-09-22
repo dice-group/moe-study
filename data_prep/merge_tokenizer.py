@@ -31,12 +31,16 @@ def vocab_extend(Vi, Vt, docs, m, tokenizer_fn, max_size=250_000, freq_output=No
     V = set(Vi)
     F = Counter()
     T = set()
-    for d in docs:
+    total_docs = len(docs)
+    for idx, d in enumerate(docs, 1):
         tV = tokenizer_fn(d)
         Tnew = exhaustive_merge(V, Vt, tV)
         V |= Tnew
         T |= Tnew
         F.update(Tnew)
+        
+        if idx % 10_000 == 0 or idx == total_docs:
+            print(f"Processed {idx}/{total_docs} documents")
         
     # save full frequency table if requested
     if freq_output:

@@ -5,11 +5,11 @@
 #SBATCH --partition=normal
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=256G
 #SBATCH --time=02:00:00
 
-srun python merge_tokenizer.py \
+srun python -u merge_tokenizer.py \
   --base_tokenizer meta-llama/Llama-3.2-1B \
   --target_tokenizer /scratch/hpc-prf-merlin/project_data/moe_study/trained_multilingual_tokenizer_llama-3.2-1B \
   --data_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset \
