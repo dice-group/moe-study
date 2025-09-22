@@ -3,6 +3,7 @@ import gzip
 import json
 import glob
 import os
+import time
 
 from collections import Counter
 from transformers import AutoTokenizer
@@ -28,6 +29,7 @@ def exhaustive_merge(Vi, Vt, tV):
 
 
 def vocab_extend(Vi, Vt, docs, m, tokenizer_fn, max_size=250_000, freq_output=None):
+    start = time.time()
     V = set(Vi)
     F = Counter()
     T = set()
@@ -39,8 +41,10 @@ def vocab_extend(Vi, Vt, docs, m, tokenizer_fn, max_size=250_000, freq_output=No
         T |= Tnew
         F.update(Tnew)
         
-        if idx % 10_000 == 0 or idx == total_docs:
-            print(f"Processed {idx}/{total_docs} documents")
+        if idx % 1_000 == 0 or idx == total_docs:
+            elapsed = time.time() - start
+            print(f"Processed {idx}/{total_docs} documents "
+                f"({idx/total_docs:.1%}) in {elapsed/60:.2f} min")
         
     # save full frequency table if requested
     if freq_output:

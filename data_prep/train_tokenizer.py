@@ -4,6 +4,10 @@ import datasets
 
 from transformers import AutoTokenizer
 from datasets import load_dataset, Features, Value
+
+"""
+This script trains the multilingual tokenizer for the moe-study mimicing the nlbb tokenizer used in SeaLLM paper
+"""
         
 def main():
     parser = argparse.ArgumentParser(description="Train a new Llama 3.2 1b tokenizer on multilingual data.")
