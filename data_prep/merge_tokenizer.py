@@ -8,6 +8,10 @@ from collections import Counter
 from transformers import AutoTokenizer
 
 def exhaustive_merge(Vi, Vt, tV):
+    """
+    Vi: llama vocab     Vt: target multilingual (NLBB) vocab     tV: sequence of tokens
+    Returns set of new tokens (from Vt) that should be added to Vi
+    """
     Tnew = set()
     updated = True
     while updated:
@@ -15,7 +19,7 @@ def exhaustive_merge(Vi, Vt, tV):
         for i in range(len(tV) - 1):
             prev, nxt = tV[i], tV[i+1]
             merged = prev + nxt
-            if merged in Vt:
+            if merged in Vt and merged not in Vi:
                 tV = tV[:i] + [merged] + tV[i+2:]
                 Tnew.add(merged)
                 updated = True
@@ -23,18 +27,32 @@ def exhaustive_merge(Vi, Vt, tV):
     return Tnew
 
 
-def vocab_extend(Vi, Vt, docs, m, tokenizer_fn):
+def vocab_extend(Vi, Vt, docs, m, tokenizer_fn, max_size=250_000, freq_output=None):
     V = set(Vi)
     F = Counter()
     T = set()
     for d in docs:
         tV = tokenizer_fn(d)
-        Tnew = exhaustive_merge(Vi, Vt, tV)
+        Tnew = exhaustive_merge(V, Vt, tV)
         V |= Tnew
         T |= Tnew
         F.update(Tnew)
-    Tpruned = {t for t in T if F[t] >= m}
-    return set(Vi) | Tpruned
+        
+    # save full frequency table if requested
+    if freq_output:
+        os.makedirs(os.path.dirname(freq_output), exist_ok=True)
+        with open(freq_output, "w", encoding="utf-8") as f:
+            for token, freq in F.most_common():
+                f.write(f"{token}\t{freq}\n")
+
+    # prune by min frequency
+    Tpruned = [t for t in T if F[t] >= m]
+    Tpruned.sort(key=lambda t: F[t], reverse=True)
+
+    # cap vocab size
+    num_to_add = max_size - len(Vi)
+    Tfinal = set(Tpruned[:num_to_add])
+    return set(Vi) | Tfinal
 
 
 def read_jsonl_gz(path, text_key="text", limit=None):
@@ -57,6 +75,7 @@ if __name__ == "__main__":
     parser.add_argument("--min_freq", type=int, default=5)
     parser.add_argument("--limit", type=int, default=None, help="Optional doc limit per file")
     parser.add_argument("--output_dir", required=True)
+    parser.add_argument("--freq_output", default=None, help="Optional path to save token frequencies")
     args = parser.parse_args()
 
     base_tok = AutoTokenizer.from_pretrained(args.base_tokenizer)
@@ -79,7 +98,8 @@ if __name__ == "__main__":
         Vt=Vt,
         docs=all_docs,
         m=args.min_freq,
-        tokenizer_fn=base_tok.tokenize
+        tokenizer_fn=base_tok.tokenize,
+        freq_output=os.path.join(args.output_dir, "token_frequencies.tsv"),
     )
 
     print(f"Original vocab size: {len(Vi)}")
@@ -93,6 +113,3 @@ if __name__ == "__main__":
     os.makedirs(args.output_dir, exist_ok=True)
     base_tok.save_pretrained(args.output_dir)
     print(f"Extended tokenizer saved to {args.output_dir}")
-
-#TODO: max 250k vocab size
-#TODO: how big shouold be the vocab size of the mutlilingual, self trained tokenizer then? i set to 300k for now, is this reasonable?

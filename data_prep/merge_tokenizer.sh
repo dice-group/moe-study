@@ -15,4 +15,4 @@ srun python merge_tokenizer.py \
   --data_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset \
   --min_freq 5 \
   --output_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/extended_tokenizer/llama-3.2-1b_extended \
-  --limit 1000
+  --freq_output /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/extended_tokenizer/llama-3.2-1b_extended/token_frequencies.tsv
