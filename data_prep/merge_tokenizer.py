@@ -39,12 +39,18 @@ def vocab_extend(Vi, Vt, docs, m, tokenizer_fn, max_size=250_000, freq_output=No
         Tnew = exhaustive_merge(V, Vt, tV)
         V |= Tnew
         T |= Tnew
-        F.update(Tnew)
+        
+        for tok in Tnew:
+            F[tok] += tV.count(tok)
         
         if idx % 1_000 == 0 or idx == total_docs:
             elapsed = time.time() - start
             print(f"Processed {idx}/{total_docs} documents "
                 f"({idx/total_docs:.1%}) in {elapsed/60:.2f} min")
+            if Tnew:
+                print(f"Sample Tnew: {list(Tnew)[:5]}")
+            if F:
+                print(f"Top tokens so far: {F.most_common(5)}")
         
     # save full frequency table if requested
     if freq_output:
