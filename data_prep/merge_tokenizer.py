@@ -8,50 +8,52 @@ import time
 from collections import Counter
 from transformers import AutoTokenizer
 
-def exhaustive_merge(Vi, Vt, tV):
+def exhaustive_merge(Vt, tV):
     """
     Vi: llama vocab     Vt: target multilingual (NLBB) vocab     tV: sequence of tokens
     Returns set of new tokens (from Vt) that should be added to Vi
     """
-    Tnew = set()
+    t = list(tV)
     updated = True
     while updated:
         updated = False
-        for i in range(len(tV) - 1):
-            prev, nxt = tV[i], tV[i+1]
+        i = 0
+        while i < len(t) - 1:
+            prev, nxt = t[i], t[i+1]
             merged = prev + nxt
-            if merged in Vt and merged not in Vi:
-                tV = tV[:i] + [merged] + tV[i+2:]
-                Tnew.add(merged)
+            if merged in Vt:
+                t = t[:i] + [merged] + t[i+2:]
                 updated = True
-                break
-    return Tnew
+                i = max(i - 1, 0)
+            else:
+                i += 1
+    return t
 
 
 def vocab_extend(Vi, Vt, docs, m, tokenizer_fn, max_size=250_000, freq_output=None):
     start = time.time()
-    V = set(Vi)
+
+    Vi0 = set(Vi)        # freeze original base vocab
+    C = Vt - Vi0         # candidate tokens to consider
     F = Counter()
-    T = set()
+
     total_docs = len(docs)
     for idx, d in enumerate(docs, 1):
         tV = tokenizer_fn(d)
-        Tnew = exhaustive_merge(V, Vt, tV)
-        V |= Tnew
-        T |= Tnew
-        
-        for tok in Tnew:
-            F[tok] += tV.count(tok)
-        
+        tV_merged = exhaustive_merge(Vt, tV)
+
+        # count candidate token occurrences
+        for tok in tV_merged:
+            if tok in C:
+                F[tok] += 1
+
         if idx % 1_000 == 0 or idx == total_docs:
             elapsed = time.time() - start
             print(f"Processed {idx}/{total_docs} documents "
-                f"({idx/total_docs:.1%}) in {elapsed/60:.2f} min")
-            if Tnew:
-                print(f"Sample Tnew: {list(Tnew)[:5]}")
+                  f"({idx/total_docs:.1%}) in {elapsed/60:.2f} min")
             if F:
                 print(f"Top tokens so far: {F.most_common(5)}")
-        
+
     # save full frequency table if requested
     if freq_output:
         os.makedirs(os.path.dirname(freq_output), exist_ok=True)
@@ -60,13 +62,14 @@ def vocab_extend(Vi, Vt, docs, m, tokenizer_fn, max_size=250_000, freq_output=No
                 f.write(f"{token}\t{freq}\n")
 
     # prune by min frequency
-    Tpruned = [t for t in T if F[t] >= m]
+    Tpruned = [t for t, freq in F.items() if freq >= m]
     Tpruned.sort(key=lambda t: F[t], reverse=True)
 
     # cap vocab size
-    num_to_add = max_size - len(Vi)
-    Tfinal = set(Tpruned[:num_to_add])
-    return set(Vi) | Tfinal
+    num_to_add = max_size - len(Vi0)
+    Tfinal = set(Tpruned[:max(0, num_to_add)])
+
+    return Vi0 | Tfinal
 
 
 def read_jsonl_gz(path, text_key="text", limit=None):
