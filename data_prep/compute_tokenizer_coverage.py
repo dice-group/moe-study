@@ -5,6 +5,7 @@ import json
 import argparse
 import pandas as pd
 from tqdm import tqdm
+from multiprocessing import Pool, cpu_count
 from transformers import AutoTokenizer
 
 def read_jsonl_gz(path, max_lines=None):
@@ -22,7 +23,17 @@ def read_jsonl_gz(path, max_lines=None):
                 continue
     return texts
 
-def compute_metrics(tokenizer, texts):
+def compute_metrics(args_tuple):
+    fname, data_dir, tokenizer_name, max_lines = args_tuple
+    
+    from transformers import AutoTokenizer  # local import for process safety
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
+    
+    lang_id = fname.replace(".jsonl.gz", "")
+    path = os.path.join(data_dir, fname)
+    texts = read_jsonl_gz(path, max_lines=max_lines)
+    if not texts:
+        return None
     total_chars = total_words = total_tokens = unk_count = 0
     for t in texts:
         total_chars += len(t)
@@ -34,35 +45,32 @@ def compute_metrics(tokenizer, texts):
     chars_per_token = total_chars / total_tokens if total_tokens else 0
     pieces_per_word = total_tokens / total_words if total_words else 0
     unk_rate = unk_count / total_tokens if total_tokens else 0
-    return chars_per_token, pieces_per_word, unk_rate
+    return {
+        "language": lang_id,
+        "chars_per_token": chars_per_token,
+        "pieces_per_word": pieces_per_word,
+        "unknown_rate": unk_rate,
+        "num_texts": len(texts),
+    }
 
 def main():
-    parser = argparse.ArgumentParser(description="Compute tokenizer coverage metrics per language file.")
-    parser.add_argument("--data_dir", required=True, help="Directory with .jsonl.gz language files.")
-    parser.add_argument("--tokenizer", required=True, help="HF model name or path (e.g., meta-llama/Meta-Llama-3-8B).")
-    parser.add_argument("--max_lines", type=int, default=10000, help="Max lines to sample per language file.")
-    parser.add_argument("--output_csv", default="tokenizer_coverage.csv", help="Output CSV path.")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_dir", required=True)
+    parser.add_argument("--tokenizer", required=True)
+    parser.add_argument("--max_lines", type=int, default=10000)
+    parser.add_argument("--output_csv", default="tokenizer_coverage.csv")
+    parser.add_argument("--num_workers", type=int, default=cpu_count())
     args = parser.parse_args()
 
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, use_fast=True)
-
-    results = []
     files = sorted([f for f in os.listdir(args.data_dir) if f.endswith(".jsonl.gz")])
-    for fname in tqdm(files, desc="Processing languages"):
-        lang_id = fname.replace(".jsonl.gz", "")
-        texts = read_jsonl_gz(os.path.join(args.data_dir, fname), max_lines=args.max_lines)
-        if not texts:
-            continue
-        cpt, ppw, unk = compute_metrics(tokenizer, texts)
-        results.append({
-            "language": lang_id,
-            "chars_per_token": cpt,
-            "pieces_per_word": ppw,
-            "unknown_rate": unk,
-            "num_texts": len(texts)
-        })
+    task_args = [(f, args.data_dir, args.tokenizer, args.max_lines) for f in files]
 
+    with Pool(processes=args.num_workers) as pool:
+        results = list(tqdm(pool.imap_unordered(compute_metrics, task_args), total=len(task_args)))
+
+    results = [r for r in results if r is not None]
     df = pd.DataFrame(results)
+    os.makedirs(os.path.dirname(args.output_csv), exist_ok=True)
     df.to_csv(args.output_csv, index=False)
     print(f"\n Saved metrics for {len(df)} languages to {args.output_csv}")
 
