@@ -15,7 +15,7 @@ class MoelprAdapter(MethodAdapter):
     def apply(self, model_args, data_args, training_args):
         base_model = AutoModelForCausalLM.from_pretrained(
             model_args["model_name_or_path"],
-            torch_dtype=torch.float16,
+            torch_dtype=torch.bfloat16,
         )
 
         tokenizer = AutoTokenizer.from_pretrained(
@@ -43,6 +43,18 @@ class MoelprAdapter(MethodAdapter):
             moelpr_debug_mode=getattr(training_args, "moelpr_debug_mode", False)
         )
         model = MoeModel(base_model, moelpr_config, adapter_name="default")
+
+        # Unfreeze embedding layers
+        for param in model.get_input_embeddings().parameters():
+            param.requires_grad = True
+        for param in model.get_output_embeddings().parameters():
+            param.requires_grad = True
+
+        # print("\n--- Verifying Trainable Parameters (MoE-LPR) ---")
+        # for name, param in model.named_parameters():
+        #     if param.requires_grad:
+        #         print(f"  - {name}")
+        # print("------------------------------------------------\n")
 
         # Ensure AuxLossWrapper can call a getter without error
         if not hasattr(model, "get_aux_loss"):

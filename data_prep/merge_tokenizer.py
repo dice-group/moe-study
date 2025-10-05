@@ -8,68 +8,49 @@ import time
 from collections import Counter
 from transformers import AutoTokenizer
 
-def exhaustive_merge(Vt, tV):
+def exhaustive_merge(Vi, Vt, tV):
     """
     Vi: llama vocab     Vt: target multilingual (NLBB) vocab     tV: sequence of tokens
-    Returns set of new tokens (from Vt) that should be added to Vi
+    Returns merged token sequence
     """
     t = list(tV)
+    T_new = set()
     updated = True
+
     while updated:
         updated = False
-        i = 0
-        while i < len(t) - 1:
-            prev, nxt = t[i], t[i+1]
-            merged = prev + nxt
-            if merged in Vt:
-                t = t[:i] + [merged] + t[i+2:]
+        for i in range(len(t) - 1):
+            tmerged = t[i] + t[i+1]
+            if tmerged in Vt:
+                t[i:i+2] = [tmerged]
+                T_new.add(tmerged)
                 updated = True
-                i = max(i - 1, 0)
-            else:
-                i += 1
-    return t
+                break
+    return T_new
 
 
-def vocab_extend(Vi, Vt, docs, m, tokenizer_fn, max_size=250_000, freq_output=None):
-    start = time.time()
-
-    Vi0 = set(Vi)        # freeze original base vocab
-    C = Vt - Vi0         # candidate tokens to consider
+def vocab_extend(Vi, Vt, docs, m, tokenizer_fn):
+    V = set(Vi)
+    T = set()
     F = Counter()
 
     total_docs = len(docs)
     for idx, d in enumerate(docs, 1):
         tV = tokenizer_fn(d)
-        tV_merged = exhaustive_merge(Vt, tV)
+        T_new = exhaustive_merge(Vi, Vt, tV)
+        V |= T_new
+        T |= T_new
+        for tok in T_new:
+            F[tok] +=1
+            
+        if idx % 50 == 0 or idx == total_docs:     # show progress
+            pct = 100 * idx / total_docs
+            print(f"Processed {idx}/{total_docs} docs ({pct:.1f}%)")
 
-        # count candidate token occurrences
-        for tok in tV_merged:
-            if tok in C:
-                F[tok] += 1
 
-        if idx % 1_000 == 0 or idx == total_docs:
-            elapsed = time.time() - start
-            print(f"Processed {idx}/{total_docs} documents "
-                  f"({idx/total_docs:.1%}) in {elapsed/60:.2f} min")
-            if F:
-                print(f"Top tokens so far: {F.most_common(5)}")
-
-    # save full frequency table if requested
-    if freq_output:
-        os.makedirs(os.path.dirname(freq_output), exist_ok=True)
-        with open(freq_output, "w", encoding="utf-8") as f:
-            for token, freq in F.most_common():
-                f.write(f"{token}\t{freq}\n")
-
-    # prune by min frequency
-    Tpruned = [t for t, freq in F.items() if freq >= m]
-    Tpruned.sort(key=lambda t: F[t], reverse=True)
-
-    # cap vocab size
-    num_to_add = max_size - len(Vi0)
-    Tfinal = set(Tpruned[:max(0, num_to_add)])
-
-    return Vi0 | Tfinal
+    T_pruned = {t for t in T if F[t] > m}
+    V_final = Vi | T_pruned
+    return V_final, F
 
 
 def read_jsonl_gz(path, text_key="text", limit=None):
@@ -89,9 +70,9 @@ if __name__ == "__main__":
     parser.add_argument("--base_tokenizer", required=True)
     parser.add_argument("--target_tokenizer", required=True)
     parser.add_argument("--data_dir", required=True, help="Directory of .jsonl.gz files")
-    parser.add_argument("--min_freq", type=int, default=5)
-    parser.add_argument("--limit", type=int, default=None, help="Optional doc limit per file")
+    parser.add_argument("--min_freq", type=int, default=3)
     parser.add_argument("--output_dir", required=True)
+    parser.add_argument("--limit", type=int, default=None, help="Optional limit per file")
     parser.add_argument("--freq_output", default=None, help="Optional path to save token frequencies")
     args = parser.parse_args()
 
@@ -110,13 +91,12 @@ if __name__ == "__main__":
         docs = list(read_jsonl_gz(f, text_key="text", limit=args.limit))
         all_docs.extend(docs)
 
-    Vfinal = vocab_extend(
+    Vfinal, F = vocab_extend(
         Vi=Vi,
         Vt=Vt,
         docs=all_docs,
         m=args.min_freq,
         tokenizer_fn=base_tok.tokenize,
-        freq_output=os.path.join(args.output_dir, "token_frequencies.tsv"),
     )
 
     print(f"Original vocab size: {len(Vi)}")
@@ -125,8 +105,16 @@ if __name__ == "__main__":
     print(f"Discovered {len(new_tokens)} new tokens")
     if new_tokens:
         print("Sample new tokens:", new_tokens[:50])
-        
-    base_tok.add_tokens(list(Vfinal - Vi))
+
+    # Save extended tokenizer
     os.makedirs(args.output_dir, exist_ok=True)
+    base_tok.add_tokens(list(Vfinal - Vi))
     base_tok.save_pretrained(args.output_dir)
     print(f"Extended tokenizer saved to {args.output_dir}")
+
+    # Save frequencies if requested
+    if args.freq_output:
+        print(f"Saving token frequencies to {args.freq_output}")
+        with open(args.freq_output, "w", encoding="utf-8") as fout:
+            for tok, freq in F.most_common():
+                fout.write(f"{tok}\t{freq}\n")
