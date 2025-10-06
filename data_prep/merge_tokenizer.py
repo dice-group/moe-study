@@ -1,9 +1,9 @@
 import argparse
 import gzip
 import json
-import glob
+import random
 import os
-import time
+import pandas as pd
 
 from collections import Counter
 from transformers import AutoTokenizer
@@ -53,16 +53,17 @@ def vocab_extend(Vi, Vt, docs, m, tokenizer_fn):
     return V_final, F
 
 
-def read_jsonl_gz(path, text_key="text", limit=None):
-    count = 0
+def read_jsonl_gz(path, text_key="text", limit=None, seed=42):
+    lines = []
     with gzip.open(path, "rt", encoding="utf-8") as f:
         for line in f:
             record = json.loads(line)
             if text_key in record:
-                yield record[text_key]
-                count += 1
-                if limit and count >= limit:
-                    break
+                lines.append(record[text_key])
+    if limit and len(lines) > limit:
+        random.seed(seed)
+        lines = random.sample(lines, limit)
+    return lines
 
 
 if __name__ == "__main__":
@@ -70,10 +71,10 @@ if __name__ == "__main__":
     parser.add_argument("--base_tokenizer", required=True)
     parser.add_argument("--target_tokenizer", required=True)
     parser.add_argument("--data_dir", required=True, help="Directory of .jsonl.gz files")
-    parser.add_argument("--min_freq", type=int, default=3)
     parser.add_argument("--output_dir", required=True)
+    parser.add_argument("--min_freq", type=int, default=3)
     parser.add_argument("--limit", type=int, default=None, help="Optional limit per file")
-    parser.add_argument("--freq_output", default=None, help="Optional path to save token frequencies")
+    parser.add_argument("--lang", required=True, help="Language code (e.g., hin_Deva)")
     args = parser.parse_args()
 
     base_tok = AutoTokenizer.from_pretrained(args.base_tokenizer)
@@ -81,40 +82,26 @@ if __name__ == "__main__":
 
     Vi = set(base_tok.get_vocab().keys())
     Vt = set(target_tok.get_vocab().keys())
+    
+    lang_file = os.path.join(args.data_dir, f"{args.lang}.jsonl.gz")
+    if not os.path.exists(lang_file):
+        raise FileNotFoundError(f"Missing data file for {args.lang}: {lang_file}")
 
-    all_docs = []
-    files = glob.glob(f"{args.data_dir}/*.jsonl.gz")
-    print(f"Found {len(files)} files in {args.data_dir}")
-
-    for f in files:
-        print(f"Reading: {f}")
-        docs = list(read_jsonl_gz(f, text_key="text", limit=args.limit))
-        all_docs.extend(docs)
-
-    Vfinal, F = vocab_extend(
+    lang_out_dir = os.path.join(args.output_dir, args.lang)
+    os.makedirs(lang_out_dir, exist_ok=True)
+    
+    docs = read_jsonl_gz(lang_file, text_key="text", limit=args.limit, seed=42)
+    new_tokens, F = vocab_extend(
         Vi=Vi,
         Vt=Vt,
-        docs=all_docs,
+        docs=docs,
         m=args.min_freq,
         tokenizer_fn=base_tok.tokenize,
     )
-
-    print(f"Original vocab size: {len(Vi)}")
-    print(f"Extended vocab size: {len(Vfinal)}")
-    new_tokens = list(Vfinal - Vi)
-    print(f"Discovered {len(new_tokens)} new tokens")
-    if new_tokens:
-        print("Sample new tokens:", new_tokens[:50])
-
-    # Save extended tokenizer
-    os.makedirs(args.output_dir, exist_ok=True)
-    base_tok.add_tokens(list(Vfinal - Vi))
-    base_tok.save_pretrained(args.output_dir)
-    print(f"Extended tokenizer saved to {args.output_dir}")
-
-    # Save frequencies if requested
-    if args.freq_output:
-        print(f"Saving token frequencies to {args.freq_output}")
-        with open(args.freq_output, "w", encoding="utf-8") as fout:
-            for tok, freq in F.most_common():
-                fout.write(f"{tok}\t{freq}\n")
+    
+    df = pd.DataFrame(
+        [(tok, freq) for tok, freq in F.most_common() if tok in new_tokens],
+        columns=["token", "frequency"]
+    )
+    df.to_csv(os.path.join(lang_out_dir, f"{args.lang}_tokens_freq.csv"), index=False, encoding="utf-8")
+    print(f"Saved {len(new_tokens)} new tokens to {lang_out_dir} for language {args.lang}")

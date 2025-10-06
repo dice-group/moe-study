@@ -1,18 +1,23 @@
 #!/bin/bash
-#SBATCH --job-name=merge_tokenizer_llama3.1-8b
-#SBATCH --output=logs/merge_tokenizers_vocab_llama3.1-8b_%j.out
-#SBATCH --error=logs/merge_tokenizers_vocab_llama3.1-8b_%j.err
-#SBATCH --partition=normal
+#SBATCH --job-name=test_merge_tokenizer_llama3.2-1b
+#SBATCH --output=logs/merge_tok/test_merge_tokenizers_vocab_llama3.2-1b_%j.out
+#SBATCH --error=logs/merge_tok/metest_merge_tokenizers_vocab_llama3.2-1b_%j.err
+#SBATCH --array=0-199
+#SBATCH --mem=64G
+#SBATCH -p normal
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=128G
-#SBATCH --time=24:00:00
+#SBATCH --time=2:00:00
+
+
+LANGS=($(ls /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset/*.jsonl.gz | xargs -n1 basename | sed 's/.jsonl.gz//'))
+LANG=${LANGS[$SLURM_ARRAY_TASK_ID]}
 
 srun python -u merge_tokenizer.py \
-  --base_tokenizer meta-llama/Llama-3.1-8B \
-  --target_tokenizer /scratch/hpc-prf-merlin/project_data/moe_study/trained_multilingual_tokenizer_llama-3.1-8B \
+  --base_tokenizer meta-llama/Llama-3.2-1B \
+  --target_tokenizer /scratch/hpc-prf-merlin/project_data/moe_study/trained_multilingual_tokenizer_llama-3.2-1B \
   --data_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset \
   --min_freq 5 \
-  --output_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/extended_tokenizer/llama-3.1-8B_extended \
-  --freq_output /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/extended_tokenizer/llama-3.1-8B_extended/token_frequencies.tsv
+  --output_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/extended_tokenizer/test \
+  --lang ${LANG} \
