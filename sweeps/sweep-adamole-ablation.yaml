@@ -1,0 +1,25 @@
+program: src/train_hf.py
+method: grid
+metric:
+  name: eval_loss
+  goal: minimize
+
+parameters:
+  config:
+    values:
+      - "configs/train_adamole_1b_5langs.yaml"
+      - "configs/train_adamole_1b_10langs.yaml"
+      - "configs/train_adamole_3b_5langs.yaml"
+      - "configs/train_adamole_3b_10langs.yaml"
+  use_method:
+    value: "adamole"
+  adamole_num_experts:
+    values: [2, 4, 8]
+  adamole_max_threshold:
+    values: [0.1, 0.25, 0.5]
+  adamole_aux_coef:
+    values: [0.01, 0.001]
+  lora_r:
+    values: [8, 16, 32]
+  lora_alpha:
+    values: [16, 32]

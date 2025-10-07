@@ -101,9 +101,7 @@ def main():
 
     log.info(f"Loading tokenized dataset from {args.tokenized_dataset_dir}")
     dataset = load_from_disk(args.tokenized_dataset_dir)
-    dataset = dataset.remove_columns(["text", "id", "metadata"]) # this is for the test code, do not commit this
-    # test
-    dataset = dataset.train_test_split(test_size=0.01, seed=args.seed)
+    dataset = dataset.remove_columns(["text", "id", "metadata"])
 
     # load approach, inject specific adapter with specialised MoE approach logic
     adapter = get_selected_method(args.use_method)
