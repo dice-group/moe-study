@@ -24,7 +24,7 @@ class AdaMoLEAdapter(MethodAdapter):
 
         # Tokenizer
         tokenizer = AutoTokenizer.from_pretrained(
-            model_args["model_name_or_path"],
+            training_args.tokenizer,
             padding_side="left",
             use_fast=True,
         )

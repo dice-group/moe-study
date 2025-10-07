@@ -18,7 +18,7 @@ python src/train_hf.py \
   --adamole_max_threshold 0.25 \
   --adamole_aux_coef 0.001 \
   --gradient_checkpointing \
-  --do_harness_eval
+  --do_harness_eval \
   --harness_tasks belebele hellaswag arc xnli \
   --wandb_project moe-study |& tee output.log
 echo "Starting training job"
