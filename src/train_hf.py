@@ -1,6 +1,9 @@
 import argparse
 import yaml
 import wandb
+import torch
+import numpy as np
+import random
 
 from datasets import load_from_disk
 from transformers import (
@@ -16,6 +19,14 @@ from evaluation import HarnessTrainer
 
 log = get_logger("moelpr")
 
+def set_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def load_yaml_config(path: str):
     with open(path, "r") as f:
@@ -68,6 +79,7 @@ def main():
     parser.add_argument("--track_flops", action="store_true", help="Enable FLOPs tracking.")
     
     args = parser.parse_args()
+    set_seed(args.seed)
 
     # load yaml config
     cfg = load_yaml_config(args.config)
@@ -77,7 +89,6 @@ def main():
     dataset_name = cfg["dataset"]
     dataset_dir = cfg["dataset_dir"]
     cutoff_len = cfg.get("cutoff_len", 1024)
-    max_samples = cfg.get("max_samples", None)
 
     # load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
@@ -91,27 +102,6 @@ def main():
     dataset = load_from_disk(args.tokenized_dataset_dir)
     # test
     dataset = dataset.train_test_split(test_size=0.01, seed=args.seed)
-
-    # easy tokenizing for now
-    def tokenize_fn(examples):
-        tokenized = tokenizer(examples["text"], truncation=True, max_length=cutoff_len)
-        if args.use_method == "moelpr" and args.moelpr_stage == 2:
-            lang_column = cfg.get("language_column", "lang")
-            original_lang = cfg.get("original_language_identifier", "en")
-            
-            if lang_column in examples:
-                lang_mask = [1 if lang == original_lang else 0 for lang in examples[lang_column]]
-                tokenized["lang_mask"] = lang_mask
-                if args.moelpr_debug_mode:
-                    num_original = sum(lang_mask)
-                    if num_original > 0:
-                        log.info(f"[moelpr] Found {num_original}/{len(lang_mask)} samples from original language ('{original_lang}') in this batch.")
-                        log.info(f"[moelpr] Sample lang_mask: {lang_mask[:10]}")
-        return tokenized
-
-    dataset = dataset.map(tokenize_fn, batched=True, remove_columns=dataset["train"].column_names)
-    if max_samples is not None:
-        dataset["train"] = dataset["train"].select(range(min(max_samples, len(dataset["train"]))))
 
     # load approach, inject specific adapter with specialised MoE approach logic
     adapter = get_selected_method(args.use_method)
