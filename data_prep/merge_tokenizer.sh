@@ -19,5 +19,6 @@ srun python -u merge_tokenizer.py \
   --target_tokenizer /scratch/hpc-prf-merlin/project_data/moe_study/trained_multilingual_tokenizer_llama-3.2-1B \
   --data_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset \
   --min_freq 5 \
+  --limit 100000 \
   --output_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/extended_tokenizer/test \
   --lang ${LANG} \

@@ -26,7 +26,7 @@ def exhaustive_merge(Vi, Vt, tV):
                 T_new.add(tmerged)
                 updated = True
                 break
-    return T_new
+    return t, T_new
 
 
 def vocab_extend(Vi, Vt, docs, m, tokenizer_fn):
@@ -37,11 +37,11 @@ def vocab_extend(Vi, Vt, docs, m, tokenizer_fn):
     total_docs = len(docs)
     for idx, d in enumerate(docs, 1):
         tV = tokenizer_fn(d)
-        T_new = exhaustive_merge(Vi, Vt, tV)
+        t_merged, T_new = exhaustive_merge(Vi, Vt, tV)
         V |= T_new
         T |= T_new
         for tok in T_new:
-            F[tok] +=1
+            F[tok] += t_merged.count(tok)
             
         if idx % 50 == 0 or idx == total_docs:     # show progress
             pct = 100 * idx / total_docs
@@ -90,6 +90,7 @@ if __name__ == "__main__":
     lang_out_dir = os.path.join(args.output_dir, args.lang)
     os.makedirs(lang_out_dir, exist_ok=True)
     
+    print(f"processing {args.lang}")
     docs = read_jsonl_gz(lang_file, text_key="text", limit=args.limit, seed=42)
     new_tokens, F = vocab_extend(
         Vi=Vi,
