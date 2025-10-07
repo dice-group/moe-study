@@ -1,54 +1,50 @@
+#!/usr/bin/env python3
 import argparse, gzip, json
-
 from pathlib import Path
-from collections import Counter
-from datasets import Dataset
+from datasets import load_dataset, Dataset
 from transformers import AutoTokenizer
 
-def yield_examples(lang_dir):
-    for f in lang_dir.glob("*.jsonl.gz"):
-        with gzip.open(f, "rt", encoding="utf-8") as inp:
-            for line in inp:
-                try:
-                    yield {"text": json.loads(line)["text"]}
-                except Exception:
-                    continue
+def tokenize_file(file_path: Path, tokenizer_name: str, out_dir: Path, num_proc: int = 8, shard_size: int = 100_000):
+    """
+    Tokenizes a single .jsonl.gz file and writes tokenized shards to disk.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
 
-def process_lang(lang_dir, out_dir, tokenizer_name):
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-    unk_id = tokenizer.unk_token_id
-    counts = Counter()
+    print(f"Tokenizing {file_path}")
+    ds = load_dataset("json", data_files=str(file_path), split="train", streaming=True)
 
-    def tokenize_fn(batch):
-        out = tokenizer(batch["text"], truncation=False, add_special_tokens=False)
+    buffer = []
+    shard_idx = 0
+    for i, ex in enumerate(ds):
+        text = ex.get("text", "")
+        toks = tokenizer(text, add_special_tokens=False)
+        buffer.append(toks)
 
-        for ids in out["input_ids"]:
-            counts["total"] += len(ids)
-            counts["unk"] += sum(1 for i in ids if i == unk_id)
-        return out
+        if len(buffer) >= shard_size:
+            Dataset.from_list(buffer).save_to_disk(str(out_dir / f"shard_{shard_idx:04d}"))
+            print(f"Saved shard {shard_idx} ({i:,} examples)", flush=True)
+            buffer.clear()
+            shard_idx += 1
 
-    ds = Dataset.from_generator(lambda: yield_examples(lang_dir))
-    ds = ds.map(tokenize_fn, batched=True, num_proc=4)
-    out_path = out_dir / lang_dir.name
-    ds.save_to_disk(str(out_path))
-
-    with open(out_dir / f"{lang_dir.name}.stats.json", "w") as out:
-        json.dump({"language": lang_dir.name, **counts}, out)
-    return lang_dir.name
+    if buffer:
+        Dataset.from_list(buffer).save_to_disk(str(out_dir / f"shard_{shard_idx:04d}"))
+    print(f"finished {file_path.name}")
 
 def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--parent-dir", required=True, type=Path)
-    p.add_argument("--out-dir", required=True, type=Path)
-    p.add_argument("--tokenizer", default="gpt2")
-    p.add_argument("--workers", type=int, default=4)
-    args = p.parse_args()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--input-file", type=Path, required=True)
+    ap.add_argument("--out-dir", type=Path, required=True)
+    ap.add_argument("--tokenizer", required=True)
+    ap.add_argument("--num-proc", type=int, default=8)
+    args = ap.parse_args()
 
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-    lang_dirs = [d for d in args.parent_dir.iterdir() if d.is_dir()]
-    for d in lang_dirs:
-        print("Processing", d.name)
-        process_lang(d, args.out_dir, args.tokenizer)
+    # create subdir for this file
+    lang_name = args.input_file.parent.name
+    shard_name = args.input_file.stem
+    out_subdir = args.out_dir / lang_name / shard_name
+
+    tokenize_file(args.input_file, args.tokenizer, out_subdir, args.num_proc)
 
 if __name__ == "__main__":
     main()

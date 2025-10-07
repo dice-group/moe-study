@@ -13,7 +13,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train a new Llama 3.2 1b tokenizer on multilingual data.")
     parser.add_argument("--data_dir", type=str, required=True, help="Training data directory")
     parser.add_argument("--output_dir", type=str, required=True, help="Output directory")
-    parser.add_argument("--vocab_size", type=int, default=300000, help="Tokenizer vocab size")
+    parser.add_argument("--vocab_size", type=int, default=250000, help="Tokenizer vocab size")
     parser.add_argument("--model_name", type=str, default="meta-llama/Llama-3.2-1B", help="Base model")
     args = parser.parse_args()
 

@@ -2,7 +2,7 @@ import argparse
 import yaml
 import wandb
 
-from datasets import load_dataset
+from datasets import load_from_disk
 from transformers import (
     AutoTokenizer,
     TrainingArguments,
@@ -51,6 +51,7 @@ def main():
     parser.add_argument("--moelpr_stage", type=int, default=1, choices=[1, 2], help="MoE-LPR training stage")
     parser.add_argument("--moelpr_debug_mode", action="store_true")
 
+    parser.add_argument("--tokenized_dataset_dir", required=True, help="path to pretokenized dataset")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save_total_limit", type=int, default=2)
     parser.add_argument("--gradient_checkpointing", action="store_true")
@@ -86,15 +87,10 @@ def main():
     if args.use_method == "moelpr":
         log.info(f"[moelpr] Running MoE-LPR in Stage {args.moelpr_stage}")
 
-    if args.use_method == "moelpr" and args.moelpr_stage == 2:
-        dataset_path = cfg.get("dataset_stage2", "Yelp/yelp_review_full") # fallback for testing
-        log.info(f"[moelpr] Loading Stage 2 dataset from: {dataset_path}")
-        dataset = load_dataset("json", data_files=dataset_path, split="train")
-    else:
-        dataset_path = cfg.get("dataset", "Yelp/yelp_review_full") # fallback for testing
-        log.info(f"Loading dataset from: {dataset_path}")
-        dataset = load_dataset("json", data_files=dataset_path, split="train")
-    dataset = dataset.train_test_split(test_size=0.1)
+    log.info(f"Loading tokenized dataset from {args.tokenized_dataset_dir}")
+    dataset = load_from_disk(args.tokenized_dataset_dir)
+    # test
+    dataset = dataset.train_test_split(test_size=0.01, seed=args.seed)
 
     # easy tokenizing for now
     def tokenize_fn(examples):

@@ -6,6 +6,7 @@ export LOG_LEVEL=DEBUG
 
 python src/train_hf.py \
   --config /upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/configs/train_adamole_hf.yaml \
+  --tokenized_dataset_dir /scratch/hpc-prf-merlin/project_data/moe_study/tokenized \
   --use_method adamole \
   --lora_r 4 \
   --lora_alpha 16 \
