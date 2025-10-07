@@ -63,6 +63,7 @@ def main():
     parser.add_argument("--moelpr_debug_mode", action="store_true")
 
     parser.add_argument("--tokenized_dataset_dir", required=True, help="path to pretokenized dataset")
+    parser.add_argument("--tokenizer", required=True, help="tokenizer name or path")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save_total_limit", type=int, default=2)
     parser.add_argument("--gradient_checkpointing", action="store_true")
@@ -91,9 +92,9 @@ def main():
     cutoff_len = cfg.get("cutoff_len", 1024)
 
     # load tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, use_fast=True)
     tokenizer.pad_token = tokenizer.eos_token
-
+    
     # load data
     if args.use_method == "moelpr":
         log.info(f"[moelpr] Running MoE-LPR in Stage {args.moelpr_stage}")
@@ -105,11 +106,14 @@ def main():
 
     # load approach, inject specific adapter with specialised MoE approach logic
     adapter = get_selected_method(args.use_method)
-    model, tokenizer, _ = adapter.apply(
+    model, _, _ = adapter.apply(
         cfg,
         {"dataset": dataset_name, "dataset_dir": dataset_dir, "cutoff_len": cutoff_len},
         args,
     )
+    if model.get_input_embeddings().weight.size(0) != len(tokenizer):
+        log.info(f"resize token embeddings to size of tokenizer: {len(tokenizer)}")
+        model.resize_token_embeddings(len(tokenizer))
     model.to("cuda")
 
     aux_loss_coef = 0.0
