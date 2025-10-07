@@ -14,8 +14,9 @@ lm_eval \
   --model hf \
   --model_args pretrained=$MODEL,tokenizer=$MODEL \
   --tasks belebele \
-  --device cuda \
   --batch_size auto \
+  --limit 10 \
+  --log_samples \
   --output_path "$OUT_FILE" \
   --include_path "$DETAIL_DIR" \
   --wandb_args "project=llama32_multilingual_eval_belebele,name=llama32_1b_global_suite_belebele"

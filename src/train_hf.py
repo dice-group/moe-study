@@ -111,9 +111,6 @@ def main():
         {"dataset": dataset_name, "dataset_dir": dataset_dir, "cutoff_len": cutoff_len},
         args,
     )
-    if model.get_input_embeddings().weight.size(0) != len(tokenizer):
-        log.info(f"resize token embeddings to size of tokenizer: {len(tokenizer)}")
-        model.resize_token_embeddings(len(tokenizer))
     model.to("cuda")
 
     aux_loss_coef = 0.0

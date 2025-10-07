@@ -25,6 +25,8 @@ class MolaAdapter(MethodAdapter):
             use_fast=True,
         )
         tokenizer.pad_token = tokenizer.eos_token
+        if base_model.get_input_embeddings().weight.size(0) != len(tokenizer):
+            base_model.resize_token_embeddings(len(tokenizer))
 
         # Load MoLA model
         mola_config = MolaConfig(
