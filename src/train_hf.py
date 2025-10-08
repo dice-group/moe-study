@@ -87,7 +87,6 @@ def main():
     cfg = load_yaml_config(args.config)
     wandb.init(project=args.wandb_project)
 
-    dataset_name = cfg["dataset"]
     dataset_dir = cfg["dataset_dir"]
     cutoff_len = cfg.get("cutoff_len", 1024)
 
@@ -107,7 +106,6 @@ def main():
     adapter = get_selected_method(args.use_method)
     model, _, _ = adapter.apply(
         cfg,
-        {"dataset": dataset_name, "dataset_dir": dataset_dir, "cutoff_len": cutoff_len},
         args,
     )
     model.to("cuda")

@@ -22,7 +22,6 @@ class MethodAdapter:
     def apply(
         self,
         model_args,
-        data_args,
         training_args,
     ) -> Tuple[PreTrainedModel, PreTrainedTokenizerBase]:
         """Apply the adapter method to the base model and return the adapted model and tokenizer."""
