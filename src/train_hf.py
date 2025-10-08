@@ -62,6 +62,7 @@ def main():
     parser.add_argument("--moelpr_stage", type=int, default=1, choices=[1, 2], help="MoE-LPR training stage")
     parser.add_argument("--moelpr_debug_mode", action="store_true")
 
+    parser.add_argument("--model_name_or_path", required=True, type=str, default=None,  help="base model to load")
     parser.add_argument("--tokenized_dataset_dir", required=True, help="path to pretokenized dataset")
     parser.add_argument("--tokenizer", required=True, help="tokenizer name or path")
     parser.add_argument("--seed", type=int, default=42)
@@ -86,7 +87,6 @@ def main():
     cfg = load_yaml_config(args.config)
     wandb.init(project=args.wandb_project)
 
-    model_name = cfg["model_name_or_path"]
     dataset_name = cfg["dataset"]
     dataset_dir = cfg["dataset_dir"]
     cutoff_len = cfg.get("cutoff_len", 1024)
