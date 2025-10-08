@@ -20,11 +20,6 @@ module load python/3.11
 source /opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3/etc/profile.d/conda.sh
 conda activate /scratch/hpc-prf-merlin/htyllm-pg/joel/conda/envs/moe-study
 
-# Confirm environment
-echo "Active environment: $(conda info --envs | grep '*' || echo 'Unknown')"
-echo "Python: $(which python)"
-echo "CUDA devices visible: $CUDA_VISIBLE_DEVICES"
-
 export LOG_LEVEL=DEBUG
 export HF_HOME=/scratch/hpc-prf-merlin/shared_cache/huggingface
 export TRANSFORMERS_CACHE=$HF_HOME
