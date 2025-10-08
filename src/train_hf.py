@@ -65,12 +65,7 @@ def main():
     parser.add_argument("--model_name_or_path", required=True, type=str, default=None,  help="base model to load")
     parser.add_argument("--tokenized_dataset_dir", required=True, help="path to pretokenized dataset")
     parser.add_argument("--tokenizer", required=True, help="tokenizer name or path")
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--save_total_limit", type=int, default=2)
-    parser.add_argument("--gradient_checkpointing", action="store_true")
-    parser.add_argument("--logging_first_step", action="store_true")
-    parser.add_argument("--logging_steps", type=int, default=500)
-    parser.add_argument("--save_steps", type=int, default=500)
+    parser.add_argument("--output_dir", type=str, required=True, help="where to save checkpoints")
     
     parser.add_argument("--evaluation_strategy", default="no", choices=["no", "steps", "epoch"])
     parser.add_argument("--eval_steps", type=int, default=None)
@@ -81,14 +76,11 @@ def main():
     parser.add_argument("--track_flops", action="store_true", help="Enable FLOPs tracking.")
     
     args = parser.parse_args()
-    set_seed(args.seed)
 
-    # load yaml config
     cfg = load_yaml_config(args.config)
+    seed = cfg.get("seed", 42)
+    set_seed(seed)
     wandb.init(project=args.wandb_project)
-
-    dataset_dir = cfg["dataset_dir"]
-    cutoff_len = cfg.get("cutoff_len", 1024)
 
     # load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, use_fast=True)
@@ -121,7 +113,7 @@ def main():
 
     # define training argumetn
     training_args = TrainingArguments(
-        output_dir=cfg["output_dir"],
+        output_dir=args.output_dir,
         overwrite_output_dir=cfg.get("overwrite_output_dir", True),
         per_device_train_batch_size=cfg["per_device_train_batch_size"],
         gradient_accumulation_steps=cfg["gradient_accumulation_steps"],
@@ -131,12 +123,12 @@ def main():
         num_train_epochs=cfg["num_train_epochs"],
         logging_steps=cfg["logging_steps"],
         save_steps=cfg["save_steps"],
-        save_total_limit=args.save_total_limit,
-        seed=args.seed,
+        save_total_limit = cfg.get("save_total_limit", 200),
+        seed = seed,
         fp16=cfg.get("fp16", True),
         bf16=cfg.get("bf16", False),
-        gradient_checkpointing=args.gradient_checkpointing,
-        logging_first_step=args.logging_first_step,
+        gradient_checkpointing=cfg.get("gradient_checkpointing", False),
+        logging_first_step = cfg.get("logging_first_step", True),
         report_to="wandb",
         remove_unused_columns=False,
         eval_strategy=args.evaluation_strategy,
@@ -150,8 +142,8 @@ def main():
     trainer = HarnessTrainer(
         model=model,
         args=training_args,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset["test"],
+        train_dataset=dataset,
+        eval_dataset=None,
         data_collator=data_collator,
         harness_tasks=args.harness_tasks,
         do_harness_eval=args.do_harness_eval,
