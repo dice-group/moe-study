@@ -23,6 +23,7 @@ def read_jsonl_gz(path, max_lines=None):
                 continue
     return texts
 
+
 def compute_metrics(args_tuple):
     fname, data_dir, tokenizer_name, max_lines = args_tuple
     
@@ -32,9 +33,8 @@ def compute_metrics(args_tuple):
     lang_id = fname.replace(".jsonl.gz", "")
     path = os.path.join(data_dir, fname)
     texts = read_jsonl_gz(path, max_lines=max_lines)
-    if not texts:
-        return None
     total_chars = total_words = total_tokens = unk_count = 0
+    
     for t in texts:
         total_chars += len(t)
         words = t.split()
@@ -42,9 +42,11 @@ def compute_metrics(args_tuple):
         tokens = tokenizer(t)["input_ids"]
         total_tokens += len(tokens)
         unk_count += tokens.count(tokenizer.unk_token_id)
+        
     chars_per_token = total_chars / total_tokens if total_tokens else 0
     pieces_per_word = total_tokens / total_words if total_words else 0
     unk_rate = unk_count / total_tokens if total_tokens else 0
+    
     return {
         "language": lang_id,
         "chars_per_token": chars_per_token,

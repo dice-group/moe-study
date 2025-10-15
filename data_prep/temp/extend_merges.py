@@ -23,10 +23,26 @@ def main():
     target_vocab = target_data["model"]["vocab"]
     target_merges = target_data["model"]["merges"]
 
-    base_merges_set = {tuple(m) for m in base_merges}
-    new_merges = [m for m in target_merges if tuple(m) not in base_merges_set]
+    # base_merges_set = {tuple(m) for m in base_merges}
+    # new_merges = [m for m in target_merges if tuple(m) not in base_merges_set]
+    # print("[DEBUG] new merges to add:", len(new_merges))
+    # base_merges.extend(new_merges)
+    
+    def merge_to_str(m):
+        return " ".join(m) if isinstance(m, list) else m
+
+    base_merges_str = [merge_to_str(m) for m in base_merges]
+    target_merges_str = [merge_to_str(m) for m in target_merges]
+
+    base_merges_set = set(base_merges_str)
+    new_merges = [m for m in target_merges_str if m not in base_merges_set]
+
     print("[DEBUG] new merges to add:", len(new_merges))
-    base_merges.extend(new_merges)
+    base_merges_str.extend(new_merges)
+
+
+    added = sum(1 for t in target_vocab if t not in base_vocab)
+    print(f"[DEBUG] new tokens added: {added}")
 
     next_id = max(base_vocab.values()) + 1
     for token in target_vocab:
@@ -35,7 +51,7 @@ def main():
             next_id += 1
 
     base_data["model"]["vocab"] = base_vocab
-    base_data["model"]["merges"] = base_merges
+    base_data["model"]["merges"] = base_merges_str
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
