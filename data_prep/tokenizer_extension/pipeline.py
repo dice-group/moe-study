@@ -147,8 +147,9 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> PipelineConfig:
     parser = argparse.ArgumentParser(
         description="Vocabulary extension pipeline."
     )
+    parser.add_argument("--work-dir", type=Path, required=True, help="Directory to store run artifacts.")
     parser.add_argument("--base-metrics-csv", type=Path)
-    parser.add_argument("--allocation-csv", type=Path, required=True)
+    parser.add_argument("--allocation-csv", type=Path)
     parser.add_argument("--total-new-tokens", type=int, default=128_000)
     parser.add_argument("--weight-ppw", type=float, default=0.5)
     parser.add_argument("--weight-cpt", type=float, default=0.5)
@@ -190,42 +191,54 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> PipelineConfig:
 
     args = parser.parse_args(argv)
 
+    work_dir: Path = args.work_dir
+    work_dir.mkdir(parents=True, exist_ok=True)
+    metrics_dir = work_dir / "metrics"
+
+    allocation_path = args.allocation_csv or (work_dir / "allocation.csv")
+    comparison_output = args.comparison_output_csv or (metrics_dir / "comparison.csv")
+
+    train_output_dir = args.train_output_dir or (work_dir / "trained_tokenizer")
+    extension_output_dir = args.extension_output_dir or (work_dir / "extended_tokenizer")
+    extended_cov_output = args.extended_coverage_output or (metrics_dir / "extended_tokenizer.csv")
+    extended_metrics_path_default = args.extended_metrics_csv
+
     base_coverage = None
     if args.compute_base_coverage:
         for name in ("base_data_dir", "base_tokenizer"):
             if getattr(args, name) is None:
                 parser.error(f"--{name.replace('_', '-')} is required when computing base coverage.")
+        base_output = args.base_coverage_output or (metrics_dir / "base_tokenizer.csv")
         base_coverage = CoverageConfig(
             data_dir=args.base_data_dir,
             tokenizer=args.base_tokenizer,
             max_lines=args.base_max_lines,
             num_workers=args.base_num_workers,
-            output_csv=args.base_coverage_output,
+            output_csv=base_output,
         )
 
     extended_coverage = None
-    extended_metrics_csv = args.extended_metrics_csv
+    extended_metrics_path = extended_metrics_path_default
     if args.compute_extended_coverage:
-        for name in ("extended_data_dir", "extended_tokenizer"):
-            if getattr(args, name) is None:
-                parser.error(f"--{name.replace('_', '-')} is required when computing extended coverage.")
+        if args.extended_data_dir is None:
+            parser.error("--extended-data-dir is required when computing extended coverage.")
+        tokenizer_name = args.extended_tokenizer or str(extension_output_dir)
         extended_coverage = CoverageConfig(
             data_dir=args.extended_data_dir,
-            tokenizer=args.extended_tokenizer,
+            tokenizer=tokenizer_name,
             max_lines=args.extended_max_lines,
             num_workers=args.extended_num_workers,
-            output_csv=args.extended_coverage_output,
+            output_csv=extended_cov_output,
         )
-        extended_metrics_csv = None
+        extended_metrics_path = extended_cov_output
 
     training = None
     if args.train_multilingual:
-        for name in ("train_data_dir", "train_output_dir"):
-            if getattr(args, name) is None:
-                parser.error(f"--{name.replace('_', '-')} is required when using --train-multilingual.")
+        if args.train_data_dir is None:
+            parser.error("--train-data-dir is required when using --train-multilingual.")
         training = TrainingConfig(
             data_dir=args.train_data_dir,
-            output_dir=args.train_output_dir,
+            output_dir=train_output_dir,
             vocab_size=args.train_vocab_size,
             base_model=args.train_base_model,
             text_key=args.train_text_key,
@@ -234,23 +247,24 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> PipelineConfig:
 
     extension = None
     if args.extend:
-        for name in ("extension_base_path", "extension_data_dir", "extension_output_dir"):
+        for name in ("extension_base_path", "extension_data_dir"):
             if getattr(args, name) is None:
                 parser.error(f"--{name.replace('_', '-')} is required when using --extend.")
         multilingual_path = args.extension_multilingual_path
         if multilingual_path is None:
-            if args.train_multilingual and args.train_output_dir is not None:
-                multilingual_path = args.train_output_dir
+            if args.train_multilingual:
+                multilingual_path = train_output_dir
             else:
                 parser.error(
-                    "--extension-multilingual-path is required unless --train-multilingual provides an output directory."
+                    "--extension-multilingual-path is required unless --train-multilingual is enabled."
                 )
         vocab_cap = args.extension_vocab_cap if args.extension_vocab_cap > 0 else None
+        multilingual_path = Path(multilingual_path)
         extension = ExtensionConfig(
             base_tokenizer_path=args.extension_base_path,
             multilingual_tokenizer_path=multilingual_path,
             data_dir=args.extension_data_dir,
-            output_dir=args.extension_output_dir,
+            output_dir=extension_output_dir,
             sample_docs=args.extension_sample_docs,
             text_key=args.extension_text_key,
             vocab_cap=vocab_cap,
@@ -258,7 +272,7 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> PipelineConfig:
 
     return PipelineConfig(
         base_metrics_csv=args.base_metrics_csv,
-        allocation_csv=args.allocation_csv,
+        allocation_csv=allocation_path,
         allocation=AllocationConfig(
             total_new_tokens=args.total_new_tokens,
             weight_ppw=args.weight_ppw,
@@ -269,9 +283,9 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> PipelineConfig:
         training=training,
         base_coverage=base_coverage,
         extension=extension,
-        extended_metrics_csv=extended_metrics_csv,
+        extended_metrics_csv=extended_metrics_path,
         extended_coverage=extended_coverage,
-        comparison_output_csv=args.comparison_output_csv,
+        comparison_output_csv=comparison_output,
     )
 
 
