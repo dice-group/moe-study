@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterator, Optional
 
 from datasets import load_dataset
+from tqdm import tqdm
 from transformers import AutoTokenizer
 
 
@@ -34,7 +35,11 @@ def train_tokenizer(config: TrainingConfig) -> TrainingResult:
 
     iterator = _TextIterator(dataset, config.text_key, config.max_samples)
     tokenizer = AutoTokenizer.from_pretrained(config.base_model, use_fast=True)
-    new_tokenizer = tokenizer.train_new_from_iterator(iterator, vocab_size=config.vocab_size)
+    print(f"[training] training multilingual tokenizer based on {config.base_model} architecture "
+          f"on data from {config.data_dir} "
+          f"using max vocab size of {config.vocab_size}"
+          f"and max sample {config.max_samples}, saving to {config.output_dir}")
+    new_tokenizer = tokenizer.train_new_from_iterator(tqdm(iterator), vocab_size=config.vocab_size)
 
     if iterator.count == 0:
         raise ValueError("No texts found for tokenizer training.")
