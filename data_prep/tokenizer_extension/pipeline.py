@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 import pandas as pd
+import yaml
 
 from .allocation import AllocationConfig, compute_allocation
 from .coverage import CoverageConfig, compute_coverage
@@ -49,10 +50,13 @@ def run_pipeline(config: PipelineConfig) -> PipelineResult:
         training_result = train_tokenizer(config.training)
 
     base_metrics_df, _ = _load_or_compute_metrics(
-        config.base_metrics_csv, config.base_coverage, default_name="tokenizer_metrics_base.csv", anchor=config.allocation_csv.parent
+        config.base_metrics_csv,
+        config.base_coverage,
+        default_name="tokenizer_metrics_base.csv",
+        anchor=config.allocation_csv.parent,
     )
     if base_metrics_df is None:
-        raise ValueError("Currently base metrics need to be provided")
+        raise ValueError("Either provide base_metrics_csv or enable compute_base_coverage in the config.")
 
     allocation_df = compute_allocation(base_metrics_df, config.allocation)
     config.allocation_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -76,10 +80,9 @@ def run_pipeline(config: PipelineConfig) -> PipelineResult:
         if config.comparison_output_csv:
             config.comparison_output_csv.parent.mkdir(parents=True, exist_ok=True)
             comparison_df.to_csv(config.comparison_output_csv, index=False)
-            output_path = config.comparison_output_csv
+            comparison_result = ComparisonResult(comparison_df, config.comparison_output_csv)
         else:
-            output_path = None
-        comparison_result = ComparisonResult(dataframe=comparison_df, output_csv=output_path)
+            comparison_result = ComparisonResult(comparison_df, None)
 
     return PipelineResult(
         base_metrics=base_metrics_df,
@@ -120,7 +123,7 @@ def _load_or_compute_metrics(
     *,
     default_name: str,
     anchor: Path,
-) -> tuple[pd.DataFrame, Optional[Path]]:
+) -> tuple[Optional[pd.DataFrame], Optional[Path]]:
     if csv_path:
         if not csv_path.exists():
             raise FileNotFoundError(f"Metrics CSV not found: {csv_path}")
@@ -143,156 +146,130 @@ def _load_or_compute_metrics(
     return df, coverage_config.output_csv
 
 
-def _parse_args(argv: Optional[Sequence[str]] = None) -> PipelineConfig:
-    parser = argparse.ArgumentParser(
-        description="Vocabulary extension pipeline."
-    )
-    parser.add_argument("--work-dir", type=Path, required=True, help="Directory to store run artifacts.")
-    parser.add_argument("--base-metrics-csv", type=Path)
-    parser.add_argument("--allocation-csv", type=Path)
-    parser.add_argument("--total-new-tokens", type=int, default=128_000)
-    parser.add_argument("--weight-ppw", type=float, default=0.5)
-    parser.add_argument("--weight-cpt", type=float, default=0.5)
-    parser.add_argument("--weight-unk", type=float, default=0.0)
-    parser.add_argument("--gamma", type=float, default=2.0)
-    parser.add_argument("--comparison-output-csv", type=Path)
+def _resolve_path(value, base_dir: Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else base_dir / path
 
-    parser.add_argument("--compute-base-coverage", action="store_true")
-    parser.add_argument("--base-data-dir", type=Path)
-    parser.add_argument("--base-tokenizer", type=str)
-    parser.add_argument("--base-max-lines", type=int, default=10_000)
-    parser.add_argument("--base-num-workers", type=int)
-    parser.add_argument("--base-coverage-output", type=Path)
 
-    parser.add_argument("--extend", action="store_true")
-    parser.add_argument("--extension-base-path", type=Path)
-    parser.add_argument("--extension-multilingual-path", type=Path)
-    parser.add_argument("--extension-data-dir", type=Path)
-    parser.add_argument("--extension-output-dir", type=Path)
-    parser.add_argument("--extension-sample-docs", type=int, default=50)
-    parser.add_argument("--extension-text-key", type=str, default="text")
-    parser.add_argument("--extension-vocab-cap", type=int, default=256_000)
+def _load_pipeline_config(config_path: Path) -> PipelineConfig:
+    cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    if not isinstance(cfg, dict):
+        raise ValueError(f"Config file {config_path} must contain a mapping at the top level.")
 
-    parser.add_argument("--compute-extended-coverage", action="store_true")
-    parser.add_argument("--extended-data-dir", type=Path)
-    parser.add_argument("--extended-tokenizer", type=str)
-    parser.add_argument("--extended-max-lines", type=int, default=10_000)
-    parser.add_argument("--extended-num-workers", type=int)
-    parser.add_argument("--extended-coverage-output", type=Path)
-    parser.add_argument("--extended-metrics-csv", type=Path)
+    root = config_path.parent
 
-    parser.add_argument("--train-multilingual", action="store_true")
-    parser.add_argument("--train-data-dir", type=Path)
-    parser.add_argument("--train-output-dir", type=Path)
-    parser.add_argument("--train-vocab-size", type=int, default=250_000)
-    parser.add_argument("--train-base-model", type=str, default="meta-llama/Llama-3.2-1B")
-    parser.add_argument("--train-text-key", type=str, default="text")
-    parser.add_argument("--train-max-samples", type=int)
-
-    args = parser.parse_args(argv)
-
-    work_dir: Path = args.work_dir
+    work_dir = _resolve_path(cfg["work_dir"], root)
     work_dir.mkdir(parents=True, exist_ok=True)
     metrics_dir = work_dir / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
 
-    allocation_path = args.allocation_csv or (work_dir / "allocation.csv")
-    comparison_output = args.comparison_output_csv or (metrics_dir / "comparison.csv")
+    def cfg_path(key: str, default: Optional[Path] = None) -> Optional[Path]:
+        if key not in cfg or cfg[key] is None:
+            return default
+        return _resolve_path(cfg[key], root)
 
-    train_output_dir = args.train_output_dir or (work_dir / "trained_tokenizer")
-    extension_output_dir = args.extension_output_dir or (work_dir / "extended_tokenizer")
-    extended_cov_output = args.extended_coverage_output or (metrics_dir / "extended_tokenizer.csv")
-    extended_metrics_path_default = args.extended_metrics_csv
+    allocation_csv = cfg_path("allocation_csv", work_dir / "allocation.csv")
+    comparison_csv = cfg_path("comparison_output_csv", metrics_dir / "comparison.csv")
+    train_output_dir = cfg_path("train_output_dir", work_dir / "trained_tokenizer")
+    extension_output_dir = cfg_path("extension_output_dir", work_dir / "extended_tokenizer")
+    extended_cov_output = cfg_path("extended_coverage_output", metrics_dir / "extended_tokenizer.csv")
+    extended_metrics_csv = cfg_path("extended_metrics_csv")
+    base_metrics_csv = cfg_path("base_metrics_csv")
 
     base_coverage = None
-    if args.compute_base_coverage:
-        for name in ("base_data_dir", "base_tokenizer"):
-            if getattr(args, name) is None:
-                parser.error(f"--{name.replace('_', '-')} is required when computing base coverage.")
-        base_output = args.base_coverage_output or (metrics_dir / "base_tokenizer.csv")
+    if cfg.get("compute_base_coverage", False):
         base_coverage = CoverageConfig(
-            data_dir=args.base_data_dir,
-            tokenizer=args.base_tokenizer,
-            max_lines=args.base_max_lines,
-            num_workers=args.base_num_workers,
-            output_csv=base_output,
+            data_dir=_resolve_path(cfg["base_data_dir"], root),
+            tokenizer=cfg["base_tokenizer"],
+            max_lines=cfg.get("base_max_lines", 10_000),
+            num_workers=cfg.get("base_num_workers"),
+            output_csv=cfg_path("base_coverage_output", metrics_dir / "base_tokenizer.csv"),
         )
-
-    extended_coverage = None
-    extended_metrics_path = extended_metrics_path_default
-    if args.compute_extended_coverage:
-        if args.extended_data_dir is None:
-            parser.error("--extended-data-dir is required when computing extended coverage.")
-        tokenizer_name = args.extended_tokenizer or str(extension_output_dir)
-        extended_coverage = CoverageConfig(
-            data_dir=args.extended_data_dir,
-            tokenizer=tokenizer_name,
-            max_lines=args.extended_max_lines,
-            num_workers=args.extended_num_workers,
-            output_csv=extended_cov_output,
-        )
-        extended_metrics_path = extended_cov_output
 
     training = None
-    if args.train_multilingual:
-        if args.train_data_dir is None:
-            parser.error("--train-data-dir is required when using --train-multilingual.")
+    if cfg.get("train_multilingual", False):
         training = TrainingConfig(
-            data_dir=args.train_data_dir,
+            data_dir=_resolve_path(cfg["train_data_dir"], root),
             output_dir=train_output_dir,
-            vocab_size=args.train_vocab_size,
-            base_model=args.train_base_model,
-            text_key=args.train_text_key,
-            max_samples=args.train_max_samples,
+            vocab_size=cfg.get("train_vocab_size", 250_000),
+            base_model=cfg.get("train_base_model", "meta-llama/Llama-3.2-1B"),
+            text_key=cfg.get("train_text_key", "text"),
+            max_samples=cfg.get("train_max_samples"),
         )
 
     extension = None
-    if args.extend:
-        for name in ("extension_base_path", "extension_data_dir"):
-            if getattr(args, name) is None:
-                parser.error(f"--{name.replace('_', '-')} is required when using --extend.")
-        multilingual_path = args.extension_multilingual_path
+    if cfg.get("extend", False):
+        multilingual_path = cfg.get("extension_multilingual_path")
         if multilingual_path is None:
-            if args.train_multilingual:
-                multilingual_path = train_output_dir
-            else:
-                parser.error(
-                    "--extension-multilingual-path is required unless --train-multilingual is enabled."
-                )
-        vocab_cap = args.extension_vocab_cap if args.extension_vocab_cap > 0 else None
-        multilingual_path = Path(multilingual_path)
+            multilingual_resolved = train_output_dir
+        else:
+            multilingual_resolved = _resolve_path(multilingual_path, root)
         extension = ExtensionConfig(
-            base_tokenizer_path=args.extension_base_path,
-            multilingual_tokenizer_path=multilingual_path,
-            data_dir=args.extension_data_dir,
+            base_tokenizer_path=_resolve_path(cfg["extension_base_path"], root),
+            multilingual_tokenizer_path=multilingual_resolved,
+            data_dir=_resolve_path(cfg["extension_data_dir"], root),
             output_dir=extension_output_dir,
-            sample_docs=args.extension_sample_docs,
-            text_key=args.extension_text_key,
-            vocab_cap=vocab_cap,
+            sample_docs=cfg.get("extension_sample_docs", 50),
+            text_key=cfg.get("extension_text_key", "text"),
+            vocab_cap=cfg.get("extension_vocab_cap", 256_000),
         )
 
+    extended_coverage = None
+    if cfg.get("compute_extended_coverage", False):
+        extended_data_dir = cfg.get("extended_data_dir", cfg.get("extension_data_dir"))
+        extended_coverage = CoverageConfig(
+            data_dir=_resolve_path(extended_data_dir, root),
+            tokenizer=cfg.get("extended_tokenizer", str(extension_output_dir)),
+            max_lines=cfg.get("extended_max_lines", 10_000),
+            num_workers=cfg.get("extended_num_workers"),
+            output_csv=extended_cov_output,
+        )
+        extended_metrics_csv = extended_cov_output
+
+    allocation = AllocationConfig(
+        total_new_tokens=cfg.get("total_new_tokens", 128_000),
+        weight_ppw=cfg.get("weight_ppw", 0.5),
+        weight_cpt=cfg.get("weight_cpt", 0.5),
+        weight_unk=cfg.get("weight_unk", 0.0),
+        gamma=cfg.get("gamma", 2.0),
+    )
+
     return PipelineConfig(
-        base_metrics_csv=args.base_metrics_csv,
-        allocation_csv=allocation_path,
-        allocation=AllocationConfig(
-            total_new_tokens=args.total_new_tokens,
-            weight_ppw=args.weight_ppw,
-            weight_cpt=args.weight_cpt,
-            weight_unk=args.weight_unk,
-            gamma=args.gamma,
-        ),
+        base_metrics_csv=base_metrics_csv,
+        allocation_csv=allocation_csv,
+        allocation=allocation,
         training=training,
         base_coverage=base_coverage,
         extension=extension,
-        extended_metrics_csv=extended_metrics_path,
+        extended_metrics_csv=extended_metrics_csv,
         extended_coverage=extended_coverage,
-        comparison_output_csv=comparison_output,
+        comparison_output_csv=comparison_csv,
     )
 
 
-def main(argv: Optional[Sequence[str]] = None) -> PipelineResult:
-    config = _parse_args(argv)
-    return run_pipeline(config)
+def _parse_args(argv: Optional[Sequence[str]] = None) -> list[Path]:
+    parser = argparse.ArgumentParser(description="Vocabulary extension pipeline")
+    parser.add_argument(
+        "--config",
+        type=Path,
+        nargs="+",
+        required=True,
+        help="One or more YAML config files.",
+    )
+    args = parser.parse_args(argv)
+    return args.config
+
+
+def main(argv: Optional[Sequence[str]] = None) -> Optional[PipelineResult]:
+    config_paths = _parse_args(argv)
+    last_result: Optional[PipelineResult] = None
+    for path in config_paths:
+        pipeline_config = _load_pipeline_config(path)
+        print(f"[tokenize_extension] Running config {path}")
+        last_result = run_pipeline(pipeline_config)
+    return last_result
 
 
 if __name__ == "__main__":
     main()
+
