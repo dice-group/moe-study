@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+import gzip
+import json
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-import pandas as pd
 from transformers import AutoTokenizer
 
-#TODO: list extraction of candidate should also be added instead of assuming it will be given as input
 
 @dataclass
 class ExtensionConfig:
-    base_tokenizer: str
-    lang_dir: Path
+    base_tokenizer_path: Path
+    multilingual_tokenizer_path: Path
+    data_dir: Path
     output_dir: Path
+    sample_docs: int = 50
+    text_key: str = "text"
+    vocab_cap: Optional[int] = 256_000
 
 
 @dataclass
@@ -25,13 +30,16 @@ class ExtensionResult:
 
 def extend_tokenizer(
     config: ExtensionConfig,
-    allocation: pd.DataFrame,
+    allocation,
 ) -> ExtensionResult:
-    tokenizer = AutoTokenizer.from_pretrained(config.base_tokenizer, use_fast=True)
-    base_vocab = set(tokenizer.get_vocab().keys())
+    base_tokenizer = AutoTokenizer.from_pretrained(str(config.base_tokenizer_path), use_fast=True)
+    multilingual_tokenizer = AutoTokenizer.from_pretrained(
+        str(config.multilingual_tokenizer_path), use_fast=True
+    )
 
+    base_vocab = set(base_tokenizer.get_vocab().keys())
+    global_tokens: List[str] = []
     per_language: Dict[str, int] = {}
-    new_tokens: List[str] = []
 
     for _, row in allocation.iterrows():
         language = row["language"]
@@ -39,36 +47,162 @@ def extend_tokenizer(
         if n_tokens <= 0:
             continue
 
-        freq_file = config.lang_dir / language / f"{language}_tokens_freq.csv"
-        if not freq_file.exists():
-            print(f"[tokenize_extension] Missing freq file for {language}: {freq_file}")
+        lang_file = config.data_dir / f"{language}.jsonl.gz"
+        if not lang_file.exists():
+            print(f"[tokenize_extension] Skipping {language}, missing file {lang_file}")
             continue
 
-        freq_df = pd.read_csv(freq_file)
-        if "token" not in freq_df.columns:
-            raise ValueError(f"{freq_file} missing required 'token' column.")
+        texts = _load_texts(lang_file, config.sample_docs, config.text_key)
+        if not texts:
+            print(f"[tokenize_extension] Skipping {language}, no texts loaded.")
+            continue
 
-        candidates = [
-            tok for tok in freq_df["token"].head(n_tokens).tolist() if tok not in base_vocab
-        ]
-        new_tokens.extend(candidates)
-        per_language[language] = len(candidates)
+        counts = Counter()
+        for text in texts:
+            tokens = multilingual_tokenizer.tokenize(text)
+            counts.update(tok for tok in tokens if tok not in base_vocab)
+
+        candidates = [tok for tok, _ in counts.most_common() if tok not in base_vocab]
+        selected = candidates[:n_tokens]
+        per_language[language] = len(selected)
+        global_tokens.extend(selected)
         print(
-            f"[tokenize_extension] {language}: requested {n_tokens}, "
-            f"adding {len(candidates)} tokens."
+            f"[tokenize_extension] {language}: requested {n_tokens}, added {len(selected)} tokens."
         )
 
-    unique_tokens = list(dict.fromkeys(new_tokens))
-    added = tokenizer.add_tokens(unique_tokens)
-    print(f"[tokenize_extension] Added {added} new tokens.")
-
-    config.output_dir.mkdir(parents=True, exist_ok=True)
-    tokenizer.save_pretrained(config.output_dir)
-    print(f"[tokenize_extension] Extended tokenizer saved to {config.output_dir}")
+    tokens_added = _merge_and_save(
+        config.base_tokenizer_path,
+        config.multilingual_tokenizer_path,
+        config.output_dir,
+        global_tokens,
+        config.vocab_cap,
+    )
+    total_size = len(AutoTokenizer.from_pretrained(str(config.output_dir), use_fast=True))
 
     return ExtensionResult(
-        added_tokens=added,
-        total_vocab_size=len(tokenizer),
+        added_tokens=tokens_added,
+        total_vocab_size=total_size,
         per_language=per_language,
     )
+
+
+def _load_texts(path: Path, limit: int, text_key: str) -> List[str]:
+    texts: List[str] = []
+    with gzip.open(path, "rt", encoding="utf-8") as handle:
+        for idx, line in enumerate(handle):
+            if limit and idx >= limit:
+                break
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            text = record.get(text_key)
+            if text:
+                texts.append(text)
+    return texts
+
+
+def _merge_and_save(
+    base_path: Path,
+    multilingual_path: Path,
+    output_dir: Path,
+    selected_tokens: List[str],
+    vocab_cap: Optional[int],
+) -> int:
+    base_json_path = base_path / "tokenizer.json"
+    multi_json_path = multilingual_path / "tokenizer.json"
+
+    if not base_json_path.exists() or not multi_json_path.exists():
+        raise FileNotFoundError("tokenizer.json not found for base or multilingual tokenizer.")
+
+    base_data = json.loads(base_json_path.read_text(encoding="utf-8"))
+    multi_data = json.loads(multi_json_path.read_text(encoding="utf-8"))
+
+    base_vocab_map = base_data["model"]["vocab"]
+    base_merges = _normalize_merges(base_data["model"]["merges"])
+    multi_merges = _normalize_merges(multi_data["model"]["merges"])
+
+    base_vocab_set = set(base_vocab_map.keys())
+    ordered_tokens = []
+    seen = set()
+    for tok in selected_tokens:
+        if tok not in base_vocab_set and tok not in seen:
+            ordered_tokens.append(tok)
+            seen.add(tok)
+
+    merge_tokens = _extract_merge_tokens(multi_merges)
+    for tok in merge_tokens:
+        if tok not in base_vocab_set and tok not in seen:
+            ordered_tokens.append(tok)
+            seen.add(tok)
+
+    if vocab_cap is not None:
+        max_new = max(vocab_cap - len(base_vocab_map), 0)
+        if len(ordered_tokens) > max_new:
+            ordered_tokens = ordered_tokens[:max_new]
+
+    vocab = dict(base_vocab_map)
+    next_id = max(vocab.values()) + 1
+    added = 0
+    for tok in ordered_tokens:
+        if tok not in vocab:
+            vocab[tok] = next_id
+            next_id += 1
+            added += 1
+
+    new_merges = [m for m in multi_merges if m not in set(base_merges)]
+    valid_merges = [
+        m
+        for m in new_merges
+        if _merge_parts_exist(m, vocab)
+    ]
+
+    base_data["model"]["vocab"] = vocab
+    base_data["model"]["merges"] = base_merges + valid_merges
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "tokenizer.json").write_text(
+        json.dumps(base_data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    for filename in ("tokenizer_config.json", "special_tokens_map.json"):
+        src = base_path / filename
+        if src.exists():
+            (output_dir / filename).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+    print(
+        f"[tokenize_extension] Saved extended tokenizer to {output_dir} "
+        f"(tokens added: {added}, merges added: {len(valid_merges)})"
+    )
+    return added
+
+
+def _normalize_merges(merges) -> List[str]:
+    normalized = []
+    for item in merges:
+        if isinstance(item, str):
+            normalized.append(item)
+        else:
+            normalized.append(" ".join(item))
+    return normalized
+
+
+def _extract_merge_tokens(merges: List[str]) -> List[str]:
+    parts = set()
+    results = set()
+    for merge in merges:
+        tokens = merge.split()
+        if len(tokens) == 2:
+            parts.update(tokens)
+            results.add("".join(tokens))
+    return sorted(parts | results)
+
+
+def _merge_parts_exist(merge: str, vocab: Dict[str, int]) -> bool:
+    tokens = merge.split()
+    if len(tokens) != 2:
+        return False
+    left, right = tokens
+    result = "".join(tokens)
+    return left in vocab and right in vocab and result in vocab
 

@@ -10,18 +10,22 @@ from .pipeline import (
     compare_metrics,
     run_pipeline,
 )
+from .training import TrainingConfig, TrainingResult, train_tokenizer
 
 __all__ = [
     "AllocationConfig",
     "CoverageConfig",
     "ExtensionConfig",
     "ExtensionResult",
+    "TrainingConfig",
+    "TrainingResult",
     "ComparisonResult",
     "PipelineConfig",
     "PipelineResult",
     "compute_coverage",
     "compute_allocation",
     "extend_tokenizer",
+    "train_tokenizer",
     "compare_metrics",
     "run_pipeline",
 ]
