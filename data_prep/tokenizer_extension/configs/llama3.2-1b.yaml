@@ -3,7 +3,7 @@ work_dir: /scratch/hpc-prf-merlin/joel/moe-study/data_prep/tokenizer_extension/o
 compute_base_coverage: true
 base_data_dir: /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset
 base_tokenizer: meta-llama/Llama-3.2-1B
-base_max_lines: 0
+base_max_lines: 1000 # make more later
 base_num_workers: 64
 
 # configs to train multilingual tokenizer
@@ -11,6 +11,7 @@ train_multilingual: true
 train_data_dir: /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset
 train_base_model: meta-llama/Llama-3.2-1B
 train_vocab_size: 300000
+train_max_samples: 1000
 
 # config to extend base tokenizer using multilingual tokenizer
 extend: true
@@ -20,5 +21,5 @@ extension_sample_docs: 50
 extension_vocab_cap: 256000
 compute_extended_coverage: true # for analysis afterwards
 extended_data_dir: /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset
-extended_max_lines: 0
+extended_max_lines: 1000
 extended_num_workers: 64

@@ -97,7 +97,8 @@ def main(argv: Optional[Sequence[str]] = None) -> Optional[PipelineResult]:
 
     last_result: Optional[PipelineResult] = None
     for path in config_paths:
-        pipeline_config = load_pipeline_config(path)
+        parts = load_pipeline_config(path)
+        pipeline_config = PipelineConfig(**parts)
         print(f"[tokenize_extension] Running config {path}")
         last_result = run_pipeline(pipeline_config)
     return last_result

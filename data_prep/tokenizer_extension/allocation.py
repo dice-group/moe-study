@@ -17,8 +17,6 @@ class AllocationConfig:
 
 
 def compute_allocation(metrics: pd.DataFrame, config: AllocationConfig) -> pd.DataFrame:
-    weights = np.array([config.weight_ppw, config.weight_cpt, config.weight_unk], dtype=float)
-
     df = metrics.copy()
     scaler = MinMaxScaler()
     df["ppw_n"] = scaler.fit_transform(df[["pieces_per_word"]])

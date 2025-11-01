@@ -1,18 +1,20 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import Optional
+
 import pandas as pd
 import yaml
 
-from . import PipelineConfig, AllocationConfig, TrainingConfig, ExtensionConfig
-from .coverage import CoverageConfig, compute_coverage
+from .allocation import AllocationConfig
+from .coverage import CoverageConfig
+from .extension import ExtensionConfig
+from .training import TrainingConfig
 
 def resolve_path(value: str | Path, base_dir: Path) -> Path:
     """Resolve relative paths relative to a base directory"""
     path = Path(value)
     return path if path.is_absolute() else base_dir / path
 
-def load_pipeline_config(config_path: Path) -> PipelineConfig:
+def load_pipeline_config(config_path: Path):
     cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(cfg, dict):
         raise ValueError(f"Invalid config: {config_path}")
@@ -33,6 +35,7 @@ def load_pipeline_config(config_path: Path) -> PipelineConfig:
             data_dir=resolve_path(cfg["train_data_dir"], root),
             output_dir=output_dir / "trained_tokenizer",
             vocab_size=cfg.get("train_vocab_size", 250_000),
+            max_samples=cfg.get("train_max_samples"),
         )
         if cfg.get("train_multilingual")
         else None
@@ -65,14 +68,14 @@ def load_pipeline_config(config_path: Path) -> PipelineConfig:
         weight_cpt=cfg.get("weight_cpt", 0.5),
     )
 
-    return PipelineConfig(
-        output_dir=output_dir,
-        allocation=allocation,
-        training=training,
-        base_coverage=base_coverage,
-        extension=extension,
-        extended_coverage=extended_coverage,
-    )
+    return {
+        "output_dir": output_dir,
+        "allocation": allocation,
+        "training": training,
+        "base_coverage": base_coverage,
+        "extension": extension,
+        "extended_coverage": extended_coverage,
+    }
 
 def compare_metrics(base_df: pd.DataFrame, extended_df: pd.DataFrame) -> pd.DataFrame:
     """ Compares metrics of base tokenizer and extended tokenizer"""

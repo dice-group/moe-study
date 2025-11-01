@@ -76,7 +76,7 @@ def _compute_file_metrics(args: tuple[Path, str, int]) -> dict:
     total_chars = total_words = total_tokens = unk_count = 0
     for text in texts:
         total_chars += len(text)
-        words = text.split()
+        words = text.split()                #TODO: find appropriate method for multilingual data
         total_words += len(words)
         tokens = tokenizer(text)["input_ids"]
         total_tokens += len(tokens)

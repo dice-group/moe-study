@@ -9,3 +9,4 @@ tqdm
 llama-factory
 lm-eval
 wandb
+pandas
