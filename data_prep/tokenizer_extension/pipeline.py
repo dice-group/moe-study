@@ -12,6 +12,7 @@ from .allocation import AllocationConfig, compute_allocation
 from .coverage import CoverageConfig, compute_coverage
 from .extension import ExtensionConfig, ExtensionResult, extend_tokenizer
 from .training import TrainingConfig, TrainingResult, train_tokenizer
+from .utils import resolve_path, load_or_compute_metrics, load_pipeline_paths
 
 
 @dataclass
@@ -49,7 +50,7 @@ def run_pipeline(config: PipelineConfig) -> PipelineResult:
     if config.training:
         training_result = train_tokenizer(config.training)
 
-    base_metrics_df, _ = _load_or_compute_metrics(
+    base_metrics_df, _ = load_or_compute_metrics(
         config.base_metrics_csv,
         config.base_coverage,
         default_name="tokenizer_metrics_base.csv",
@@ -67,7 +68,7 @@ def run_pipeline(config: PipelineConfig) -> PipelineResult:
     if config.extension:
         extension_result = extend_tokenizer(config.extension, allocation_df)
 
-    extended_metrics_df, _ = _load_or_compute_metrics(
+    extended_metrics_df, _ = load_or_compute_metrics(
         config.extended_metrics_csv,
         config.extended_coverage,
         default_name="tokenizer_metrics_extended.csv",
@@ -117,114 +118,69 @@ def compare_metrics(base_df: pd.DataFrame, extended_df: pd.DataFrame) -> pd.Data
     return df
 
 
-def _load_or_compute_metrics(
-    csv_path: Optional[Path],
-    coverage_config: Optional[CoverageConfig],
-    *,
-    default_name: str,
-    anchor: Path,
-) -> tuple[Optional[pd.DataFrame], Optional[Path]]:
-    if csv_path:
-        if not csv_path.exists():
-            raise FileNotFoundError(f"Metrics CSV not found: {csv_path}")
-        return pd.read_csv(csv_path), csv_path
-
-    if coverage_config is None:
-        return None, None
-
-    if coverage_config.output_csv is None:
-        coverage_output = anchor / default_name
-        coverage_config = CoverageConfig(
-            data_dir=coverage_config.data_dir,
-            tokenizer=coverage_config.tokenizer,
-            max_lines=coverage_config.max_lines,
-            num_workers=coverage_config.num_workers,
-            output_csv=coverage_output,
-        )
-
-    df = compute_coverage(coverage_config)
-    return df, coverage_config.output_csv
-
-
-def _resolve_path(value, base_dir: Path) -> Path:
-    path = Path(value)
-    return path if path.is_absolute() else base_dir / path
-
-
 def _load_pipeline_config(config_path: Path) -> PipelineConfig:
+    # Load YAML and resolve all key paths
     cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(cfg, dict):
         raise ValueError(f"Config file {config_path} must contain a mapping at the top level.")
 
-    root = config_path.parent
+    paths = load_pipeline_paths(config_path)  # <-- use helper
 
-    work_dir = _resolve_path(cfg["work_dir"], root)
-    work_dir.mkdir(parents=True, exist_ok=True)
-    metrics_dir = work_dir / "metrics"
-    metrics_dir.mkdir(parents=True, exist_ok=True)
-
-    def cfg_path(key: str, default: Optional[Path] = None) -> Optional[Path]:
-        if key not in cfg or cfg[key] is None:
-            return default
-        return _resolve_path(cfg[key], root)
-
-    allocation_csv = cfg_path("allocation_csv", work_dir / "allocation.csv")
-    comparison_csv = cfg_path("comparison_output_csv", metrics_dir / "comparison.csv")
-    train_output_dir = cfg_path("train_output_dir", work_dir / "trained_tokenizer")
-    extension_output_dir = cfg_path("extension_output_dir", work_dir / "extended_tokenizer")
-    extended_cov_output = cfg_path("extended_coverage_output", metrics_dir / "extended_tokenizer.csv")
-    extended_metrics_csv = cfg_path("extended_metrics_csv")
-    base_metrics_csv = cfg_path("base_metrics_csv")
-
-    base_coverage = None
-    if cfg.get("compute_base_coverage", False):
-        base_coverage = CoverageConfig(
-            data_dir=_resolve_path(cfg["base_data_dir"], root),
+    # Optional configs
+    base_coverage = (
+        CoverageConfig(
+            data_dir=resolve_path(cfg["base_data_dir"], config_path.parent),
             tokenizer=cfg["base_tokenizer"],
             max_lines=cfg.get("base_max_lines", 10_000),
             num_workers=cfg.get("base_num_workers"),
-            output_csv=cfg_path("base_coverage_output", metrics_dir / "base_tokenizer.csv"),
+            output_csv=paths["metrics_dir"] / "base_tokenizer.csv",
         )
+        if cfg.get("compute_base_coverage")
+        else None
+    )
 
-    training = None
-    if cfg.get("train_multilingual", False):
-        training = TrainingConfig(
-            data_dir=_resolve_path(cfg["train_data_dir"], root),
-            output_dir=train_output_dir,
+    training = (
+        TrainingConfig(
+            data_dir=resolve_path(cfg["train_data_dir"], config_path.parent),
+            output_dir=paths["train_output_dir"],
             vocab_size=cfg.get("train_vocab_size", 250_000),
             base_model=cfg.get("train_base_model", "meta-llama/Llama-3.2-1B"),
             text_key=cfg.get("train_text_key", "text"),
             max_samples=cfg.get("train_max_samples"),
         )
+        if cfg.get("train_multilingual")
+        else None
+    )
 
     extension = None
-    if cfg.get("extend", False):
+    if cfg.get("extend"):
         multilingual_path = cfg.get("extension_multilingual_path")
-        if multilingual_path is None:
-            multilingual_resolved = train_output_dir
-        else:
-            multilingual_resolved = _resolve_path(multilingual_path, root)
+        multilingual_resolved = (
+            paths["train_output_dir"]
+            if multilingual_path is None
+            else resolve_path(multilingual_path, config_path.parent)
+        )
         extension = ExtensionConfig(
-            base_tokenizer_path=_resolve_path(cfg["extension_base_path"], root),
+            base_tokenizer_path=resolve_path(cfg["extension_base_path"], config_path.parent),
             multilingual_tokenizer_path=multilingual_resolved,
-            data_dir=_resolve_path(cfg["extension_data_dir"], root),
-            output_dir=extension_output_dir,
+            data_dir=resolve_path(cfg["extension_data_dir"], config_path.parent),
+            output_dir=paths["extension_output_dir"],
             sample_docs=cfg.get("extension_sample_docs", 50),
             text_key=cfg.get("extension_text_key", "text"),
             vocab_cap=cfg.get("extension_vocab_cap", 256_000),
         )
 
-    extended_coverage = None
-    if cfg.get("compute_extended_coverage", False):
-        extended_data_dir = cfg.get("extended_data_dir", cfg.get("extension_data_dir"))
-        extended_coverage = CoverageConfig(
-            data_dir=_resolve_path(extended_data_dir, root),
-            tokenizer=cfg.get("extended_tokenizer", str(extension_output_dir)),
+    extended_coverage = (
+        CoverageConfig(
+            data_dir=resolve_path(cfg.get("extended_data_dir", cfg.get("extension_data_dir")), config_path.parent),
+            tokenizer=cfg.get("extended_tokenizer", str(paths["extension_output_dir"])),
             max_lines=cfg.get("extended_max_lines", 10_000),
             num_workers=cfg.get("extended_num_workers"),
-            output_csv=extended_cov_output,
+            output_csv=paths["extended_cov_output"],
         )
-        extended_metrics_csv = extended_cov_output
+        if cfg.get("compute_extended_coverage")
+        else None
+    )
 
     allocation = AllocationConfig(
         total_new_tokens=cfg.get("total_new_tokens", 128_000),
@@ -234,34 +190,24 @@ def _load_pipeline_config(config_path: Path) -> PipelineConfig:
         gamma=cfg.get("gamma", 2.0),
     )
 
+    # Build the final config
     return PipelineConfig(
-        base_metrics_csv=base_metrics_csv,
-        allocation_csv=allocation_csv,
+        base_metrics_csv=paths["base_metrics_csv"],
+        allocation_csv=paths["allocation_csv"],
         allocation=allocation,
         training=training,
         base_coverage=base_coverage,
         extension=extension,
-        extended_metrics_csv=extended_metrics_csv,
+        extended_metrics_csv=paths["extended_metrics_csv"],
         extended_coverage=extended_coverage,
-        comparison_output_csv=comparison_csv,
+        comparison_output_csv=paths["comparison_csv"],
     )
-
-
-def _parse_args(argv: Optional[Sequence[str]] = None) -> list[Path]:
-    parser = argparse.ArgumentParser(description="Vocabulary extension pipeline")
-    parser.add_argument(
-        "--config",
-        type=Path,
-        nargs="+",
-        required=True,
-        help="One or more YAML config files.",
-    )
-    args = parser.parse_args(argv)
-    return args.config
-
 
 def main(argv: Optional[Sequence[str]] = None) -> Optional[PipelineResult]:
-    config_paths = _parse_args(argv)
+    parser = argparse.ArgumentParser(description="Vocabulary extension pipeline")
+    parser.add_argument("--config", type=Path, nargs="+", required=True)
+    config_paths = parser.parse_args(argv).config
+
     last_result: Optional[PipelineResult] = None
     for path in config_paths:
         pipeline_config = _load_pipeline_config(path)
