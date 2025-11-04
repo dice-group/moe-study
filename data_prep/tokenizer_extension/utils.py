@@ -35,6 +35,8 @@ def load_pipeline_config(config_path: Path):
             data_dir=resolve_path(cfg["train_data_dir"], root),
             output_dir=output_dir / "trained_tokenizer",
             vocab_size=cfg.get("train_vocab_size", 250_000),
+            base_model=cfg.get("train_base_model", "meta-llama/Llama-3.2-1B"),
+            text_key=cfg.get("train_text_key", "text"),
             max_samples=cfg.get("train_max_samples"),
         )
         if cfg.get("train_multilingual")
@@ -47,6 +49,9 @@ def load_pipeline_config(config_path: Path):
             multilingual_tokenizer_path=output_dir / "trained_tokenizer",
             data_dir=resolve_path(cfg["extension_data_dir"], root),
             output_dir=output_dir / "extended_tokenizer",
+            sample_docs=cfg.get("extension_sample_docs", 50),
+            text_key=cfg.get("extension_text_key", "text"),
+            vocab_cap=cfg.get("extension_vocab_cap", 256000),
         )
         if cfg.get("extend")
         else None
@@ -57,6 +62,7 @@ def load_pipeline_config(config_path: Path):
             data_dir=resolve_path(cfg.get("extended_data_dir", cfg["extension_data_dir"]), root),
             tokenizer=str(output_dir / "extended_tokenizer"),
             max_lines=cfg.get("extended_max_lines", 10_000),
+            num_workers=cfg.get("extended_num_workers"),
         )
         if cfg.get("compute_extended_coverage")
         else None
