@@ -42,7 +42,7 @@ def load_pipeline_config(config_path: Path):
             vocab_size=cfg.get("train_vocab_size", 250_000),
             base_model=cfg.get("train_base_model", "meta-llama/Llama-3.2-1B"),
             text_key=cfg.get("train_text_key", "text"),
-            max_samples=cfg.get("train_max_samples"),
+            max_samples = int(cfg.get("train_max_samples")) if cfg.get("train_max_samples") not in (None, "None") else None
         )
         if cfg.get("train_multilingual")
         else None

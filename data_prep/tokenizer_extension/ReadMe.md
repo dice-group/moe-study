@@ -20,3 +20,13 @@
 3. briefly docuemtn necessary things
 4. end to end pipeline test
 5. TODO: list extraction of candidate should also be added instead of assuming it will be given as input
+
+
+nohup bash tokenizer_extension/run_pipeline_staged.sh tokenizer_extension/configs/llama3.1-8b.yaml > tokenizer_extension/run_llama3.1-8b.out 2>&1 &
+disown
+
+nohup bash tokenizer_extension/run_pipeline_staged.sh tokenizer_extension/configs/llama3.2-1b.yaml > tokenizer_extension/run_llama3.2-1b.out 2>&1 &
+disown
+
+nohup bash tokenizer_extension/run_pipeline_staged.sh tokenizer_extension/configs/llama3.2-3b.yaml > tokenizer_extension/run_llama3.2-3b.out 2>&1 &
+disown
