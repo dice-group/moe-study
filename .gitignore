@@ -12,3 +12,5 @@ data_prep/*logs*/
 data_prep/metrics/llama32_1b_belebele
 data_prep/metrics/llama32_1b
 data_prep/metrics/llama32_3b
+
+data_prep/tokenizer_extension/outputs

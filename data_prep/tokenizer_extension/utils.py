@@ -1,5 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
+import os
 
 import pandas as pd
 import yaml
@@ -20,7 +21,11 @@ def load_pipeline_config(config_path: Path):
         raise ValueError(f"Invalid config: {config_path}")
 
     root = config_path.parent
-    output_dir = (root / cfg.get("output_dir", "results")).resolve()
+    override_output = os.environ.get("TOKENIZER_EXTENSION_OUTPUT_DIR")
+    if override_output:
+        output_dir = Path(override_output).expanduser().resolve()
+    else:
+        output_dir = (root / cfg.get("output_dir", "results")).resolve()
 
     base_coverage = CoverageConfig(
         data_dir=resolve_path(cfg["base_data_dir"], root),

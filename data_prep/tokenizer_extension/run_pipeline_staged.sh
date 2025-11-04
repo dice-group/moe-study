@@ -15,10 +15,21 @@ if [[ ! -f "$CONFIG_PATH" ]]; then
 fi
 
 PARTITION=${PARTITION:-normal}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(realpath "${SCRIPT_DIR}/..")"
+BASE_PYTHONPATH="${PYTHONPATH:-}"
+if [[ -n "$BASE_PYTHONPATH" ]]; then
+  COMBINED_PYTHONPATH="${PROJECT_ROOT}:${BASE_PYTHONPATH}"
+else
+  COMBINED_PYTHONPATH="${PROJECT_ROOT}"
+fi
 OUTPUT_ROOT="/scratch/hpc-prf-merlin/joel/moe-study/data_prep/tokenizer_extension/outputs"
 RUN_ID=$(date +"%Y%m%d_%H%M%S")
 RUN_DIR="${OUTPUT_ROOT}/run_${RUN_ID}"
 LOG_ROOT="${RUN_DIR}/logs"
+
+export TOKENIZER_EXTENSION_OUTPUT_DIR="${RUN_DIR}"
+export PYTHONPATH="${COMBINED_PYTHONPATH}"
 
 mkdir -p "$LOG_ROOT"
 MASTER_LOG="${LOG_ROOT}/master_${RUN_ID}.log"
@@ -53,7 +64,6 @@ declare -A TIME=(
 )
 
 STAGES=(base_coverage allocation training extension extended_coverage comparison)
-previous_job=""
 
 for stage in "${STAGES[@]}"; do
   job_name="tokext_${stage}"
@@ -88,6 +98,8 @@ for stage in "${STAGES[@]}"; do
     "--stage" "$stage"
   )
 
+  sbatch_args+=(--export=ALL)
+
   echo "  command    : ${wrap_cmd[*]}"
   job_id=$(sbatch "${sbatch_args[@]}" --wrap "${wrap_cmd[*]}")
   echo "Stage '${stage}' submitted as job ${job_id}"
@@ -103,6 +115,23 @@ for stage in "${STAGES[@]}"; do
   cat "${LOG_ROOT}/${stage}_${job_id}.out" >> "$MASTER_LOG" 2>/dev/null || true
   echo "===== END $stage =====" >> "$MASTER_LOG"
 done
+summary_path="${RUN_DIR}/SUMMARY.md"
+cat <<"EOF" > "$summary_path"
+# Run Summary
+
+- Config: ${CONFIG_PATH}
+- Output directory: ${RUN_DIR}
+- Trained tokenizer: ${RUN_DIR}/trained_tokenizer
+- Extended tokenizer: ${RUN_DIR}/extended_tokenizer
+- Base metrics: ${RUN_DIR}/base_metrics.csv
+- Allocation CSV: ${RUN_DIR}/allocation.csv
+- Extended metrics: ${RUN_DIR}/extended_metrics.csv
+- Comparison CSV: ${RUN_DIR}/comparison.csv
+EOF
+echo "Summary written to $summary_path"
+
+echo "All stages completed. Logs under: ${LOG_ROOT}"
+echo "Master log: ${MASTER_LOG}"
 
 echo "------------------------------------------------------------"
 echo "All stages completed. Logs under: ${LOG_ROOT}"
