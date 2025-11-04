@@ -1,12 +1,5 @@
 #!/bin/bash
 # Submit each tokenizer-extension pipeline stage as a separate Slurm job.
-#
-# Usage:
-#   ./run_pipeline_stages_slurm.sh /path/to/config.yaml
-#
-# Optional environment overrides:
-        #   LOG_ROOT=/scratch/user/logs         # where per-stage Slurm logs are written
-#   PARTITION=normal                    # Slurm partition
 
 set -euo pipefail
 
@@ -34,9 +27,6 @@ exec > >(tee -a "$MASTER_LOG") 2>&1
 echo "Run directory: $RUN_DIR"
 echo "Master log: $MASTER_LOG"
 
-
-
-# we declare the cpu / mem etc definitions for each stage first
 declare -A CPUS=(
   [base_coverage]=64
   [allocation]=4
@@ -45,7 +35,6 @@ declare -A CPUS=(
   [extended_coverage]=64
   [comparison]=2
 )
-
 declare -A MEM=(
   [base_coverage]="64G"
   [allocation]="8G"
@@ -54,7 +43,6 @@ declare -A MEM=(
   [extended_coverage]="64G"
   [comparison]="8G"
 )
-
 declare -A TIME=(
   [base_coverage]="02:00:00"
   [allocation]="00:30:00"
@@ -65,7 +53,6 @@ declare -A TIME=(
 )
 
 STAGES=(base_coverage allocation training extension extended_coverage comparison)
-
 previous_job=""
 
 for stage in "${STAGES[@]}"; do
@@ -76,17 +63,11 @@ for stage in "${STAGES[@]}"; do
   echo "------------------------------------------------------------"
   echo "Preparing stage: ${stage}"
   echo "  job_name   : ${job_name}"
-  echo "  config     : ${CONFIG_PATH}"
   echo "  cpus       : ${CPUS[$stage]}"
   echo "  memory     : ${MEM[$stage]}"
   echo "  time limit : ${TIME[$stage]}"
   echo "  stdout log : ${job_log_out}"
   echo "  stderr log : ${job_log_err}"
-  if [[ -n "$previous_job" ]]; then
-    echo "  dependency : afterok:${previous_job}"
-  else
-    echo "  dependency : none (first stage)"
-  fi
 
   sbatch_args=(
     --parsable
@@ -99,28 +80,30 @@ for stage in "${STAGES[@]}"; do
     --error="$job_log_err"
   )
 
-  if [[ -n "$previous_job" ]]; then
-    sbatch_args+=(--dependency="afterok:${previous_job}")
-  fi
-
   wrap_cmd=(
     "srun"
-    "python"
-    "-m"
-    "tokenizer_extension.pipeline_slurm"
-    "--config"
-    "$CONFIG_PATH"
-    "--stage"
-    "$stage"
+    "python" "-u"
+    "-m" "tokenizer_extension.pipeline_slurm"
+    "--config" "$CONFIG_PATH"
+    "--stage" "$stage"
   )
 
   echo "  command    : ${wrap_cmd[*]}"
-  echo "Submitting stage '${stage}'..."
   job_id=$(sbatch "${sbatch_args[@]}" --wrap "${wrap_cmd[*]}")
   echo "Stage '${stage}' submitted as job ${job_id}"
-  previous_job="$job_id"
+
+  # Wait for job to finish (running or pending)
+  while squeue -h -j "$job_id" | grep -q "$job_id"; do
+    sleep 10
+  done
+
+
+  # Append log output to master log
+  echo "===== START $stage =====" >> "$MASTER_LOG"
+  cat "${LOG_ROOT}/${stage}_${job_id}.out" >> "$MASTER_LOG" 2>/dev/null || true
+  echo "===== END $stage =====" >> "$MASTER_LOG"
 done
 
 echo "------------------------------------------------------------"
-echo "All stages submitted. Tail logs under: ${LOG_ROOT}"
-echo "Final stage job ID: ${previous_job}"
+echo "All stages completed. Logs under: ${LOG_ROOT}"
+echo "Master log: ${MASTER_LOG}"
