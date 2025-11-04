@@ -116,7 +116,7 @@ for stage in "${STAGES[@]}"; do
   echo "===== END $stage =====" >> "$MASTER_LOG"
 done
 summary_path="${RUN_DIR}/SUMMARY.md"
-cat <<"EOF" > "$summary_path"
+cat <<EOF > "$summary_path"
 # Run Summary
 
 - Config: ${CONFIG_PATH}
@@ -128,11 +128,8 @@ cat <<"EOF" > "$summary_path"
 - Extended metrics: ${RUN_DIR}/extended_metrics.csv
 - Comparison CSV: ${RUN_DIR}/comparison.csv
 EOF
+
 echo "Summary written to $summary_path"
-
-echo "All stages completed. Logs under: ${LOG_ROOT}"
-echo "Master log: ${MASTER_LOG}"
-
 echo "------------------------------------------------------------"
 echo "All stages completed. Logs under: ${LOG_ROOT}"
 echo "Master log: ${MASTER_LOG}"

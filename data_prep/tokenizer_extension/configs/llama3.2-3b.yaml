@@ -19,6 +19,7 @@ extension_base_path: /scratch/hpc-prf-merlin/shared_cache/huggingface/hub/models
 extension_data_dir: /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset
 extension_sample_docs: 50
 extension_text_key: text
+extension_num_workers: 8
 extension_vocab_cap: 256000
 
 # Extended coverage

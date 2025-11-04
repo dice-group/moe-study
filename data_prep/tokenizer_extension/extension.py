@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import gzip
 import json
+import os
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from transformers import AutoTokenizer
 
@@ -19,6 +21,7 @@ class ExtensionConfig:
     sample_docs: int = 50
     text_key: str = "text"
     vocab_cap: Optional[int] = 256_000
+    num_workers: Optional[int] = None
 
 
 @dataclass
@@ -41,21 +44,25 @@ def extend_tokenizer(
     global_tokens: List[str] = []
     per_language: Dict[str, int] = {}
 
-    for _, row in allocation.iterrows():
-        language = row["language"]
-        n_tokens = int(row["token_alloc"])
-        if n_tokens <= 0:
+    tasks: List[Tuple[int, str, int]] = []
+    for order, row in enumerate(allocation.itertuples(index=False)):
+        language = getattr(row, "language")
+        n_tokens = int(getattr(row, "token_alloc"))
+        if language == "english":
+            print("[tokenize_extension] Skipping English, extension disabled.")
             continue
+        tasks.append((order, language, n_tokens))
 
+    def process_language(language: str, n_tokens: int) -> Optional[List[str]]:
         lang_file = config.data_dir / f"{language}.jsonl.gz"
         if not lang_file.exists():
             print(f"[tokenize_extension] Skipping {language}, missing file {lang_file}")
-            continue
+            return None
 
         texts = _load_texts(lang_file, config.sample_docs, config.text_key)
         if not texts:
             print(f"[tokenize_extension] Skipping {language}, no texts loaded.")
-            continue
+            return None
 
         counts = Counter()
         for text in texts:
@@ -64,11 +71,40 @@ def extend_tokenizer(
 
         candidates = [tok for tok, _ in counts.most_common() if tok not in base_vocab]
         selected = candidates[:n_tokens]
+        print(f"[tokenize_extension] {language}: requested {n_tokens}, added {len(selected)} tokens.")
+        return selected
+
+    def determine_worker_count(total_tasks: int) -> int:
+        if total_tasks <= 1:
+            return 1
+        if config.num_workers is not None:
+            return max(1, min(config.num_workers, total_tasks))
+        cpu_count = os.cpu_count() or 1
+        return max(1, min(cpu_count, total_tasks))
+
+    results: Dict[str, Optional[List[str]]] = {}
+    if tasks:
+        worker_count = determine_worker_count(len(tasks))
+        if worker_count == 1:
+            for _, language, n_tokens in tasks:
+                results[language] = process_language(language, n_tokens)
+        else:
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                future_map = {
+                    executor.submit(process_language, language, n_tokens): language
+                    for _, language, n_tokens in tasks
+                }
+                for future in as_completed(future_map):
+                    language = future_map[future]
+                    results[language] = future.result()
+
+    for _, language, _ in sorted(tasks):
+        selected = results.get(language)
+        if selected is None:
+            continue
         per_language[language] = len(selected)
-        global_tokens.extend(selected)
-        print(
-            f"[tokenize_extension] {language}: requested {n_tokens}, added {len(selected)} tokens."
-        )
+        if selected:
+            global_tokens.extend(selected)
 
     tokens_added = _merge_and_save(
         config.base_tokenizer_path,
@@ -205,4 +241,3 @@ def _merge_parts_exist(merge: str, vocab: Dict[str, int]) -> bool:
     left, right = tokens
     result = "".join(tokens)
     return left in vocab and right in vocab and result in vocab
-

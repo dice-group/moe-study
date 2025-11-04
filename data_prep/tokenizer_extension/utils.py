@@ -57,6 +57,7 @@ def load_pipeline_config(config_path: Path):
             sample_docs=cfg.get("extension_sample_docs", 50),
             text_key=cfg.get("extension_text_key", "text"),
             vocab_cap=cfg.get("extension_vocab_cap", 256000),
+            num_workers=cfg.get("extension_num_workers"),
         )
         if cfg.get("extend")
         else None
