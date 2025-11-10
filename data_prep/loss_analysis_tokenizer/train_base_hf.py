@@ -22,6 +22,8 @@ parser.add_argument("--tokenizer_path", type=str, default=None)
 parser.add_argument("--run_name", type=str, default="llama32-run")
 parser.add_argument("--per_device_batch_size", type=int, default=4)
 parser.add_argument("--grad_accum_steps", type=int, default=2)
+parser.add_argument("--max_steps", type=int, default=10000, help="Total training steps.")
+parser.add_argument("--save_steps", type=int, default=2000, help="Checkpoint save interval.")
 parser.add_argument("--enable_lm_eval", action="store_true", help="Enable lm-harness evaluation callback.")
 parser.add_argument("--lm_eval_interval", type=int, default=2000, help="Steps between lm-harness evaluations (match save_steps).")
 parser.add_argument(
@@ -81,7 +83,7 @@ training_args = TrainingArguments(
     per_device_train_batch_size=args.per_device_batch_size,
     gradient_accumulation_steps=args.grad_accum_steps,
     learning_rate=2e-5,
-    max_steps=10000,
+    max_steps=args.max_steps,
     weight_decay=0.1,
     warmup_ratio=0.03,
     lr_scheduler_type="cosine",
@@ -90,7 +92,7 @@ training_args = TrainingArguments(
     gradient_checkpointing=False,
     dataloader_pin_memory=True,
     logging_steps=25,
-    save_steps=2000,
+    save_steps=args.save_steps,
     save_total_limit=20,
 )
 

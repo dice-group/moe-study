@@ -21,16 +21,7 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 class LMEvalCallback(TrainerCallback):
-    def __init__(
-        self,
-        model_path,
-        eval_interval=500,
-        eval_tasks=None,
-        batch_size=2,
-        limit=500,
-        cuda_devices="0",
-        wandb_project="lm_eval_project",
-        wandb_run_id=None,
+    def __init__(self, model_path, eval_interval=500, eval_tasks=None, batch_size=2, limit=500, cuda_devices="0", wandb_project="lm_eval_project", wandb_run_id=None,
     ):
         self.eval_interval = max(eval_interval, 1)
         self.eval_tasks = eval_tasks or ["belebele"]
@@ -61,33 +52,29 @@ class LMEvalCallback(TrainerCallback):
         try:
             model_path = self.get_latest_checkpoint(args.output_dir)
 
-            run_env = os.environ.copy()
-            run_env["CUDA_VISIBLE_DEVICES"] = self.cuda_devices
-            run_env["WANDB_PROJECT"] = self.wandb_project
-            run_env["WANDB_RUN_ID"] = self.wandb_run_id or ""
-            run_env["WANDB_RESUME"] = "allow"
+            env = {
+                **os.environ,
+                "CUDA_VISIBLE_DEVICES": self.cuda_devices,
+                "WANDB_PROJECT": self.wandb_project,
+                "WANDB_RUN_ID": self.wandb_run_id or "",
+                "WANDB_RESUME": "allow",
+            }
 
             with tempfile.TemporaryDirectory(prefix=f"lm_eval_step_{state.global_step}_") as tmpdir:
                 tmp_path = Path(tmpdir)
                 subprocess.run(
                     [
                         "lm_eval",
-                        "--model",
-                        "hf",
-                        "--model_args",
-                        f"pretrained={self.model_path},peft={model_path},tokenizer={model_path}",
-                        "--tasks",
-                        ",".join(self.eval_tasks),
-                        "--batch_size",
-                        str(self.batch_size),
-                        "--limit",
-                        str(self.limit),
-                        "--output_path",
-                        str(tmp_path),
+                        "--model", "hf",
+                        "--model_args", f"pretrained={self.model_path},peft={model_path},tokenizer={model_path}",
+                        "--tasks", ",".join(self.eval_tasks),
+                        "--batch_size", str(self.batch_size),
+                        "--limit", str(self.limit),
+                        "--output_path", str(tmp_path),
                         "--log_samples",
                     ],
                     check=True,
-                    env={**os.environ, "CUDA_VISIBLE_DEVICES": self.cuda_devices},
+                    env=env,
                 )
 
                 result_files = list(tmp_path.glob("*/results_*.json"))
