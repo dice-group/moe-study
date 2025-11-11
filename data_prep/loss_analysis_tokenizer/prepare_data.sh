@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DATA_ROOT="/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/samples"
-OUT_DATA_DIR="/scratch/hpc-prf-merlin/joel/moe-study/data_prep/loss_analysis_tokenizer/loss_analysis_dataset"
+OUT_DATA_DIR="/scratch/hpc-prf-merlin/joel/moe-study/data_prep/loss_analysis_tokenizer/loss_analysis_dataset_low_resource"
 
 echo "Starting data prep"
 echo "Logs will be written to: $LOG_FILE"
