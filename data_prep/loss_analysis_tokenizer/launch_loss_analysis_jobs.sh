@@ -18,8 +18,8 @@ LM_EVAL_PROJECT=${LM_EVAL_PROJECT:-multilingual_tokenizer_lm_eval}
 LOG_DIR=${LOG_DIR:-./logs}
 PER_DEVICE_BATCH_SIZE=${PER_DEVICE_BATCH_SIZE:-2}
 GRAD_ACCUM_STEPS=${GRAD_ACCUM_STEPS:-1}
-MAX_STEPS=${MAX_STEPS:-10000}
-SAVE_STEPS=${SAVE_STEPS:-2000}
+MAX_STEPS=${MAX_STEPS:-100}
+SAVE_STEPS=${SAVE_STEPS:-20}
 mkdir -p "$LOG_DIR"
 
 dataset_for_lang() {
@@ -96,7 +96,7 @@ mkdir -p "\$OUTPUT_DIR"
 STAGE_ROOT="\${SLURM_TMPDIR:-/tmp}/loss_analysis_stage/\${SLURM_JOB_ID}"
 mkdir -p "\$STAGE_ROOT"
 STAGED_GZ="\$STAGE_ROOT/\$(basename "\$DATASET_PATH_GZ")"
-echo "Copying \$DATASET_PATH_GZ → \$STAGED_GZ"
+echo "Copying \$DATASET_PATH_GZ -> \$STAGED_GZ"
 cp "\$DATASET_PATH_GZ" "\$STAGED_GZ"
 TMP_NAME="\$(basename "\${STAGED_GZ%.gz}")"
 DATASET_PATH="\$STAGE_ROOT/\$TMP_NAME"
@@ -115,20 +115,20 @@ python train_base_hf.py \
   --dataset_path "\$DATASET_PATH" \
   --output_dir "\$OUTPUT_DIR" \
   --run_name "\$RUN_NAME" \
-  --per_device_batch_size 2 \
-  --grad_accum_steps 1 \
-  --max_steps 10000 \
-  --save_steps 2000 \
+  --per_device_batch_size ${PER_DEVICE_BATCH_SIZE} \
+  --grad_accum_steps ${GRAD_ACCUM_STEPS} \
+  --max_steps ${MAX_STEPS} \
+  --save_steps ${SAVE_STEPS} \
   "\${EXTRA_TOKENIZER_ARGS[@]}"
 
-./lm_eval.sh \
-  --model-dir "\$OUTPUT_DIR" \
-  --tasks "\$EVAL_TASK" \
-  --cuda-devices "0" \
-  --wandb-project "$LM_EVAL_PROJECT" \
-  --batch-size 2 \
-  --limit 500 \
-  "\${LM_EVAL_TOKENIZER_ARGS[@]}"
+if [[ -n "\$LM_EVAL_TOKENIZER_PATH" ]]; then
+  BATCH_SIZE=2 LIMIT=500 CUDA_VISIBLE_DEVICES=0 WANDB_PROJECT="$LM_EVAL_PROJECT" \
+    ./lm_eval.sh "\$OUTPUT_DIR" "\$EVAL_TASK" "\$LM_EVAL_TOKENIZER_PATH"
+else
+  BATCH_SIZE=2 LIMIT=500 CUDA_VISIBLE_DEVICES=0 WANDB_PROJECT="$LM_EVAL_PROJECT" \
+    ./lm_eval.sh "\$OUTPUT_DIR" "\$EVAL_TASK"
+fi
+
 EOF
 )
 
