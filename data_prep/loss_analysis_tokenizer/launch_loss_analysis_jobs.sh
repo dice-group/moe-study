@@ -8,14 +8,18 @@ set -euo pipefail
 #)
 LANGS=(lao_Laoo)
 
-MODEL_NAME=${MODEL_NAME:-meta-llama/Llama-3.1-8B}
-EXTENDED_TOKENIZER=${EXTENDED_TOKENIZER:-/scratch/hpc-prf-merlin/project_data/moe_study/trained_multilingual_tokenizers/256k_vocab/llama-3.1-8B/}
+MODEL_NAME=${MODEL_NAME:-meta-llama/Llama-3.2-1B}
+EXTENDED_TOKENIZER=${EXTENDED_TOKENIZER:-/scratch/hpc-prf-merlin/project_data/moe_study/trained_multilingual_tokenizers/256k_vocab/llama-3.2-1B/}
 DATASET_DIR=${DATASET_DIR:-./loss_analysis_dataset}
 FALLBACK_DATASET=${FALLBACK_DATASET:-$DATASET_DIR/english.jsonl.gz}
 OUTPUT_ROOT=${OUTPUT_ROOT:-./loss_analysis_output}
 WANDB_PROJECT=${WANDB_PROJECT:-multilingual_tokenizer_perplexity_eval}
 LM_EVAL_PROJECT=${LM_EVAL_PROJECT:-multilingual_tokenizer_lm_eval}
 LOG_DIR=${LOG_DIR:-./logs}
+PER_DEVICE_BATCH_SIZE=${PER_DEVICE_BATCH_SIZE:-2}
+GRAD_ACCUM_STEPS=${GRAD_ACCUM_STEPS:-1}
+MAX_STEPS=${MAX_STEPS:-10000}
+SAVE_STEPS=${SAVE_STEPS:-2000}
 mkdir -p "$LOG_DIR"
 
 dataset_for_lang() {
@@ -64,7 +68,18 @@ submit_job() {
 #SBATCH --time=5:00:00
 #SBATCH --output=$log_file
 #SBATCH --partition=gpu
-set -euo pipefail
+set -eo pipefail
+
+module purge
+module load toolchain/foss/2024a
+module load system/CUDA/12.6.0
+module load lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0
+
+source /opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3/etc/profile.d/conda.sh
+conda activate moe-study
+export CUDA_DEVICE_ORDER=PCI_BUS_ID
+export CUDA_VISIBLE_DEVICES=${SLURM_JOB_GPUS:-0}
+python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('Device count:', torch.cuda.device_count());"
 
 export WANDB_PROJECT="$WANDB_PROJECT"
 export TOKENIZERS_PARALLELISM=false
@@ -75,13 +90,18 @@ TOKENIZER_PATH="$tokenizer_path"
 DATASET_PATH_GZ="$dataset_path_gz"
 EVAL_TASK="$eval_task"
 OUTPUT_DIR="$output_dir"
-RUN_NAME="loss-\${LANG}-\${TOKENIZER_LABEL}-\${SLURM_JOB_ID}"
+RUN_NAME="loss-\${LANG}-\${TOKENIZER_LABEL}-bs${PER_DEVICE_BATCH_SIZE}-ga${GRAD_ACCUM_STEPS}-s${MAX_STEPS}-\${SLURM_JOB_ID}"
 mkdir -p "\$OUTPUT_DIR"
 
-TMP_NAME="\$(basename "\${DATASET_PATH_GZ%.gz}")"
-DATASET_PATH="\$OUTPUT_DIR/\$TMP_NAME"
-echo "Decompressing \$DATASET_PATH_GZ → \$DATASET_PATH"
-gzip -cd "\$DATASET_PATH_GZ" > "\$DATASET_PATH"
+STAGE_ROOT="\${SLURM_TMPDIR:-/tmp}/loss_analysis_stage/\${SLURM_JOB_ID}"
+mkdir -p "\$STAGE_ROOT"
+STAGED_GZ="\$STAGE_ROOT/\$(basename "\$DATASET_PATH_GZ")"
+echo "Copying \$DATASET_PATH_GZ → \$STAGED_GZ"
+cp "\$DATASET_PATH_GZ" "\$STAGED_GZ"
+TMP_NAME="\$(basename "\${STAGED_GZ%.gz}")"
+DATASET_PATH="\$STAGE_ROOT/\$TMP_NAME"
+echo "Decompressing \$STAGED_GZ → \$DATASET_PATH"
+gzip -cd "\$STAGED_GZ" > "\$DATASET_PATH"
 
 EXTRA_TOKENIZER_ARGS=()
 LM_EVAL_TOKENIZER_ARGS=()
