@@ -58,7 +58,7 @@ submit_job() {
   submission=$(sbatch <<EOF
 #!/bin/bash
 #SBATCH --job-name=${job_name:0:63}
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:h100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=60G
 #SBATCH --time=5:00:00
