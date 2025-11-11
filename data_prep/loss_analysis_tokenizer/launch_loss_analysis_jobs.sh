@@ -99,13 +99,6 @@ python train_base_hf.py \
   --grad_accum_steps 1 \
   --max_steps 10000 \
   --save_steps 2000 \
-  --enable_lm_eval \
-  --lm_eval_interval 2000 \
-  --lm_eval_tasks "\$EVAL_TASK" \
-  --lm_eval_batch_size 2 \
-  --lm_eval_limit 500 \
-  --lm_eval_cuda_devices "0" \
-  --lm_eval_wandb_project "$LM_EVAL_PROJECT" \
   "\${EXTRA_TOKENIZER_ARGS[@]}"
 
 ./lm_eval.sh \
