@@ -1,12 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-#LANGS=(
-#  lao_Laoo ory_Orya tel_Telu asm_Beng
-#  english rus_Cyrl fin_Latn spa_Latn
-#  hin_Deva kat_Geor slv_Latn srp_Cyrl
-#)
-LANGS=(lao_Laoo)
+LANGS=(
+  lao_Laoo ory_Orya tel_Telu asm_Beng
+  english rus_Cyrl fin_Latn spa_Latn
+  hin_Deva kat_Geor slv_Latn srp_Cyrl
+)
 
 MODEL_NAME=${MODEL_NAME:-meta-llama/Llama-3.2-1B}
 EXTENDED_TOKENIZER=${EXTENDED_TOKENIZER:-/scratch/hpc-prf-merlin/project_data/moe_study/trained_multilingual_tokenizers/256k_vocab/llama-3.2-1B/}
@@ -18,8 +17,8 @@ LM_EVAL_PROJECT=${LM_EVAL_PROJECT:-multilingual_tokenizer_lm_eval}
 LOG_DIR=${LOG_DIR:-./logs}
 PER_DEVICE_BATCH_SIZE=${PER_DEVICE_BATCH_SIZE:-2}
 GRAD_ACCUM_STEPS=${GRAD_ACCUM_STEPS:-1}
-MAX_STEPS=${MAX_STEPS:-100}
-SAVE_STEPS=${SAVE_STEPS:-20}
+MAX_STEPS=${MAX_STEPS:-10000}
+SAVE_STEPS=${SAVE_STEPS:-2000}
 mkdir -p "$LOG_DIR"
 
 dataset_for_lang() {
@@ -65,7 +64,7 @@ submit_job() {
 #SBATCH --gres=gpu:h100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=60G
-#SBATCH --time=5:00:00
+#SBATCH --time=3:00:00
 #SBATCH --output=$log_file
 #SBATCH --partition=gpu
 set -eo pipefail
@@ -121,12 +120,14 @@ python train_base_hf.py \
   --save_steps ${SAVE_STEPS} \
   "\${EXTRA_TOKENIZER_ARGS[@]}"
 
+EVAL_RUN_ID="\$RUN_NAME"
+
 if [[ -n "\$LM_EVAL_TOKENIZER_PATH" ]]; then
   BATCH_SIZE=2 LIMIT=500 CUDA_VISIBLE_DEVICES=0 WANDB_PROJECT="$LM_EVAL_PROJECT" \
-    ./lm_eval.sh "\$OUTPUT_DIR" "\$EVAL_TASK" "\$LM_EVAL_TOKENIZER_PATH"
+    ./lm_eval.sh "\$OUTPUT_DIR" "\$EVAL_TASK" "\$LM_EVAL_TOKENIZER_PATH" "\$RUN_NAME" "\$EVAL_RUN_ID"
 else
   BATCH_SIZE=2 LIMIT=500 CUDA_VISIBLE_DEVICES=0 WANDB_PROJECT="$LM_EVAL_PROJECT" \
-    ./lm_eval.sh "\$OUTPUT_DIR" "\$EVAL_TASK"
+    ./lm_eval.sh "\$OUTPUT_DIR" "\$EVAL_TASK" "" "\$RUN_NAME" "\$EVAL_RUN_ID"
 fi
 
 EOF
@@ -139,4 +140,5 @@ EOF
 for lang in "${LANGS[@]}"; do
   submit_job "$lang" base ""
   submit_job "$lang" extended "$EXTENDED_TOKENIZER"
+  sleep 2
 done
