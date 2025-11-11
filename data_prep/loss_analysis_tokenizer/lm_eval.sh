@@ -5,7 +5,14 @@ export CUDA_VISIBLE_DEVICES=0
 MODEL_DIR="loss_analysis_output/base_lao_Laoo"
 EVAL_NAME="belebele_lao_Laoo"
 
-for CKPT in "$MODEL_DIR"/checkpoint-*; do
+shopt -s nullglob
+CHECKPOINTS=("$MODEL_DIR"/checkpoint-*)
+if [[ ${#CHECKPOINTS[@]} -eq 0 ]]; then
+  echo "No checkpoints found under $MODEL_DIR" >&2
+  exit 1
+fi
+
+for CKPT in "${CHECKPOINTS[@]}"; do
   echo "Evaluating $(basename $CKPT) ..."
   lm_eval \
     --model hf \
