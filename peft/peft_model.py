@@ -42,6 +42,7 @@ from .config import PeftConfig
 from .tuners import (
     AdaLoraModel,
     AdaptionPromptModel,
+    AdaMoleModel,
     BOFTModel,
     FourierFTModel,
     HRAModel,
@@ -102,6 +103,7 @@ PEFT_TYPE_TO_MODEL_MAPPING = {
     PeftType.FOURIERFT: FourierFTModel,
     PeftType.XLORA: XLoraModel,
     PeftType.HRA: HRAModel,
+    PeftType.ADAMOLE: AdaMoleModel,
 }
 
 

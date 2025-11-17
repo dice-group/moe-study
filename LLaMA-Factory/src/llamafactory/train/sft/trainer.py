@@ -97,16 +97,26 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         Fixes the loss value. See https://github.com/huggingface/transformers/pull/35438 for details.
         """
         base = super().compute_loss(model, inputs, return_outputs, **kwargs)
+        extra_losses = []
+
         language_loss = self._compute_language_prior_loss()
-        if language_loss is None:
+        if language_loss is not None:
+            extra_losses.append(language_loss)
+
+        adamole_loss = self._compute_adamole_aux_loss(model)
+        if adamole_loss is not None:
+            extra_losses.append(adamole_loss)
+
+        if not extra_losses:
             return base
 
+        added = sum(extra_losses)
         if return_outputs:
             loss, outputs = base
-            loss = loss + language_loss
+            loss = loss + added
             return loss, outputs
 
-        return base + language_loss
+        return base + added
 
     @override
     def prediction_step(
@@ -199,6 +209,24 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         aux = weight * sum(losses) / len(losses)
         self.log({"language_prior_loss": aux.detach()})
         return aux
+
+    def _compute_adamole_aux_loss(self, model: "PreTrainedModel") -> Optional[torch.Tensor]:
+        coef = getattr(self.finetuning_args, "adamole_aux_loss_coef", 0.0) or 0.0
+        if self.finetuning_args.finetuning_type != "adamole" or coef <= 0:
+            return None
+
+        module = getattr(model, "module", model)
+        aux_fn = getattr(module, "get_aux_loss", None)
+        if not callable(aux_fn):
+            return None
+
+        aux = aux_fn()
+        if aux is None:
+            return None
+
+        scaled = coef * aux
+        self.log({"adamole_aux_loss": scaled.detach()})
+        return scaled
 
     def _flush_language_router_cache(self) -> list[tuple[str, torch.Tensor, torch.Tensor]]:
         caches: list[tuple[str, torch.Tensor, torch.Tensor]] = []

@@ -361,7 +361,17 @@ class FinetuningArguments(
         default="sft",
         metadata={"help": "Which stage will be performed in training."},
     )
-    finetuning_type: Literal["lora", "freeze", "full", "cola", "hydralora", "prompt_tuning", "ia3", "p_tuning"] = field(
+    finetuning_type: Literal[
+        "lora",
+        "freeze",
+        "full",
+        "cola",
+        "hydralora",
+        "prompt_tuning",
+        "ia3",
+        "p_tuning",
+        "adamole",
+    ] = field(
         default="lora",
         metadata={"help": "Which fine-tuning method to use."},
     )
@@ -423,6 +433,23 @@ class FinetuningArguments(
     hydralora_num_experts: int = field(default=1, metadata={"help": "Number of experts per HydraLoRA layer when mixture-of-experts is enabled."})
     hydralora_top_k: int = field(default=1, metadata={"help": "Top-k experts to select per token when mixture-of-experts is enabled."})
     hydralora_debug: bool = field(default=False, metadata={"help": "Enable verbose HydraLoRA debugging output."})
+    adamole_num_experts: int = field(
+        default=4,
+        metadata={"help": "Number of LoRA experts to instantiate per adapted module for AdaMoLE."},
+    )
+    adamole_max_threshold: Optional[float] = field(
+        default=None,
+        metadata={
+            "help": (
+                "Upper bound for the adaptive gating threshold τ. "
+                "Defaults to 1 / num_experts when unset."
+            )
+        },
+    )
+    adamole_aux_loss_coef: float = field(
+        default=0.0,
+        metadata={"help": "Coefficient for the AdaMoLE load-balancing auxiliary loss."},
+    )
     language_column: Optional[str] = field(
         default=None,
         metadata={
@@ -483,14 +510,17 @@ class FinetuningArguments(
             if len(self.cola_init_lora_weights) == 0:
                 self.cola_init_lora_weights = None
 
-        assert self.finetuning_type in ["lora", "freeze", "full", "cola", "hydralora", "prompt_tuning", "ia3", "p_tuning"], "Invalid fine-tuning method."
+        supported_ft = ["lora", "freeze", "full", "cola", "hydralora", "prompt_tuning", "ia3", "p_tuning", "adamole"]
+        assert self.finetuning_type in supported_ft, "Invalid fine-tuning method."
         assert self.ref_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
         assert self.reward_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
 
         if self.stage == "ppo" and self.reward_model is None:
             raise ValueError("`reward_model` is necessary for PPO training.")
 
-        if self.stage == "ppo" and self.reward_model_type == "lora" and self.finetuning_type != "lora":
+        lora_like = self.finetuning_type in ["lora", "adamole"]
+
+        if self.stage == "ppo" and self.reward_model_type == "lora" and not lora_like:
             raise ValueError("`reward_model_type` cannot be lora for Freeze/Full PPO training.")
 
         if self.stage == "dpo" and self.pref_loss != "sigmoid" and self.dpo_label_smoothing > 1e-6:
@@ -499,7 +529,7 @@ class FinetuningArguments(
         if self.use_llama_pro and self.finetuning_type == "full":
             raise ValueError("`use_llama_pro` is only valid for Freeze or LoRA training.")
 
-        if self.finetuning_type == "lora" and (self.use_galore or self.use_badam):
+        if lora_like and (self.use_galore or self.use_badam):
             raise ValueError("Cannot use LoRA with GaLore or BAdam together.")
 
         if self.use_galore and self.use_badam:
@@ -511,7 +541,7 @@ class FinetuningArguments(
         if self.train_mm_proj_only and self.finetuning_type != "full":
             raise ValueError("`train_mm_proj_only` is only valid for full training.")
 
-        if self.finetuning_type != "lora":
+        if not lora_like:
             if self.loraplus_lr_ratio is not None:
                 raise ValueError("`loraplus_lr_ratio` is only valid for LoRA training.")
 

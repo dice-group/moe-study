@@ -118,7 +118,7 @@ def create_ref_model(
         )
         logger.info_rank0(f"Created reference model from {finetuning_args.ref_model}")
     else:
-        if finetuning_args.finetuning_type == "lora":
+        if finetuning_args.finetuning_type in ("lora", "adamole"):
             ref_model = None
         else:
             ref_model_args = ModelArguments.copyfrom(model_args)

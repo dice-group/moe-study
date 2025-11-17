@@ -53,6 +53,8 @@ from .tuners import (
     LoraConfig,
     ColaConfig,
     HydraLoraConfig,
+    AdaMoleConfig,
+    AdaMoleModel,
     LoraModel,
     ColaModel,
     HydraLoraModel,
@@ -106,6 +108,7 @@ PEFT_TYPE_TO_CONFIG_MAPPING: dict[str, type[PeftConfig]] = {
     "FOURIERFT": FourierFTConfig,
     "XLORA": XLoraConfig,
     "HRA": HRAConfig,
+    "ADAMOLE": AdaMoleConfig,
 }
 
 PEFT_TYPE_TO_TUNER_MAPPING: dict[str, type[_BaseTuner]] = {
@@ -124,6 +127,7 @@ PEFT_TYPE_TO_TUNER_MAPPING: dict[str, type[_BaseTuner]] = {
     "FOURIERFT": FourierFTModel,
     "XLORA": XLoraModel,
     "HRA": HRAModel,
+    "ADAMOLE": AdaMoleModel,
 }
 
 

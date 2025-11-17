@@ -177,6 +177,24 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
             lora_target = gr.Textbox(scale=2)
             additional_target = gr.Textbox(scale=2)
 
+        with gr.Row():
+            adamole_num_experts = gr.Slider(
+                minimum=1, maximum=32, value=4, step=1, label="AdaMoLE Experts", interactive=True
+            )
+            adamole_max_threshold = gr.Textbox(
+                value="0.25",
+                label="AdaMoLE Max Threshold",
+                placeholder="Leave blank to use 1 / num_experts",
+            )
+            adamole_aux_loss_coef = gr.Slider(
+                minimum=0,
+                maximum=1,
+                value=0.01,
+                step=0.001,
+                label="AdaMoLE Aux Loss Coef",
+                interactive=True,
+            )
+
     input_elems.update(
         {
             lora_rank,
@@ -189,6 +207,9 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
             use_pissa,
             lora_target,
             additional_target,
+            adamole_num_experts,
+            adamole_max_threshold,
+            adamole_aux_loss_coef,
         }
     )
     elem_dict.update(
@@ -204,6 +225,9 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
             use_pissa=use_pissa,
             lora_target=lora_target,
             additional_target=additional_target,
+            adamole_num_experts=adamole_num_experts,
+            adamole_max_threshold=adamole_max_threshold,
+            adamole_aux_loss_coef=adamole_aux_loss_coef,
         )
     )
 

@@ -19,6 +19,7 @@
 
 from .adaption_prompt import AdaptionPromptConfig, AdaptionPromptModel
 from .lora import LoraConfig, LoraModel, LoftQConfig, LoraRuntimeConfig
+from .adamole import AdaMoleConfig, AdaMoleModel
 from .cola import ColaConfig, ColaModel
 from .hydralora import HydraLoraConfig, HydraLoraModel
 from .loha import LoHaConfig, LoHaModel

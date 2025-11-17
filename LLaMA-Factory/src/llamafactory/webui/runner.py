@@ -180,7 +180,7 @@ class Runner:
             args["freeze_extra_modules"] = get("train.freeze_extra_modules") or None
 
         # lora config
-        if args["finetuning_type"] == "lora":
+        if args["finetuning_type"] in ("lora", "adamole"):
             args["lora_rank"] = get("train.lora_rank")
             args["lora_alpha"] = get("train.lora_alpha")
             args["lora_dropout"] = get("train.lora_dropout")
@@ -196,6 +196,14 @@ class Runner:
             if args["use_llama_pro"]:
                 args["freeze_trainable_layers"] = get("train.freeze_trainable_layers")
 
+            if args["finetuning_type"] == "adamole":
+                args["adamole_num_experts"] = int(get("train.adamole_num_experts"))
+                threshold_value = get("train.adamole_max_threshold")
+                args["adamole_max_threshold"] = (
+                    None if threshold_value in (None, "") else float(threshold_value)
+                )
+                args["adamole_aux_loss_coef"] = get("train.adamole_aux_loss_coef")
+
         # rlhf config
         if args["stage"] == "ppo":
             if finetuning_type in PEFT_METHODS:
@@ -205,7 +213,7 @@ class Runner:
             else:
                 args["reward_model"] = get_save_dir(model_name, finetuning_type, get("train.reward_model"))
 
-            args["reward_model_type"] = "lora" if finetuning_type == "lora" else "full"
+            args["reward_model_type"] = "lora" if finetuning_type in ("lora", "adamole") else "full"
             args["ppo_score_norm"] = get("train.ppo_score_norm")
             args["ppo_whiten_rewards"] = get("train.ppo_whiten_rewards")
             args["top_k"] = 0
