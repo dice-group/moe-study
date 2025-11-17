@@ -16,3 +16,5 @@ data_prep/metrics/llama32_3b
 data_prep/tokenizer_extension/outputs
 data_prep/loss_analysis_tokenizer/loss_analysis_output
 /data_prep/loss_analysis_tokenizer/loss_analysis_dataset
+/data_prep/loss_analysis_tokenizer/logs/
+/data_prep/loss_analysis_tokenizer/belebele_plots/
