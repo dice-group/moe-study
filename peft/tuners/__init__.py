@@ -39,3 +39,4 @@ from .vera import VeraConfig, VeraModel
 from .fourierft import FourierFTConfig, FourierFTModel
 from .xlora import XLoraConfig, XLoraModel
 from .hra import HRAConfig, HRAModel
+from .adamoe_1 import MolaConfig, MolaModel

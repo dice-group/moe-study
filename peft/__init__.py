@@ -58,6 +58,8 @@ from .tuners import (
     LoraModel,
     ColaModel,
     HydraLoraModel,
+    MolaConfig,
+    MolaModel,
     AdaMoleConfig,
     AdaMoleModel,
     LoHaConfig,

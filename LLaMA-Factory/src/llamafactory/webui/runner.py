@@ -180,7 +180,7 @@ class Runner:
             args["freeze_extra_modules"] = get("train.freeze_extra_modules") or None
 
         # lora config
-        if args["finetuning_type"] in ("lora", "adamole"):
+        if args["finetuning_type"] in ("lora", "adamole", "mola"):
             args["lora_rank"] = get("train.lora_rank")
             args["lora_alpha"] = get("train.lora_alpha")
             args["lora_dropout"] = get("train.lora_dropout")
@@ -203,6 +203,14 @@ class Runner:
                     None if threshold_value in (None, "") else float(threshold_value)
                 )
                 args["adamole_aux_loss_coef"] = get("train.adamole_aux_loss_coef")
+            elif args["finetuning_type"] == "mola":
+                args["mola_num_experts"] = int(get("train.mola_num_experts"))
+                args["mola_top_k"] = int(get("train.mola_top_k"))
+                args["mola_use_null_expert"] = get("train.mola_use_null_expert")
+                args["mola_router_aux_loss_coef"] = get("train.mola_router_aux_loss_coef")
+                args["mola_null_expert_penalty"] = get("train.mola_null_expert_penalty")
+                args["mola_aux_loss_annealing"] = get("train.mola_aux_loss_annealing")
+                args["mola_debug_mode"] = get("train.mola_debug_mode")
 
         # rlhf config
         if args["stage"] == "ppo":
@@ -213,7 +221,7 @@ class Runner:
             else:
                 args["reward_model"] = get_save_dir(model_name, finetuning_type, get("train.reward_model"))
 
-            args["reward_model_type"] = "lora" if finetuning_type in ("lora", "adamole") else "full"
+            args["reward_model_type"] = "lora" if finetuning_type in ("lora", "adamole", "mola") else "full"
             args["ppo_score_norm"] = get("train.ppo_score_norm")
             args["ppo_whiten_rewards"] = get("train.ppo_whiten_rewards")
             args["top_k"] = 0

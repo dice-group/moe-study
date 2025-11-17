@@ -28,6 +28,7 @@ from .peft_model import PeftModel
 from .tuners import (
     AdaLoraModel,
     AdaMoleModel,
+    MolaModel,
     IA3Model,
     LoHaModel,
     LoKrModel,
@@ -51,6 +52,7 @@ PEFT_TYPE_TO_MODEL_MAPPING = {
     PeftType.IA3: IA3Model,
     PeftType.OFT: OFTModel,
     PeftType.ADAMOLE: AdaMoleModel,
+    PeftType.MOLA: MolaModel,
 }
 
 

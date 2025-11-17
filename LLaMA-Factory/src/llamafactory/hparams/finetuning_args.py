@@ -371,6 +371,7 @@ class FinetuningArguments(
         "ia3",
         "p_tuning",
         "adamole",
+        "mola",
     ] = field(
         default="lora",
         metadata={"help": "Which fine-tuning method to use."},
@@ -433,6 +434,13 @@ class FinetuningArguments(
     hydralora_num_experts: int = field(default=1, metadata={"help": "Number of experts per HydraLoRA layer when mixture-of-experts is enabled."})
     hydralora_top_k: int = field(default=1, metadata={"help": "Top-k experts to select per token when mixture-of-experts is enabled."})
     hydralora_debug: bool = field(default=False, metadata={"help": "Enable verbose HydraLoRA debugging output."})
+    mola_num_experts: int = field(default=4, metadata={"help": "Number of experts used by MoLA."})
+    mola_top_k: int = field(default=2, metadata={"help": "Top-k experts routed to for each token in MoLA."})
+    mola_use_null_expert: bool = field(default=False, metadata={"help": "Enable a null expert in MoLA routing."})
+    mola_router_aux_loss_coef: float = field(default=0.01, metadata={"help": "Router auxiliary loss weight for MoLA."})
+    mola_null_expert_penalty: float = field(default=0.1, metadata={"help": "Penalty applied to null-expert usage in MoLA."})
+    mola_aux_loss_annealing: bool = field(default=False, metadata={"help": "Anneal the MoLA auxiliary loss during training."})
+    mola_debug_mode: bool = field(default=False, metadata={"help": "Verbose logging inside MoLA routers."})
     adamole_num_experts: int = field(
         default=4,
         metadata={"help": "Number of LoRA experts to instantiate per adapted module for AdaMoLE."},
@@ -510,7 +518,7 @@ class FinetuningArguments(
             if len(self.cola_init_lora_weights) == 0:
                 self.cola_init_lora_weights = None
 
-        supported_ft = ["lora", "freeze", "full", "cola", "hydralora", "prompt_tuning", "ia3", "p_tuning", "adamole"]
+        supported_ft = ["lora", "freeze", "full", "cola", "hydralora", "prompt_tuning", "ia3", "p_tuning", "adamole", "mola"]
         assert self.finetuning_type in supported_ft, "Invalid fine-tuning method."
         assert self.ref_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
         assert self.reward_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
@@ -518,7 +526,7 @@ class FinetuningArguments(
         if self.stage == "ppo" and self.reward_model is None:
             raise ValueError("`reward_model` is necessary for PPO training.")
 
-        lora_like = self.finetuning_type in ["lora", "adamole"]
+        lora_like = self.finetuning_type in ["lora", "adamole", "mola"]
 
         if self.stage == "ppo" and self.reward_model_type == "lora" and not lora_like:
             raise ValueError("`reward_model_type` cannot be lora for Freeze/Full PPO training.")

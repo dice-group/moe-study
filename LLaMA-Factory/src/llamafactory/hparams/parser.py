@@ -83,7 +83,7 @@ def _verify_model_args(
     data_args: "DataArguments",
     finetuning_args: "FinetuningArguments",
 ) -> None:
-    if model_args.adapter_name_or_path is not None and finetuning_args.finetuning_type not in ["lora", "cola", "hydralora", "prompt_tuning", "ia3", "p_tuning", "adamole"]:
+    if model_args.adapter_name_or_path is not None and finetuning_args.finetuning_type not in ["lora", "cola", "hydralora", "prompt_tuning", "ia3", "p_tuning", "adamole", "mola"]:
         raise ValueError("Adapter is only valid for the LoRA method.")
 
     if model_args.quantization_bit is not None:
@@ -285,7 +285,7 @@ def get_train_args(args: Optional[Dict[str, Any]] = None) -> _TRAIN_CLS:
 
     if (
         training_args.do_train
-        and finetuning_args.finetuning_type in ["lora", "adamole"]
+        and finetuning_args.finetuning_type in ["lora", "adamole", "mola"]
         and model_args.quantization_bit is None
         and model_args.resize_vocab
         and finetuning_args.additional_target is None
@@ -315,7 +315,7 @@ def get_train_args(args: Optional[Dict[str, Any]] = None) -> _TRAIN_CLS:
     if (
         training_args.parallel_mode == ParallelMode.DISTRIBUTED
         and training_args.ddp_find_unused_parameters is None
-        and finetuning_args.finetuning_type in ["lora", "adamole"]
+        and finetuning_args.finetuning_type in ["lora", "adamole", "mola"]
     ):
         logger.warning_rank0("`ddp_find_unused_parameters` needs to be set as False for LoRA in DDP training.")
         training_args.ddp_find_unused_parameters = False
@@ -348,7 +348,7 @@ def get_train_args(args: Optional[Dict[str, Any]] = None) -> _TRAIN_CLS:
 
     if (
         finetuning_args.stage in ["rm", "ppo"]
-        and finetuning_args.finetuning_type in ["lora", "adamole"]
+        and finetuning_args.finetuning_type in ["lora", "adamole", "mola"]
         and training_args.resume_from_checkpoint is not None
     ):
         logger.warning_rank0(
