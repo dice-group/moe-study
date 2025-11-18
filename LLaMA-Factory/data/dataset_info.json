@@ -580,6 +580,12 @@
       "prompt": "text"
     }
   },
+  "moelpr_stage1_demo": {
+    "file_name": "moelpr_stage1_demo.json"
+  },
+  "moelpr_stage2_demo": {
+    "file_name": "moelpr_stage2_demo.json"
+  },
   "c4_demo": {
     "file_name": "c4_demo.json",
     "columns": {
