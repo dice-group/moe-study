@@ -211,6 +211,15 @@ class Runner:
                 args["mola_null_expert_penalty"] = get("train.mola_null_expert_penalty")
                 args["mola_aux_loss_annealing"] = get("train.mola_aux_loss_annealing")
                 args["mola_debug_mode"] = get("train.mola_debug_mode")
+            elif args["finetuning_type"] == "moelpr":
+                args["moelpr_stage"] = int(get("train.moelpr_stage"))
+                args["moelpr_num_experts"] = int(get("train.moelpr_num_experts"))
+                args["moelpr_top_k"] = int(get("train.moelpr_top_k"))
+                args["moelpr_layers_to_transform"] = get("train.moelpr_layers_to_transform") or None
+                args["moelpr_aux_loss_coef"] = get("train.moelpr_aux_loss_coef")
+                args["moelpr_lpr_loss_coef"] = get("train.moelpr_lpr_loss_coef")
+                args["moelpr_original_language"] = get("train.moelpr_original_language") or None
+                args["moelpr_debug_mode"] = get("train.moelpr_debug_mode")
 
         # rlhf config
         if args["stage"] == "ppo":

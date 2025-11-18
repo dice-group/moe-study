@@ -40,6 +40,7 @@ from peft import (
     PromptEncoder,
     PromptEncoderConfig,
     MolaConfig,
+    MoeConfig as MoelprConfig,
 )
 from transformers.integrations import is_deepspeed_zero3_enabled
 from transformers.modeling_utils import is_fsdp_enabled
@@ -508,6 +509,57 @@ def _setup_mola_tuning(
             **peft_kwargs,
         )
         model = get_peft_model(model, mola_config)
+
+    if is_trainable and cast_trainable_params_to_fp32:
+        for param in filter(lambda p: p.requires_grad, model.parameters()):
+            param.data = param.data.to(torch.float32)
+    elif is_trainable and getattr(finetuning_args, "pure_bf16", False):
+        for param in filter(lambda p: p.requires_grad, model.parameters()):
+            param.data = param.data.to(torch.bfloat16)
+
+    return model
+
+
+def _setup_moelpr_tuning(
+    config: "PretrainedConfig",
+    model: "PreTrainedModel",
+    model_args: "ModelArguments",
+    finetuning_args: "FinetuningArguments",
+    is_trainable: bool,
+    cast_trainable_params_to_fp32: bool,
+) -> "PeftModel":
+    if model_args.use_unsloth:
+        raise ValueError("MoE-LPR is not compatible with Unsloth accelerated loading.")
+
+    if is_trainable:
+        logger.info_rank0(f"Fine-tuning method: MoE-LPR (Stage {finetuning_args.moelpr_stage})")
+
+    if hasattr(config, "text_config"):
+        text_config = config.text_config
+    else:
+        text_config = config
+
+    num_layers = (
+        getattr(text_config, "num_hidden_layers", None)
+        or getattr(text_config, "num_layers", None)
+        or getattr(text_config, "n_layer", None)
+    )
+    if num_layers is None or num_layers <= 0:
+        raise ValueError("Current model does not expose a valid `num_hidden_layers` for MoE-LPR.")
+    layer_ids = list(range(num_layers))
+
+    moelpr_config = MoelprConfig(
+        task_type=TaskType.CAUSAL_LM,
+        inference_mode=False,
+        num_experts=finetuning_args.moelpr_num_experts,
+        topk=finetuning_args.moelpr_top_k,
+        layers_to_transform=layer_ids,
+        aux_loss_coef=finetuning_args.moelpr_aux_loss_coef,
+        lpr_loss_coef=finetuning_args.moelpr_lpr_loss_coef,
+        stage=finetuning_args.moelpr_stage,
+        moelpr_debug_mode=finetuning_args.moelpr_debug_mode,
+    )
+    model = get_peft_model(model, moelpr_config)
 
     if is_trainable and cast_trainable_params_to_fp32:
         for param in filter(lambda p: p.requires_grad, model.parameters()):
@@ -1115,6 +1167,10 @@ def init_adapter(
         )
     elif finetuning_args.finetuning_type == "mola":
         model = _setup_mola_tuning(
+            config, model, model_args, finetuning_args, is_trainable, cast_trainable_params_to_fp32
+        )
+    elif finetuning_args.finetuning_type == "moelpr":
+        model = _setup_moelpr_tuning(
             config, model, model_args, finetuning_args, is_trainable, cast_trainable_params_to_fp32
         )
     elif finetuning_args.finetuning_type == "cola":

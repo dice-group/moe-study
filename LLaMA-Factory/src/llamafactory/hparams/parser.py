@@ -177,6 +177,14 @@ def get_train_args(args: Optional[Dict[str, Any]] = None) -> _TRAIN_CLS:
     elif data_args.language_map != finetuning_args.language_map:
         raise ValueError("`language_map` mismatch between data and finetuning arguments.")
 
+    if finetuning_args.finetuning_type == "moelpr" and finetuning_args.moelpr_stage == 2:
+        if finetuning_args.language_column is None:
+            raise ValueError("Stage 2 MoE-LPR requires `language_column` to be set.")
+        if finetuning_args.language_map is None:
+            raise ValueError("Stage 2 MoE-LPR requires `language_map` to map language ids.")
+        if not finetuning_args.moelpr_original_language:
+            raise ValueError("Stage 2 MoE-LPR requires `moelpr_original_language` to be specified.")
+
     # Setup logging
     if training_args.should_log:
         _set_transformers_logging()

@@ -111,6 +111,10 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         if mola_loss is not None:
             extra_losses.append(mola_loss)
 
+        moelpr_loss = self._compute_moelpr_aux_loss(model)
+        if moelpr_loss is not None:
+            extra_losses.append(moelpr_loss)
+
         if not extra_losses:
             return base
 
@@ -246,6 +250,22 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
             return None
 
         self.log({"mola_aux_loss": aux.detach()})
+        return aux
+
+    def _compute_moelpr_aux_loss(self, model: "PreTrainedModel") -> Optional[torch.Tensor]:
+        if self.finetuning_args.finetuning_type != "moelpr":
+            return None
+
+        module = getattr(model, "module", model)
+        aux_fn = getattr(module, "get_aux_loss", None)
+        if not callable(aux_fn):
+            return None
+
+        aux = aux_fn()
+        if aux is None:
+            return None
+
+        self.log({"moelpr_aux_loss": aux.detach()})
         return aux
 
     def _flush_language_router_cache(self) -> list[tuple[str, torch.Tensor, torch.Tensor]]:

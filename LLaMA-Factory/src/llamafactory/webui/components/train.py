@@ -219,6 +219,37 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
                 interactive=True,
             )
             mola_debug_mode = gr.Checkbox(label="MoLA Debug")
+        with gr.Row():
+            moelpr_stage = gr.Slider(minimum=1, maximum=2, value=1, step=1, label="MoE-LPR Stage", interactive=True)
+            moelpr_num_experts = gr.Slider(
+                minimum=2, maximum=16, value=4, step=1, label="MoE-LPR Experts", interactive=True
+            )
+            moelpr_top_k = gr.Slider(minimum=1, maximum=8, value=1, step=1, label="MoE-LPR Top-k", interactive=True)
+        with gr.Row():
+            moelpr_layers_to_transform = gr.Textbox(
+                value="all", label="MoE-LPR Layers", placeholder="Comma-separated ids or 'all'"
+            )
+            moelpr_aux_loss_coef = gr.Slider(
+                minimum=0,
+                maximum=1,
+                value=0.01,
+                step=0.001,
+                label="MoE-LPR Aux Loss Coef",
+                interactive=True,
+            )
+            moelpr_lpr_loss_coef = gr.Slider(
+                minimum=0,
+                maximum=1,
+                value=0.1,
+                step=0.001,
+                label="MoE-LPR LPR Loss Coef",
+                interactive=True,
+            )
+        with gr.Row():
+            moelpr_original_language = gr.Textbox(
+                label="MoE-LPR Original Language", placeholder="en (required for Stage 2)"
+            )
+            moelpr_debug_mode = gr.Checkbox(label="MoE-LPR Debug")
 
     input_elems.update(
         {
@@ -242,6 +273,14 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
             mola_null_expert_penalty,
             mola_aux_loss_annealing,
             mola_debug_mode,
+            moelpr_stage,
+            moelpr_num_experts,
+            moelpr_top_k,
+            moelpr_layers_to_transform,
+            moelpr_aux_loss_coef,
+            moelpr_lpr_loss_coef,
+            moelpr_original_language,
+            moelpr_debug_mode,
         }
     )
     elem_dict.update(
@@ -267,6 +306,14 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
             mola_null_expert_penalty=mola_null_expert_penalty,
             mola_aux_loss_annealing=mola_aux_loss_annealing,
             mola_debug_mode=mola_debug_mode,
+            moelpr_stage=moelpr_stage,
+            moelpr_num_experts=moelpr_num_experts,
+            moelpr_top_k=moelpr_top_k,
+            moelpr_layers_to_transform=moelpr_layers_to_transform,
+            moelpr_aux_loss_coef=moelpr_aux_loss_coef,
+            moelpr_lpr_loss_coef=moelpr_lpr_loss_coef,
+            moelpr_original_language=moelpr_original_language,
+            moelpr_debug_mode=moelpr_debug_mode,
         )
     )
 
