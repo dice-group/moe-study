@@ -32,4 +32,6 @@ llamafactory-cli train \
   --adamole_num_experts 4 \
   --adamole_max_threshold 0.25 \
   --adamole_aux_loss_coef 0.01 \
+  --adamole_debug_mode True \
+  "$@" \
   2>&1 | tee "${OUTPUT_DIR}/train_adamole.log"

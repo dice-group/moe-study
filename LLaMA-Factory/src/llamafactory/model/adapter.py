@@ -390,6 +390,7 @@ def _setup_adamole_tuning(
             inference_mode=False,
             num_experts=finetuning_args.adamole_num_experts,
             max_threshold=finetuning_args.adamole_max_threshold,
+            debug_mode=finetuning_args.adamole_debug_mode,
             **peft_kwargs,
         )
         model = get_peft_model(model, adamole_config)

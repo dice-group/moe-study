@@ -1,4 +1,3 @@
-import logging
 import math
 from abc import ABC
 from typing import Optional
@@ -9,7 +8,9 @@ import torch.nn.functional as F
 
 from ..lora import LoraLayer
 
-log = logging.getLogger("mola")
+
+def _debug_print(msg: str) -> None:
+    print(msg)
 
 
 class NullExpert(nn.Module):
@@ -49,8 +50,8 @@ class TopKMoeLayer(nn.Module):
         expert_fractions = expert_counts / num_inputs
         expert_probs = torch.sum(gate_logits, dim=0) / num_inputs
         if self.debug_mode:
-            log.info(f"expert_fractions: {expert_fractions}")
-            log.info(f"expert_probs: {expert_probs}")
+            _debug_print(f"[MOLA DEBUG] expert_fractions: {expert_fractions}")
+            _debug_print(f"[MOLA DEBUG] expert_probs: {expert_probs}")
 
         if self.use_null_expert:
             # AdaMoE loss
@@ -59,7 +60,7 @@ class TopKMoeLayer(nn.Module):
             true_expert_probs = expert_probs[:-1]
             null_expert_fraction = expert_fractions[-1]
             if self.debug_mode:
-                log.info(f"null_expert_fraction: {null_expert_fraction}")
+                _debug_print(f"[MOLA DEBUG] null_expert_fraction: {null_expert_fraction}")
 
             loss = self.router_aux_loss_coef * (torch.sum(true_expert_fractions * true_expert_probs) - self.null_expert_penalty * null_expert_fraction)
         else:
@@ -67,7 +68,7 @@ class TopKMoeLayer(nn.Module):
             loss = self.router_aux_loss_coef * num_experts * torch.sum(expert_fractions * expert_probs)
 
         if self.debug_mode:
-            log.info(f"loss: {loss}")
+            _debug_print(f"[MOLA DEBUG] aux_loss={loss}")
         return loss
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
@@ -77,8 +78,8 @@ class TopKMoeLayer(nn.Module):
         flattened_inputs = inputs.view((-1, inputs.shape[-1]))
         gate_logits = F.softmax(self.gate(flattened_inputs), dim=-1)
         if self.debug_mode:
-            log.info(f"self.gate.weight.requires_grad: {self.gate.weight.requires_grad}")
-            log.info(f"gate_logits.requires_grad: {gate_logits.requires_grad}")
+            _debug_print(f"[MOLA DEBUG] self.gate.weight.requires_grad: {self.gate.weight.requires_grad}")
+            _debug_print(f"[MOLA DEBUG] gate_logits.requires_grad: {gate_logits.requires_grad}")
         weights, selected_experts = torch.topk(input=gate_logits, k=self.top_k, dim=-1)
         weights = weights / torch.sum(weights, dim=-1, keepdim=True, dtype=inputs.dtype)
         results = torch.zeros_like(self.experts[0](flattened_inputs))
@@ -93,6 +94,18 @@ class TopKMoeLayer(nn.Module):
 
         results = results.view((*inputs.shape[:-1], results.shape[-1]))
         self.layer_loss = self.get_layer_loss(gate_logits=gate_logits, selected_experts=selected_experts)
+        if self.debug_mode:
+            with torch.no_grad():
+                expert_counts = torch.bincount(selected_experts.reshape(-1), minlength=len(self.experts))
+                null_count = expert_counts[-1].item() if self.use_null_expert else 0
+                _debug_print(
+                    "[MOLA DEBUG] tokens={} expert_counts={} null_expert_tokens={}".format(
+                        flattened_inputs.shape[0],
+                        expert_counts.cpu().tolist(),
+                        null_count,
+                    )
+                )
+                _debug_print("[MOLA DEBUG] aux_loss={:.6f}".format(float(self.layer_loss.detach().item())))
         return results
 
 
@@ -158,6 +171,23 @@ class MolaLayer(LoraLayer, ABC):
             gating_num_experts += 1
             
         self.lora_gating[adapter_name] = nn.Linear(self.in_features, gating_num_experts, bias=False).to(self.base_layer.weight.device)
+
+        if mola_debug_mode:
+            _debug_print(
+                "[MOLA DEBUG] Adapter {} -> base={} in={} out={} rank={} alpha={} num_experts={} top_k={} "
+                "use_null={} dropout={:.2f}".format(
+                    adapter_name,
+                    self.base_layer.__class__.__name__,
+                    self.in_features,
+                    self.out_features,
+                    lora_rank,
+                    lora_alpha,
+                    num_experts,
+                    top_k,
+                    use_null_expert,
+                    lora_dropout,
+                )
+            )
 
         experts = nn.ModuleList(LoraExpert(
             self.lora_A[adapter_name][i],

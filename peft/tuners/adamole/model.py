@@ -55,6 +55,7 @@ class AdaMoleModel(LoraModel):
             "init_lora_weights": adamole_config.init_lora_weights,
             "num_experts": adamole_config.num_experts,
             "max_threshold": adamole_config.max_threshold,
+            "debug_mode": adamole_config.debug_mode,
         }
 
         new_module_kwargs = {

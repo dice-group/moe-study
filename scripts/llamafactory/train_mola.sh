@@ -34,4 +34,6 @@ llamafactory-cli train \
   --mola_use_null_expert \
   --mola_router_aux_loss_coef 0.01 \
   --mola_null_expert_penalty 0.1 \
+  --mola_debug_mode True \
+  "$@" \
   2>&1 | tee "${OUTPUT_DIR}/train_mola.log"

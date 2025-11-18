@@ -9,6 +9,10 @@ import torch.nn.functional as F
 from ..lora import LoraLayer
 
 
+def _debug_print(msg: str) -> None:
+    print(msg)
+
+
 class LoraExpert(nn.Module):
     """
     Simple LoRA expert that reuses the projected A/B matrices.
@@ -31,13 +35,21 @@ class AdaMoeLayer(nn.Module):
     Adaptive Mixture of Experts (MoE) Layer
     """
 
-    def __init__(self, experts: nn.ModuleList, gate: nn.Module, threshold_fn: nn.Module, max_threshold: float):
+    def __init__(
+        self,
+        experts: nn.ModuleList,
+        gate: nn.Module,
+        threshold_fn: nn.Module,
+        max_threshold: float,
+        debug_mode: bool = False,
+    ):
         super().__init__()
         self.experts = experts
         self.gate = gate
         self.threshold_fn = threshold_fn
         self.max_threshold = max_threshold
         self.layer_loss = None
+        self.debug_mode = debug_mode
 
     def get_layer_loss(self, gate_logits: torch.Tensor, selected_experts: torch.Tensor) -> torch.Tensor:
         """
@@ -74,6 +86,33 @@ class AdaMoeLayer(nn.Module):
         results = results.view((*inputs.shape[:-1], results.shape[-1]))
         if inputs.requires_grad:
             self.layer_loss = self.get_layer_loss(gate_logits=adapted_gate_logits, selected_experts=selected_experts)
+        if self.debug_mode:
+            with torch.no_grad():
+                selected_counts = torch.sum(selected_experts, dim=0)
+                token_selection = torch.sum(selected_experts, dim=1)
+                _debug_print(
+                    "[ADAMOLE DEBUG] gate_mean={:.4f} gate_std={:.4f} "
+                    "thresh_mean={:.4f} thresh_std={:.4f} max_thresh={:.4f}".format(
+                        gate_logits.mean().item(),
+                        gate_logits.std().item(),
+                        thresholds.mean().item(),
+                        thresholds.std().item(),
+                        float(self.max_threshold),
+                    )
+                )
+                _debug_print(
+                    "[ADAMOLE DEBUG] selected_expert_distribution={}".format(selected_counts.cpu().tolist())
+                )
+                _debug_print(
+                    "[ADAMOLE DEBUG] experts_per_token min={} max={} mean={:.2f} zero_routed={}".format(
+                        int(token_selection.min().item()),
+                        int(token_selection.max().item()),
+                        float(token_selection.float().mean().item()),
+                        int((token_selection == 0).sum().item()),
+                    )
+                )
+                if self.layer_loss is not None:
+                    _debug_print("[ADAMOLE DEBUG] aux_loss={:.6f}".format(float(self.layer_loss.detach().item())))
         return results
 
 
@@ -89,8 +128,15 @@ class AdaMoleLayer(LoraLayer, ABC):
         self.moe_layer = nn.ModuleDict({})
 
     def update_layer(
-        self, adapter_name: str, lora_rank: int, lora_alpha: int, lora_dropout: float, init_lora_weights: bool,
-        num_experts: int, max_threshold: float,
+        self,
+        adapter_name: str,
+        lora_rank: int,
+        lora_alpha: int,
+        lora_dropout: float,
+        init_lora_weights: bool,
+        num_experts: int,
+        max_threshold: float,
+        debug_mode: bool = False,
     ) -> None:
         """
         Update the layer
@@ -117,6 +163,21 @@ class AdaMoleLayer(LoraLayer, ABC):
         self.scaling[adapter_name] = lora_alpha / lora_rank
         self.lora_gating[adapter_name] = nn.Linear(self.in_features, num_experts, bias=False)
         self.lora_threshold[adapter_name] = nn.Linear(self.in_features, 1)
+        if debug_mode:
+            _debug_print(
+                "[ADAMOLE DEBUG] Adapter {} -> base={} in={} out={} rank={} alpha={} num_experts={} "
+                "max_threshold={:.4f} dropout={:.2f}".format(
+                    adapter_name,
+                    self.base_layer.__class__.__name__,
+                    self.in_features,
+                    self.out_features,
+                    lora_rank,
+                    lora_alpha,
+                    num_experts,
+                    max_threshold,
+                    lora_dropout,
+                )
+            )
 
         experts = nn.ModuleList([LoraExpert(
             self.lora_A[adapter_name][i],
@@ -125,8 +186,12 @@ class AdaMoleLayer(LoraLayer, ABC):
             self.scaling[adapter_name],
         ) for i in range(num_experts)])
         self.moe_layer[adapter_name] = AdaMoeLayer(
-            experts=experts, gate=self.lora_gating[adapter_name],
-            threshold_fn=self.lora_threshold[adapter_name], max_threshold=max_threshold)
+            experts=experts,
+            gate=self.lora_gating[adapter_name],
+            threshold_fn=self.lora_threshold[adapter_name],
+            max_threshold=max_threshold,
+            debug_mode=debug_mode,
+        )
 
         self.reset_parameters(adapter_name, init_lora_weights)
         self.set_adapter(self.active_adapters)
@@ -158,13 +223,22 @@ class LinearAdaMoleLayer(nn.Module, AdaMoleLayer):
         init_lora_weights: bool = True,
         num_experts: int = 4,
         max_threshold: float = None,
+        debug_mode: bool = False,
         **kwargs,
     ) -> None:
         super().__init__()
         AdaMoleLayer.__init__(self, base_layer=base_layer, **kwargs)
         self._active_adapter = adapter_name
         self.update_layer(
-            adapter_name, lora_rank, lora_alpha, lora_dropout, init_lora_weights, num_experts, max_threshold)
+            adapter_name,
+            lora_rank,
+            lora_alpha,
+            lora_dropout,
+            init_lora_weights,
+            num_experts,
+            max_threshold,
+            debug_mode=debug_mode,
+        )
 
     def merge(self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None) -> None:
         """

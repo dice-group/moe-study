@@ -458,6 +458,10 @@ class FinetuningArguments(
         default=0.0,
         metadata={"help": "Coefficient for the AdaMoLE load-balancing auxiliary loss."},
     )
+    adamole_debug_mode: bool = field(
+        default=False,
+        metadata={"help": "Enable verbose AdaMoLE routing diagnostics."},
+    )
     language_column: Optional[str] = field(
         default=None,
         metadata={

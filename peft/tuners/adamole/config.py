@@ -16,6 +16,7 @@ class AdaMoleConfig(LoraConfig):
     max_threshold: float = field(default=None, metadata={
         "help": "The maximum threshold for selecting experts in the threshold function. "
                 "The default value will be 1 / number of experts"})
+    debug_mode: bool = field(default=False, metadata={"help": "Enable verbose AdaMoLE debugging output."})
 
     def __post_init__(self):
         self.peft_type = PeftType.ADAMOLE
