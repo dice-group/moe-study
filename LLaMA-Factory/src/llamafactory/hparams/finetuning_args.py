@@ -455,6 +455,7 @@ class FinetuningArguments(
         metadata={"help": "Language identifier that should route to the frozen base expert during Stage 2."},
     )
     moelpr_debug_mode: bool = field(default=False, metadata={"help": "Enable verbose MoE-LPR router diagnostics."})
+    moelpr_target_language_id: Optional[int] = field(default=None, init=False, repr=False)
     adamole_num_experts: int = field(
         default=4,
         metadata={"help": "Number of LoRA experts to instantiate per adapted module for AdaMoLE."},

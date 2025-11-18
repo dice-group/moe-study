@@ -1,7 +1,4 @@
-#!/usr/bin/env bash
-
-set -euo pipefail
-
+#!/bin/bash
 DATASET_DIR=./LLaMA-Factory/data
 OUTPUT_DIR=./LLaMA-Factory/saves/moelpr_stage1
 LANG_MAP='{"en":"germanic","fr":"romance","de":"germanic"}'

@@ -1,7 +1,4 @@
-#!/usr/bin/env bash
-
-set -euo pipefail
-
+#!/bin/bash
 DATASET_DIR=./LLaMA-Factory/data
 STAGE1_DIR=./LLaMA-Factory/saves/moelpr_stage1
 OUTPUT_DIR=./LLaMA-Factory/saves/moelpr_stage2

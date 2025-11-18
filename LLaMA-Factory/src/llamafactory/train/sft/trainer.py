@@ -96,6 +96,15 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         r"""
         Fixes the loss value. See https://github.com/huggingface/transformers/pull/35438 for details.
         """
+        if (
+            self.finetuning_args.finetuning_type == "moelpr"
+            and self.finetuning_args.moelpr_stage == 2
+            and "lang_mask" not in inputs
+        ):
+            mask = self._maybe_build_moelpr_mask(inputs)
+            if mask is not None:
+                inputs["lang_mask"] = mask
+
         base = super().compute_loss(model, inputs, return_outputs, **kwargs)
         extra_losses = []
 
@@ -267,6 +276,22 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
         self.log({"moelpr_aux_loss": aux.detach()})
         return aux
+
+    def _maybe_build_moelpr_mask(self, inputs: Dict[str, "torch.Tensor"]) -> Optional["torch.Tensor"]:
+        target_id = getattr(self.finetuning_args, "moelpr_target_language_id", None)
+        if target_id is None:
+            return None
+        lang_ids = inputs.get("language_ids")
+        input_ids = inputs.get("input_ids")
+        if lang_ids is None or input_ids is None:
+            return None
+        if lang_ids.dim() == 1:
+            lang_ids = lang_ids.unsqueeze(1)
+        seq_len = input_ids.size(1)
+        mask = (lang_ids == target_id).to(dtype=torch.bool)
+        if mask.size(1) == 1:
+            mask = mask.expand(-1, seq_len)
+        return mask
 
     def _flush_language_router_cache(self) -> list[tuple[str, torch.Tensor, torch.Tensor]]:
         caches: list[tuple[str, torch.Tensor, torch.Tensor]] = []
