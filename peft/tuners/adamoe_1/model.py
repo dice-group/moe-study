@@ -42,7 +42,7 @@ class MolaModel(LoraModel):
             (key for key in pattern_keys if re.match(rf".*\.{key}$", current_key)),
             current_key,
         )
-        rank = mola_config.rank_pattern.get(target_name_key, mola_config.lora_rank)
+        rank = mola_config.rank_pattern.get(target_name_key, mola_config.r)
         alpha = mola_config.alpha_pattern.get(target_name_key, mola_config.lora_alpha)
 
         layer_kwargs = {

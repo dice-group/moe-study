@@ -6,12 +6,14 @@ DATASET_DIR=./LLaMA-Factory/data
 OUTPUT_DIR=./LLaMA-Factory/saves/adamole_sft
 
 mkdir -p "${OUTPUT_DIR}"
+export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-${OUTPUT_DIR}/hf_cache}"
+mkdir -p "${HF_DATASETS_CACHE}"
 
 llamafactory-cli train \
-  --stage sft \
+  --stage pt \
   --do_train \
   --model_name_or_path meta-llama/Llama-3.2-1B \
-  --dataset c4 \
+  --dataset c4_demo \
   --dataset_dir "${DATASET_DIR}" \
   --template llama3 \
   --finetuning_type adamole \

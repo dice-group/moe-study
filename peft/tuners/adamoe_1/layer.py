@@ -136,7 +136,7 @@ class MolaLayer(LoraLayer, ABC):
         if lora_rank <= 0:
             raise ValueError(f"The rank `r` should be a positive integer value but the value passed is {lora_rank}.")
 
-        self.lora_rank[adapter_name] = lora_rank
+        self.r[adapter_name] = lora_rank
         self.lora_alpha[adapter_name] = lora_alpha
 
         if lora_dropout > 0.0:

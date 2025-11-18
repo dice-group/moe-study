@@ -45,7 +45,7 @@ class AdaMoleModel(LoraModel):
             (key for key in pattern_keys if re.match(rf".*\.{key}$", current_key)),
             current_key,
         )
-        rank = adamole_config.rank_pattern.get(target_name_key, adamole_config.lora_rank)
+        rank = adamole_config.rank_pattern.get(target_name_key, adamole_config.r)
         alpha = adamole_config.alpha_pattern.get(target_name_key, adamole_config.lora_alpha)
 
         layer_kwargs = {

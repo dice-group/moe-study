@@ -101,7 +101,7 @@ class AdaMoleLayer(LoraLayer, ABC):
         if max_threshold is None:
             max_threshold = 1 / num_experts
 
-        self.lora_rank[adapter_name] = lora_rank
+        self.r[adapter_name] = lora_rank
         self.lora_alpha[adapter_name] = lora_alpha
 
         if lora_dropout > 0.0:
