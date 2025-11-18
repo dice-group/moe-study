@@ -40,3 +40,4 @@ from .fourierft import FourierFTConfig, FourierFTModel
 from .xlora import XLoraConfig, XLoraModel
 from .hra import HRAConfig, HRAModel
 from .adamoe_1 import MolaConfig, MolaModel
+from .moelpr import MoeConfig as MoelprConfig, MoeModel as MoelprModel

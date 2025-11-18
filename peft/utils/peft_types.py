@@ -46,6 +46,7 @@ class PeftType(str, enum.Enum):
     - HRA
     - ADAMOLE
     - MOLA
+    - MOELPR
     """
 
     PROMPT_TUNING = "PROMPT_TUNING"
@@ -70,6 +71,7 @@ class PeftType(str, enum.Enum):
     HRA = "HRA"
     ADAMOLE = "ADAMOLE"
     MOLA = "MOLA"
+    MOELPR = "MOELPR"
 
 
 class TaskType(str, enum.Enum):

@@ -80,6 +80,7 @@ def get_peft_model_state_dict(
         PeftType.HYDRALORA,
         PeftType.ADAMOLE,
         PeftType.MOLA,
+        PeftType.MOELPR,
     ):
         # to_return = lora_state_dict(model, bias=model.peft_config.bias)
         # adapted from `https://github.com/microsoft/LoRA/blob/main/loralib/utils.py`
@@ -341,7 +342,8 @@ def set_peft_model_state_dict(
             PeftType.IA3: "ia3_",
             PeftType.LORA: "lora_",
             PeftType.ADAMOLE: "lora_",
-            PeftType.MOLA: "lora_",
+        PeftType.MOLA: "lora_",
+        PeftType.MOELPR: "moe_",
             PeftType.COLA: "lora_",
             PeftType.HYDRALORA: "lora_",
             PeftType.ADALORA: "lora_",
