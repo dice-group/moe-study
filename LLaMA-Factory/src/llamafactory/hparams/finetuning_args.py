@@ -441,6 +441,20 @@ class FinetuningArguments(
     mola_null_expert_penalty: float = field(default=0.1, metadata={"help": "Penalty applied to null-expert usage in MoLA."})
     mola_aux_loss_annealing: bool = field(default=False, metadata={"help": "Anneal the MoLA auxiliary loss during training."})
     mola_debug_mode: bool = field(default=False, metadata={"help": "Verbose logging inside MoLA routers."})
+    moelpr_stage: int = field(default=1, metadata={"help": "MoE-LPR training stage (1=train experts, 2=router refinement)."})
+    moelpr_num_experts: int = field(default=4, metadata={"help": "Total number of experts for MoE-LPR (including the frozen base expert)."})
+    moelpr_top_k: int = field(default=1, metadata={"help": "Top-k experts to route each token to in MoE-LPR."})
+    moelpr_layers_to_transform: Optional[str] = field(
+        default=None,
+        metadata={"help": "Comma-separated decoder layer ids to convert into MoE layers (use 'all' for every layer)."},
+    )
+    moelpr_aux_loss_coef: float = field(default=0.01, metadata={"help": "Load-balancing auxiliary loss weight for Stage 1."})
+    moelpr_lpr_loss_coef: float = field(default=0.1, metadata={"help": "LPR loss weight for Stage 2 router refinement."})
+    moelpr_original_language: Optional[str] = field(
+        default=None,
+        metadata={"help": "Language identifier that should route to the frozen base expert during Stage 2."},
+    )
+    moelpr_debug_mode: bool = field(default=False, metadata={"help": "Enable verbose MoE-LPR router diagnostics."})
     adamole_num_experts: int = field(
         default=4,
         metadata={"help": "Number of LoRA experts to instantiate per adapted module for AdaMoLE."},
@@ -524,10 +538,18 @@ class FinetuningArguments(
             if len(self.cola_init_lora_weights) == 0:
                 self.cola_init_lora_weights = None
 
-        supported_ft = ["lora", "freeze", "full", "cola", "hydralora", "prompt_tuning", "ia3", "p_tuning", "adamole", "mola"]
+        supported_ft = ["lora", "freeze", "full", "cola", "hydralora", "prompt_tuning", "ia3", "p_tuning", "adamole", "mola", "moelpr"]
         assert self.finetuning_type in supported_ft, "Invalid fine-tuning method."
         assert self.ref_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
         assert self.reward_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
+
+        if self.finetuning_type == "moelpr":
+            if self.moelpr_stage not in (1, 2):
+                raise ValueError("`moelpr_stage` must be 1 or 2.")
+            if self.moelpr_top_k <= 0 or self.moelpr_top_k > self.moelpr_num_experts:
+                raise ValueError("`moelpr_top_k` must be in range [1, moelpr_num_experts].")
+            if self.moelpr_stage == 2 and not self.moelpr_original_language:
+                raise ValueError("`moelpr_original_language` is required for Stage 2 training.")
 
         if self.stage == "ppo" and self.reward_model is None:
             raise ValueError("`reward_model` is necessary for PPO training.")
