@@ -466,6 +466,7 @@ class FinetuningArguments(
                 "If unset, language-aware routing features remain disabled."
             )
         },
+        init=False,
     )
     language_map: Optional[str] = field(
         default=None,
@@ -476,6 +477,7 @@ class FinetuningArguments(
                 "Used by language-prior routing."
             )
         },
+        init=False,
     )
     language_router_mode: Literal["learned", "bias", "hard"] = field(
         default="learned",
