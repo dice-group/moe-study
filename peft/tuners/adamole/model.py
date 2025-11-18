@@ -112,7 +112,10 @@ class AdaMoleModel(LoraModel):
         for name, module in self.model.named_modules():
             if not name.endswith("moe_layer"):
                 continue
-            layer = module.get(adapter_name, None) if isinstance(module, nn.ModuleDict) else None
+            if isinstance(module, nn.ModuleDict) and adapter_name in module:
+                layer = module[adapter_name]
+            else:
+                layer = None
             if layer is None or layer.layer_loss is None:
                 continue
             model_loss = model_loss + layer.layer_loss

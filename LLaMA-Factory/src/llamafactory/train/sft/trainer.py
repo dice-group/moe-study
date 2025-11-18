@@ -107,6 +107,10 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         if adamole_loss is not None:
             extra_losses.append(adamole_loss)
 
+        mola_loss = self._compute_mola_aux_loss(model)
+        if mola_loss is not None:
+            extra_losses.append(mola_loss)
+
         if not extra_losses:
             return base
 
@@ -227,6 +231,22 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         scaled = coef * aux
         self.log({"adamole_aux_loss": scaled.detach()})
         return scaled
+
+    def _compute_mola_aux_loss(self, model: "PreTrainedModel") -> Optional[torch.Tensor]:
+        if self.finetuning_args.finetuning_type != "mola":
+            return None
+
+        module = getattr(model, "module", model)
+        aux_fn = getattr(module, "get_aux_loss", None)
+        if not callable(aux_fn):
+            return None
+
+        aux = aux_fn()
+        if aux is None:
+            return None
+
+        self.log({"mola_aux_loss": aux.detach()})
+        return aux
 
     def _flush_language_router_cache(self) -> list[tuple[str, torch.Tensor, torch.Tensor]]:
         caches: list[tuple[str, torch.Tensor, torch.Tensor]] = []

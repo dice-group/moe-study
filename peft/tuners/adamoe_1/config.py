@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
-from approaches.adamole.lora.config import LoraConfig
+
+from ..lora import LoraConfig
+from ...utils.peft_types import PeftType
 
 @dataclass
 class MolaConfig(LoraConfig):
@@ -10,3 +12,7 @@ class MolaConfig(LoraConfig):
     mola_null_expert_penalty: float = field(default=0.1, metadata={"help": "The penalty for not using the null experts."})
     mola_aux_loss_annealing: bool = field(default=False, metadata={"help": "Whether to anneal the aux loss."})
     mola_debug_mode: bool = field(default=False, metadata={"help": "Enable debug mode for MoLA."})
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.peft_type = PeftType.MOLA

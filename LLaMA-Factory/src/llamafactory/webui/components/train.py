@@ -194,6 +194,31 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
                 label="AdaMoLE Aux Loss Coef",
                 interactive=True,
             )
+        with gr.Row():
+            mola_num_experts = gr.Slider(
+                minimum=1, maximum=32, value=4, step=1, label="MoLA Experts", interactive=True
+            )
+            mola_top_k = gr.Slider(minimum=1, maximum=16, value=2, step=1, label="MoLA Top-k", interactive=True)
+            mola_use_null_expert = gr.Checkbox(label="Use Null Expert")
+            mola_aux_loss_annealing = gr.Checkbox(label="MoLA Aux Loss Annealing")
+        with gr.Row():
+            mola_router_aux_loss_coef = gr.Slider(
+                minimum=0,
+                maximum=1,
+                value=0.01,
+                step=0.001,
+                label="MoLA Router Aux Coef",
+                interactive=True,
+            )
+            mola_null_expert_penalty = gr.Slider(
+                minimum=0,
+                maximum=1,
+                value=0.1,
+                step=0.01,
+                label="MoLA Null Expert Penalty",
+                interactive=True,
+            )
+            mola_debug_mode = gr.Checkbox(label="MoLA Debug")
 
     input_elems.update(
         {
@@ -210,6 +235,13 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
             adamole_num_experts,
             adamole_max_threshold,
             adamole_aux_loss_coef,
+            mola_num_experts,
+            mola_top_k,
+            mola_use_null_expert,
+            mola_router_aux_loss_coef,
+            mola_null_expert_penalty,
+            mola_aux_loss_annealing,
+            mola_debug_mode,
         }
     )
     elem_dict.update(
@@ -228,6 +260,13 @@ def create_train_tab(engine: "Engine") -> Dict[str, "Component"]:
             adamole_num_experts=adamole_num_experts,
             adamole_max_threshold=adamole_max_threshold,
             adamole_aux_loss_coef=adamole_aux_loss_coef,
+            mola_num_experts=mola_num_experts,
+            mola_top_k=mola_top_k,
+            mola_use_null_expert=mola_use_null_expert,
+            mola_router_aux_loss_coef=mola_router_aux_loss_coef,
+            mola_null_expert_penalty=mola_null_expert_penalty,
+            mola_aux_loss_annealing=mola_aux_loss_annealing,
+            mola_debug_mode=mola_debug_mode,
         )
     )
 

@@ -4,7 +4,7 @@ AdaMoLE Configuration
 from dataclasses import dataclass, field
 
 from ..lora import LoraConfig
-from ..utils.peft_types import PeftType
+from ...utils.peft_types import PeftType
 
 
 @dataclass

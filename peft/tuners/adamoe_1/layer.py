@@ -1,6 +1,4 @@
-"""
-MoLA Layer
-"""
+import logging
 import math
 from abc import ABC
 from typing import Optional
@@ -9,10 +7,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from approaches.adamole.lora import LoraLayer
-from core.logger import get_logger
+from ..lora import LoraLayer
 
-log = get_logger("mola")
+log = logging.getLogger("mola")
 
 
 class NullExpert(nn.Module):
@@ -170,7 +167,7 @@ class MolaLayer(LoraLayer, ABC):
         ) for i in range(num_experts))
         
         if use_null_expert:
-            experts.append(NullExpert())
+            experts.append(NullExpert().to(self.base_layer.weight.device))
 
         self.moe_layer[adapter_name] = TopKMoeLayer(
             experts=experts, gate=self.lora_gating[adapter_name], top_k=top_k, use_null_expert=use_null_expert,
