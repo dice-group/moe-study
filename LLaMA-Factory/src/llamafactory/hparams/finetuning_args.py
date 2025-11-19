@@ -372,6 +372,7 @@ class FinetuningArguments(
         "p_tuning",
         "adamole",
         "mola",
+        "moelpr",
     ] = field(
         default="lora",
         metadata={"help": "Which fine-tuning method to use."},

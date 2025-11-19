@@ -113,3 +113,7 @@ from .utils import (
     cast_mixed_precision_params,
 )
 from .config import PeftConfig, PromptLearningConfig
+
+# Backward compatibility aliases for legacy imports
+MoeConfig = MoelprConfig
+MoeModel = MoelprModel
