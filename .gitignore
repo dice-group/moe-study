@@ -21,3 +21,4 @@ data_prep/loss_analysis_tokenizer/loss_analysis_output
 *.log
 /LLaMA-Factory/saves
 emissions.csv
+/fw_samples_structured/
