@@ -5,7 +5,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 from datasets import Dataset
 from transformers import AutoTokenizer
@@ -40,10 +40,15 @@ def _resolve_rank_world(rank: Optional[int], world_size: Optional[int]) -> tuple
     return resolved_rank, max(1, resolved_world)
 
 
-def _list_shards(shard_dir: Path, languages: Optional[List[str]] = None) -> List[Tuple[str, Path]]:
+def _list_shards(
+    shard_dir: Path,
+    languages: Optional[List[str]] = None,
+    language_rates: Optional[Dict[str, float]] = None,
+    default_rate: float = 1.0,
+) -> List[Tuple[str, Path, float]]:
     valid_suffixes = (".jsonl", ".jsonl.gz")
     search_roots = [shard_dir] if not languages else [shard_dir / lang for lang in languages]
-    shards: List[Tuple[str, Path]] = []
+    shards: List[Tuple[str, Path, float]] = []
     for root in search_roots:
         if not root.exists():
             raise RuntimeError(f"Requested language directory is missing: {root}")
@@ -52,14 +57,20 @@ def _list_shards(shard_dir: Path, languages: Optional[List[str]] = None) -> List
                 continue
             rel = path.relative_to(shard_dir)
             lang = rel.parts[0] if rel.parts else path.parent.name
-            shards.append((lang, path))
+            rate = language_rates.get(lang, default_rate) if language_rates else default_rate
+            rate = max(0.0, min(1.0, rate))
+            shards.append((lang, path, rate))
     shards.sort(key=lambda item: item[1])
     if not shards:
         raise RuntimeError(f"No .jsonl or .jsonl.gz files found under {shard_dir}")
     return shards
 
 
-def _assign_shards(shards: List[Tuple[str, Path]], rank: int, world_size: int) -> List[Tuple[str, Path]]:
+def _assign_shards(
+    shards: List[Tuple[str, Path, float]],
+    rank: int,
+    world_size: int,
+) -> List[Tuple[str, Path, float]]:
     if world_size <= 1:
         return shards
     assigned = [item for idx, item in enumerate(shards) if idx % world_size == rank]
@@ -68,16 +79,23 @@ def _assign_shards(shards: List[Tuple[str, Path]], rank: int, world_size: int) -
 
 
 def _iter_shard_lines(
-    shards: List[Tuple[str, Path]],
+    shards: List[Tuple[str, Path, float]],
     eval_fraction: float,
     eval_seed: int,
+    sample_seed: int,
+    max_samples: Optional[int],
 ) -> Iterator[dict]:
-    for language, shard_path in shards:
+    emitted = 0
+    for language, shard_path, keep_rate in shards:
         opener = gzip.open if shard_path.suffix == ".gz" else open
         with opener(shard_path, "rt", encoding="utf-8", errors="ignore") as handle:
             for line in handle:
+                if max_samples is not None and emitted >= max_samples:
+                    return
                 text = _extract_text(line)
                 if text is not None:
+                    if keep_rate < 1.0 and not _should_keep_sample(language, text, keep_rate, sample_seed):
+                        continue
                     record = {"text": text, "language": language}
                     if eval_fraction > 0:
                         record["split"] = (
@@ -86,6 +104,7 @@ def _iter_shard_lines(
                             else "train"
                         )
                     yield record
+                    emitted += 1
 
 
 def _extract_text(line: str) -> Optional[str]:
@@ -127,6 +146,34 @@ def _assign_to_eval(language: str, text: str, fraction: float, seed: int) -> boo
     return bucket < fraction
 
 
+def _should_keep_sample(language: str, text: str, keep_rate: float, seed: int) -> bool:
+    if keep_rate >= 1.0:
+        return True
+    if keep_rate <= 0.0:
+        return False
+    key = f"{language}\u0000{seed}\u0000{text}".encode("utf-8", errors="ignore")
+    digest = hashlib.sha256(key).digest()
+    bucket = int.from_bytes(digest[:8], "big") / 2**64
+    return bucket < keep_rate
+
+
+def _load_language_rates(path: Optional[str]) -> Dict[str, float]:
+    if path is None:
+        return {}
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    if not isinstance(data, dict):
+        raise RuntimeError("language_rates_json must contain a JSON object mapping language -> rate.")
+    rates: Dict[str, float] = {}
+    for lang, value in data.items():
+        try:
+            rate = float(value)
+        except (TypeError, ValueError):
+            raise RuntimeError(f"Invalid keep rate for language '{lang}': {value}")
+        rates[lang] = max(0.0, min(1.0, rate))
+    return rates
+
+
 def main(args):
     shard_dir = Path(args.shard_dir)
     print(f"Tokenizer used for tokenization: {args.model_name}")
@@ -135,14 +182,22 @@ def main(args):
 
     rank, world_size = _resolve_rank_world(args.rank, args.world_size)
     languages = _resolve_languages(args.languages, args.language_subset)
-    shards = _list_shards(shard_dir, languages)
+    language_rates = _load_language_rates(args.language_rates_json)
+    default_rate = max(0.0, min(1.0, args.sample_fraction))
+    shards = _list_shards(shard_dir, languages, language_rates, default_rate)
     assigned = _assign_shards(shards, rank, world_size)
     if not assigned:
         raise RuntimeError(f"Rank {rank} received zero shard files. Check shard count vs. world size.")
 
     with tempfile.TemporaryDirectory(prefix="tok_simple_") as cache_dir:
         raw_dataset = Dataset.from_generator(
-            lambda: _iter_shard_lines(assigned, args.eval_fraction, args.eval_seed),
+            lambda: _iter_shard_lines(
+                assigned,
+                args.eval_fraction,
+                args.eval_seed,
+                args.sample_seed,
+                args.max_samples,
+            ),
             cache_dir=cache_dir,
         )
 
@@ -174,5 +229,9 @@ if __name__ == "__main__":
     parser.add_argument("--world_size", type=int, default=None, help="World size override (defaults to SLURM env vars).")
     parser.add_argument("--eval_fraction", type=float, default=0.05, help="Fraction per language to tag as validation data (set 0 to disable).")
     parser.add_argument("--eval_seed", type=int, default=42, help="Seed for the eval split hash.")
+    parser.add_argument("--sample_fraction", type=float, default=1.0, help="Default probability of keeping an example.")
+    parser.add_argument("--sample_seed", type=int, default=0, help="Seed controlling deterministic sampling.")
+    parser.add_argument("--language_rates_json", type=str, default=None, help="Optional JSON file mapping language -> keep_rate override.")
+    parser.add_argument("--max_samples", type=int, default=None, help="Optional max number of records to emit per rank.")
     args = parser.parse_args()
     main(args)

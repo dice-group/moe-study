@@ -17,6 +17,10 @@ EVAL_FRACTION=0.05
 EVAL_SEED=42
 MERGE_SPLIT_FRACTION=0.05
 MERGE_SPLIT_SEED=42
+MAX_SAMPLES=""
+SAMPLE_FRACTION=1.0
+SAMPLE_SEED=0
+LANGUAGE_RATES_FILE=""
 
 usage() {
   cat <<EOF
@@ -31,6 +35,9 @@ Key options:
   --merge-workers INT       Worker count for merge_tokenized_ranks.py.
   --eval-fraction FLOAT     Fraction per language for validation tagging during tokenization (default: ${EVAL_FRACTION}).
   --eval-seed INT           Seed for eval hashing (default: ${EVAL_SEED}).
+  --sample-fraction FLOAT   Probability of keeping each record globally (default: ${SAMPLE_FRACTION}).
+  --sample-seed INT         Seed used for the sampling hash (default: ${SAMPLE_SEED}).
+  --language-rates PATH     JSON mapping of language->keep_rate overriding the global sample fraction.
   --merge-split-fraction FLOAT  Fraction to reserve for validation when saving merged dataset (default: ${MERGE_SPLIT_FRACTION}).
   --merge-split-seed INT    Seed used if merge performs fallback split (default: ${MERGE_SPLIT_SEED}).
 EOF
@@ -63,8 +70,12 @@ while [[ $# -gt 0 ]]; do
     --job-prefix) JOB_PREFIX="$2"; shift 2 ;;
     --eval-fraction) EVAL_FRACTION="$2"; shift 2 ;;
     --eval-seed) EVAL_SEED="$2"; shift 2 ;;
+    --sample-fraction) SAMPLE_FRACTION="$2"; shift 2 ;;
+    --sample-seed) SAMPLE_SEED="$2"; shift 2 ;;
+    --language-rates) LANGUAGE_RATES_FILE="$2"; shift 2 ;;
     --merge-split-fraction) MERGE_SPLIT_FRACTION="$2"; shift 2 ;;
     --merge-split-seed) MERGE_SPLIT_SEED="$2"; shift 2 ;;
+    --max-samples) MAX_SAMPLES="$2"; shift 2 ;;
     --log-root) LOG_ROOT="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
@@ -140,13 +151,19 @@ LOG_ROOT="${LOG_ROOT:-logs/${JOB_PREFIX}}"
 RANK_OUTPUT_DIR="${OUTPUT_ROOT}_ranks"
 mkdir -p "${LOG_ROOT}" "${RANK_OUTPUT_DIR}"
 
-printf -v TOKEN_CMD 'python -u %q/tokenize_slurm.py --shard_dir %q --save_tokenized_data_dir %q --model_name %q --num_proc %q --eval_fraction %q --eval_seed %q' \
-  "${SCRIPT_DIR}" "${SHARD_DIR}" "${RANK_OUTPUT_DIR}" "${TOKENIZER}" "${NUM_PROC}" "${EVAL_FRACTION}" "${EVAL_SEED}"
+printf -v TOKEN_CMD 'python -u %q/tokenize_slurm.py --shard_dir %q --save_tokenized_data_dir %q --model_name %q --num_proc %q --eval_fraction %q --eval_seed %q --sample_fraction %q --sample_seed %q' \
+  "${SCRIPT_DIR}" "${SHARD_DIR}" "${RANK_OUTPUT_DIR}" "${TOKENIZER}" "${NUM_PROC}" "${EVAL_FRACTION}" "${EVAL_SEED}" "${SAMPLE_FRACTION}" "${SAMPLE_SEED}"
 
 if [[ -n "${LANGUAGE_SUBSET}" ]]; then
   printf -v TOKEN_CMD '%s --language_subset %q' "${TOKEN_CMD}" "${LANGUAGE_SUBSET}"
 elif [[ -n "${LANGUAGES}" ]]; then
   TOKEN_CMD+=" --languages ${LANGUAGES}"
+fi
+if [[ -n "${LANGUAGE_RATES_FILE}" ]]; then
+  TOKEN_CMD+=" --language_rates_json ${LANGUAGE_RATES_FILE}"
+fi
+if [[ -n "${MAX_SAMPLES}" ]]; then
+  TOKEN_CMD+=" --max_samples ${MAX_SAMPLES}"
 fi
 
 TOKEN_JOB_ID=$(
