@@ -16,9 +16,7 @@ STAGE2_SHARD_DIR=/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/shard
 STAGE2_LANGUAGES="eng_Latn"
 STAGE2_TOKENIZER=meta-llama/Llama-3.1-8B
 STAGE2_OUTPUT=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.1-8B_tokenizer/moelpr_stage2_eng
-STAGE2_MAX_SAMPLES=""
-STAGE2_SAMPLE_FRACTION=""
-STAGE2_LANGUAGE_RATES_JSON=""
+STAGE2_LANGUAGE_RATES_JSON='{"eng_Latn": 0.02}'
 
 NUM_PROC=4
 MERGE_WORKERS=4
@@ -34,16 +32,10 @@ bash "${SCRIPT_DIR}/tokenize_and_merge_pipeline.sh" \
   --merge-workers "${MERGE_WORKERS}"
 
 echo "[INFO] Tokenizing MoE-LPR Stage 2 languages: ${STAGE2_LANGUAGES}"
-STAGE2_ARGS=()
-if [[ -n "${STAGE2_MAX_SAMPLES}" ]]; then
-  STAGE2_ARGS+=(--max-samples "${STAGE2_MAX_SAMPLES}")
-fi
-if [[ -n "${STAGE2_SAMPLE_FRACTION}" ]]; then
-  STAGE2_ARGS+=(--sample-fraction "${STAGE2_SAMPLE_FRACTION}")
-fi
-if [[ -n "${STAGE2_LANGUAGE_RATES_JSON}" ]]; then
-  STAGE2_ARGS+=(--language-rates "${STAGE2_LANGUAGE_RATES_JSON}")
-fi
+LANG_RATE_FILE="$(mktemp)"
+trap 'rm -f "${LANG_RATE_FILE}"' EXIT
+printf '%s' "${STAGE2_LANGUAGE_RATES_JSON}" > "${LANG_RATE_FILE}"
+
 bash "${SCRIPT_DIR}/tokenize_and_merge_pipeline.sh" \
   --shard-dir "${STAGE2_SHARD_DIR}" \
   --tokenizer "${STAGE2_TOKENIZER}" \
@@ -52,7 +44,7 @@ bash "${SCRIPT_DIR}/tokenize_and_merge_pipeline.sh" \
   --job-prefix moelpr_stage2_tok \
   --num-proc "${NUM_PROC}" \
   --merge-workers "${MERGE_WORKERS}" \
-  "${STAGE2_ARGS[@]}"
+  --language-rates "${LANG_RATE_FILE}"
 
 echo "[INFO] Stage datasets ready:"
 echo "  Stage 1 dataset -> ${STAGE1_OUTPUT}"
