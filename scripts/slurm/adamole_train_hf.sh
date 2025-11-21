@@ -2,14 +2,13 @@
 #SBATCH -J adamole_llama3.2-1b
 #SBATCH -o logs/adamole/llama3.2-1b_slurm-%j.out
 #SBATCH -e logs/adamole/llama3.2-1b_slurm-%j.err
-#SBATCH -t 1:00:00          #1 hour for test, increase later
+#SBATCH -t 1:00:00
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH -p gpu
 #SBATCH --gres=gpu:h100:1
-##SBATCH --exclusive                     # Uncomment if you want exclusive node access, idk if needed, i think rather not for now
 
 set -e
 module reset

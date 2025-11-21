@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Stage 1: languages that also exist in Belebele (no English)
 STAGE1_SHARD_DIR=/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/sharded_samples
-STAGE1_LANGUAGES="kin_Latn lug_Latn nso_Latn sna_Latn zul_Latn"
+STAGE1_LANGUAGES="myb_Latn nin_Latn oku_Latn sna_Latn zul_Latn"
 STAGE1_TOKENIZER=meta-llama/Llama-3.1-8B
 STAGE1_OUTPUT=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.1-8B_tokenizer/moelpr_stage1_5newlangs
 
