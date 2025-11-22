@@ -120,5 +120,6 @@ class AdaMoleModel(LoraModel):
             if layer is None or layer.layer_loss is None:
                 continue
             model_loss = model_loss + layer.layer_loss
+            layer.layer_loss = None
 
         return model_loss
