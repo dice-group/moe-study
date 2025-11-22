@@ -203,10 +203,11 @@ def get_peft_model_state_dict(
     # DEAL WITH EMBEDDINGS
     # check the common embedding layers in `target_modules` to reset `save_embedding_layers` if necessary
     is_embedding_in_target_modules = False
+    target_modules = getattr(config, "target_modules", None)
     if (
         save_embedding_layers == "auto"
-        and hasattr(config, "target_modules")
-        and any(k in config.target_modules for k in EMBEDDING_LAYER_NAMES)
+        and target_modules is not None
+        and any(k in target_modules for k in EMBEDDING_LAYER_NAMES)
     ):
         warnings.warn("Setting `save_embedding_layers` to `True` as embedding layers found in `target_modules`.")
         save_embedding_layers = is_embedding_in_target_modules = True

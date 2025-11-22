@@ -80,7 +80,17 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
             extra = pop_tracked_metrics()
         if extra:
             logs = {**extra, **logs}
-        super().log(logs)
+
+        cleaned: Dict[str, float] = {}
+        for key, value in logs.items():
+            if isinstance(value, torch.Tensor):
+                cleaned[key] = value.detach().item()
+            elif isinstance(value, (int, float)):
+                cleaned[key] = value
+            else:
+                cleaned[key] = float(value)
+
+        super().log(cleaned)
 
     @override
     def create_optimizer(self) -> "torch.optim.Optimizer":
