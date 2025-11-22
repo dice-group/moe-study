@@ -1,29 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG_PATH="${1:-configs/comparison.env}"
-source "${CONFIG_PATH}"
+CONDA_BASE=${CONDA_BASE:-/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3}
+CONDA_ENV=${CONDA_ENV:-cola_llama_factory}
+MODULE_INIT=${MODULE_INIT:-module purge && module load toolchain/foss/2024a system/CUDA/12.6.0 lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0}
 
-required_vars=(
-  CONDA_BASE
-  CONDA_ENV
-  MODEL_NAME_OR_PATH
+MODEL_NAME_OR_PATH=${MODEL_NAME_OR_PATH:-meta-llama/Llama-3.2-1B}
+GENERIC_TOKENIZED_PATH=${GENERIC_TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/common_sft}
+GENERIC_DATASET_NAME=${GENERIC_DATASET_NAME:-c4}
+MOELPR_TOKENIZED_PATH=${MOELPR_TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter/llama-3.1-8B_tokenizer/5_langs}
+MOELPR_LANGUAGE_COLUMN=${MOELPR_LANGUAGE_COLUMN:-language}
+MOELPR_LANGUAGE_MAP=${MOELPR_LANGUAGE_MAP:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter/moelpr_5_langs_lang_map.json}
+MOELPR_ORIGINAL_LANGUAGE=${MOELPR_ORIGINAL_LANGUAGE:-eng_Latn}
+DATASET_DIR=${DATASET_DIR:-./LLaMA-Factory/data}
+
+OUTPUT_ROOT=${OUTPUT_ROOT:-/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs}
+WANDB_PROJECT=${WANDB_PROJECT:-moe-study-comparison}
+WANDB_ENTITY=${WANDB_ENTITY:-}
+WANDB_RUN_GROUP=${WANDB_RUN_GROUP:-refactor-benchmark}
+SBATCH_ARGS=${SBATCH_ARGS:-}
+
+required_paths=(
   GENERIC_TOKENIZED_PATH
   MOELPR_TOKENIZED_PATH
-  MOELPR_LANGUAGE_COLUMN
   MOELPR_LANGUAGE_MAP
-  MOELPR_ORIGINAL_LANGUAGE
-  OUTPUT_ROOT
 )
 
-for var in "${required_vars[@]}"; do
-  if [[ -z "${!var:-}" ]]; then
-    echo "[ERROR] ${var} must be defined in ${CONFIG_PATH}" >&2
-    exit 1
-  fi
-done
-
-for path_var in GENERIC_TOKENIZED_PATH MOELPR_TOKENIZED_PATH MOELPR_LANGUAGE_MAP; do
+for path_var in "${required_paths[@]}"; do
   if [[ ! -e "${!path_var}" ]]; then
     echo "[ERROR] ${path_var} points to ${!path_var}, which does not exist." >&2
     exit 1
