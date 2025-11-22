@@ -6,12 +6,12 @@ CONDA_ENV=${CONDA_ENV:-cola_llama_factory}
 MODULE_INIT=${MODULE_INIT:-module purge && module load toolchain/foss/2024a system/CUDA/12.6.0 lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0}
 
 MODEL_NAME_OR_PATH=${MODEL_NAME_OR_PATH:-meta-llama/Llama-3.2-1B}
-GENERIC_TOKENIZED_PATH=${GENERIC_TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/common_sft}
+GENERIC_TOKENIZED_PATH=${GENERIC_TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter/llama-3.1-8B_tokenizer/5_langs}
 GENERIC_DATASET_NAME=${GENERIC_DATASET_NAME:-c4}
-MOELPR_TOKENIZED_PATH=${MOELPR_TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter/llama-3.1-8B_tokenizer/5_langs}
+MOELPR_TOKENIZED_PATH=${MOELPR_TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.1-8B_tokenizer/moelpr_stage1_5newlangs}
 MOELPR_LANGUAGE_COLUMN=${MOELPR_LANGUAGE_COLUMN:-language}
-MOELPR_LANGUAGE_MAP=${MOELPR_LANGUAGE_MAP:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter/moelpr_5_langs_lang_map.json}
-MOELPR_ORIGINAL_LANGUAGE=${MOELPR_ORIGINAL_LANGUAGE:-eng_Latn}
+MOELPR_LANGUAGE_MAP=${MOELPR_LANGUAGE_MAP:-/scratch/hpc-prf-merlin/joel/moe-study/configs/moelpr_lang_map.json}
+MOELPR_ORIGINAL_LANGUAGE=${MOELPR_ORIGINAL_LANGUAGE:-english}
 DATASET_DIR=${DATASET_DIR:-./LLaMA-Factory/data}
 
 OUTPUT_ROOT=${OUTPUT_ROOT:-/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs}
