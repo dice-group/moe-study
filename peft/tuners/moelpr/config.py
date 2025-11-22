@@ -85,6 +85,10 @@ class MoeConfig(PeftConfig):
         }
     )
     moelpr_debug_mode: bool = field(default=False, metadata={"help": "Enable debug mode for MoE-LPR."})
+    bias: str = field(
+        default="none",
+        metadata={"help": "Bias type to save alongside the adapter (none/lora_only/all)."},
+    )
 
     def __post_init__(self):
         self.peft_type = PeftType.MOELPR
