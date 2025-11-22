@@ -18,3 +18,8 @@ data_prep/loss_analysis_tokenizer/loss_analysis_output
 /data_prep/loss_analysis_tokenizer/loss_analysis_dataset
 /data_prep/loss_analysis_tokenizer/logs/
 /data_prep/loss_analysis_tokenizer/belebele_plots/
+*.log
+/LLaMA-Factory/saves
+emissions.csv
+/fw_samples_structured/
+/papers/further

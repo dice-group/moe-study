@@ -1,0 +1,82 @@
+#!/bin/bash
+#SBATCH --job-name=cmp-adamole
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --gres=gpu:h100:1
+#SBATCH --mem=64G
+#SBATCH --time=08:00:00
+#SBATCH --partition=gpu
+#SBATCH --output=logs/comparison/adamole_%j.log
+
+set -euo pipefail
+
+if [[ -n "${MODULE_INIT:-}" ]]; then
+  eval "${MODULE_INIT}"
+fi
+
+if [[ -n "${CONDA_BASE:-}" && -n "${CONDA_ENV:-}" ]]; then
+  # shellcheck disable=SC1090
+  source "${CONDA_BASE}/etc/profile.d/conda.sh"
+  conda activate "${CONDA_ENV}"
+fi
+
+export WANDB_PROJECT="${WANDB_PROJECT:-moe-study-comparison}"
+export WANDB_ENTITY="${WANDB_ENTITY:-}"
+export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-moe-study}"
+export WANDB_NAME="${WANDB_NAME:-adamole}"
+export WANDB_TAGS="comparison,adamole"
+export PYTHONUNBUFFERED=1
+
+OUTPUT_DIR="${OUTPUT_DIR:?OUTPUT_DIR not set}"
+mkdir -p "${OUTPUT_DIR}"
+
+DATASET_DIR="${DATASET_DIR:-./LLaMA-Factory/data}"
+TOKENIZED_PATH="${GENERIC_TOKENIZED_PATH:?GENERIC_TOKENIZED_PATH not set}"
+MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
+DATASET_NAME="${GENERIC_DATASET_NAME:-c4}"
+EVAL_DATASET_NAME="${GENERIC_EVAL_DATASET_NAME:-${DATASET_NAME}}"
+
+echo "[INFO] Running AdaMoLE training into ${OUTPUT_DIR}"
+
+llamafactory-cli train \
+  --stage sft \
+  --do_train \
+  --model_name_or_path "${MODEL_NAME_OR_PATH}" \
+  --dataset "${DATASET_NAME}" \
+  --eval_dataset "${EVAL_DATASET_NAME}" \
+  --dataset_dir "${DATASET_DIR}" \
+  --template llama3 \
+  --finetuning_type adamole \
+  --output_dir "${OUTPUT_DIR}" \
+  --overwrite_output_dir \
+  --num_train_epochs "${NUM_TRAIN_EPOCHS:-1}" \
+  --learning_rate "${LEARNING_RATE:-2e-4}" \
+  --lr_scheduler_type "${LR_SCHEDULER_TYPE:-cosine}" \
+  --warmup_ratio "${WARMUP_RATIO:-0.03}" \
+  --per_device_train_batch_size "${PER_DEVICE_TRAIN_BATCH_SIZE:-2}" \
+  --per_device_eval_batch_size "${PER_DEVICE_EVAL_BATCH_SIZE:-2}" \
+  --gradient_accumulation_steps "${GRADIENT_ACCUMULATION_STEPS:-2}" \
+  --logging_steps "${LOGGING_STEPS:-10}" \
+  --evaluation_strategy "${EVAL_STRATEGY:-steps}" \
+  --eval_steps "${EVAL_STEPS:-200}" \
+  --save_steps "${SAVE_STEPS:-200}" \
+  --max_steps "${MAX_STEPS:-0}" \
+  --disable_gradient_checkpointing "${DISABLE_GRADIENT_CHECKPOINTING:-True}" \
+  --bf16 "${BF16:-False}" \
+  --fp16 "${FP16:-True}" \
+  --seed "${SEED:-42}" \
+  --tokenized_path "${TOKENIZED_PATH}" \
+  --lora_rank "${LORA_R:-8}" \
+  --lora_alpha "${LORA_ALPHA:-16}" \
+  --lora_dropout "${LORA_DROPOUT:-0.05}" \
+  --lora_target "${LORA_TARGETS:-q_proj,k_proj,v_proj,o_proj}" \
+  --adamole_num_experts "${ADAMOLE_NUM_EXPERTS:-4}" \
+  --adamole_max_threshold "${ADAMOLE_MAX_THRESHOLD:-0.25}" \
+  --adamole_aux_loss_coef "${ADAMOLE_AUX_LOSS_COEF:-0.01}" \
+  --adamole_debug_mode "${ADAMOLE_DEBUG_MODE:-False}" \
+  --report_to wandb \
+  --include_effective_tokens_per_second true \
+  --include_num_input_tokens_seen true
+
+echo "[INFO] AdaMoLE job completed"

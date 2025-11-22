@@ -25,3 +25,10 @@ resize_vocab: true
 
 output_dir: ./outputs/mola-7b
 overwrite_output_dir: true
+mola_num_experts: 4
+mola_top_k: 2
+mola_use_null_expert: false
+mola_router_aux_loss_coef: 0.01
+mola_null_expert_penalty: 0.1
+mola_aux_loss_annealing: false
+mola_debug_mode: false
