@@ -62,7 +62,7 @@ llamafactory-cli train \
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
   --max_steps "${MAX_STEPS:-0}" \
-  --gradient_checkpointing "${GRADIENT_CHECKPOINTING:-False}" \
+  --disable_gradient_checkpointing "${DISABLE_GRADIENT_CHECKPOINTING:-True}" \
   --bf16 "${BF16:-False}" \
   --fp16 "${FP16:-True}" \
   --seed "${SEED:-42}" \
