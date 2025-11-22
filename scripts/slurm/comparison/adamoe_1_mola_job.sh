@@ -71,8 +71,8 @@ llamafactory-cli train \
   --lora_dropout "${LORA_DROPOUT:-0.05}" \
   --lora_target "${LORA_TARGETS:-q_proj,k_proj,v_proj,o_proj}" \
   --mola_num_experts "${MOLA_NUM_EXPERTS:-4}" \
-  --mola_top_k "${MOLA_TOP_K:-2}" \
-  --mola_use_null_expert "${MOLA_USE_NULL_EXPERT:-False}" \
+  --mola_top_k "${MOLA_TOP_K:-3}" \
+  --mola_use_null_expert "${MOLA_USE_NULL_EXPERT:-True}" \
   --mola_router_aux_loss_coef "${MOLA_ROUTER_AUX_LOSS_COEF:-0.01}" \
   --mola_null_expert_penalty "${MOLA_NULL_EXPERT_PENALTY:-0.1}" \
   --mola_aux_loss_annealing "${MOLA_AUX_LOSS_ANNEALING:-False}" \
