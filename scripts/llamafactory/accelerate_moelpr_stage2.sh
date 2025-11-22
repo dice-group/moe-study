@@ -27,11 +27,12 @@ export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-moelpr_stage2}"
 DATASET_DIR=./LLaMA-Factory/data
 DATASET_NAME=${DATASET_NAME:-moelpr_5_langs}
 FINETUNING_TYPE=moelpr
-MODEL_NAME_OR_PATH=${MODEL_NAME_OR_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/saves/moelpr_stage1_acc}
+BASE_MODEL=${MODEL_NAME_OR_PATH:-meta-llama/Llama-3.2-1B}
+STAGE1_ADAPTER=${ADAPTER_NAME_OR_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/saves/moelpr_stage1_acc}
 OUTPUT_DIR=${OUTPUT_DIR:-/scratch/hpc-prf-merlin/project_data/moe_study/saves/moelpr_stage2_acc}
 ACCEL_CONFIG=${ACCEL_CONFIG:-./LLaMA-Factory/examples/accelerate/fsdp_4gpu_config.yaml}
 export ACCELERATE_USE_FSDP=1
-TOKENIZED_PATH=${TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter/llama-3.1-8B_tokenizer/5_langs}
+TOKENIZED_PATH=${TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter/llama-3.1-8B_tokenizer/5_langs} # TODO: Stage 2 should point to replay data (<1%) when available.
 LANGUAGE_COLUMN=${LANGUAGE_COLUMN:-language}
 LANGUAGE_MAP=${LANGUAGE_MAP:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter/moelpr_5_langs_lang_map.json}
 MOELPR_ORIGINAL_LANGUAGE=${MOELPR_ORIGINAL_LANGUAGE:-eng_Latn}
@@ -67,7 +68,7 @@ RUN_NAME="moelpr_stage2_${NUM_LANGS}langs_${MOELPR_ORIGINAL_LANGUAGE}_$(date +%Y
 WANDB_TAGS="moelpr,stage2,accelerate"
 WANDB_CONFIG_JSON=$(cat <<JSON
 {
-  "model_name_or_path": "${MODEL_NAME_OR_PATH}",
+  "model_name_or_path": "${BASE_MODEL}",
   "tokenized_path": "${TOKENIZED_PATH}",
   "finetuning_type": "${FINETUNING_TYPE}",
   "dataset": "${DATASET_NAME}",
@@ -120,7 +121,7 @@ accelerate launch \
   --evaluation_strategy steps \
   --eval_steps ${EVAL_STEPS} \
   --run_name "${RUN_NAME}" \
-  --model_name_or_path "${MODEL_NAME_OR_PATH}" \
+  --model_name_or_path "${BASE_MODEL}" \
   --dataset "${DATASET_NAME}" \
   --dataset_dir "${DATASET_DIR}" \
   --template llama3 \
@@ -149,6 +150,7 @@ accelerate launch \
   --moelpr_top_k ${MOELPR_TOP_K} \
   --moelpr_lpr_loss_coef ${MOELPR_LPR_LOSS_COEF} \
   --moelpr_original_language "${MOELPR_ORIGINAL_LANGUAGE}" \
+  --adapter_name_or_path "${STAGE1_ADAPTER}" \
   --language_column "${LANGUAGE_COLUMN}" \
   --language_map "${LANGUAGE_MAP}"
 

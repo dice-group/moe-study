@@ -1,5 +1,6 @@
 #!/bin/bash
 DATASET_DIR=./LLaMA-Factory/data
+BASE_MODEL=${BASE_MODEL:-meta-llama/Llama-3.2-1B}
 STAGE1_DIR=./LLaMA-Factory/saves/moelpr_stage1
 OUTPUT_DIR=./LLaMA-Factory/saves/moelpr_stage2
 LANG_MAP='{"en":"germanic","fr":"romance","de":"germanic"}'
@@ -11,7 +12,8 @@ mkdir -p "${HF_DATASETS_CACHE}"
 llamafactory-cli train \
   --stage sft \
   --do_train \
-  --model_name_or_path "${STAGE1_DIR}" \
+  --model_name_or_path "${BASE_MODEL}" \
+  --adapter_name_or_path "${STAGE1_DIR}" \
   --dataset moelpr_stage2_demo \
   --dataset_dir "${DATASET_DIR}" \
   --template alpaca \

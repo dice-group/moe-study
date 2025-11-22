@@ -561,6 +561,23 @@ def _setup_moelpr_tuning(
     )
     model = get_peft_model(model, moelpr_config)
 
+    # freeze all parameters except router embeddings in stage 2 as explained in MoE-LPR paper
+    if is_trainable and finetuning_args.moelpr_stage == 2:
+        trainable_params = 0
+        frozen_params = 0
+        for name, param in model.named_parameters():
+            if "moe_router_embedding" in name:
+                param.requires_grad_(True)
+                trainable_params += param.numel()
+            else:
+                param.requires_grad_(False)
+                frozen_params += param.numel()
+        logger.info_rank0(
+            "[MoE-LPR] Stage 2 router-only training enabled: %d params trainable, %d params frozen.",
+            trainable_params,
+            frozen_params,
+        )
+
     if is_trainable and cast_trainable_params_to_fp32:
         for param in filter(lambda p: p.requires_grad, model.parameters()):
             param.data = param.data.to(torch.float32)

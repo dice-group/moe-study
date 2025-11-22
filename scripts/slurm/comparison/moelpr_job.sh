@@ -27,7 +27,7 @@ export WANDB_ENTITY="${WANDB_ENTITY:-}"
 export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-moe-study}"
 
 DATASET_DIR="${DATASET_DIR:-./LLaMA-Factory/data}"
-TOKENIZED_PATH="${MOELPR_TOKENIZED_PATH:?MOELPR_TOKENIZED_PATH not set}"
+TOKENIZED_PATH="${MOELPR_TOKENIZED_PATH:?MOELPR_TOKENIZED_PATH not set}" # TODO: for Stage 2, point to replay data (<1%) if available.
 MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 LANGUAGE_COLUMN="${MOELPR_LANGUAGE_COLUMN:?MOELPR_LANGUAGE_COLUMN not set}"
 LANGUAGE_MAP="${MOELPR_LANGUAGE_MAP:?MOELPR_LANGUAGE_MAP not set}"
@@ -88,7 +88,7 @@ export WANDB_TAGS="comparison,moelpr,stage2"
 llamafactory-cli train \
   --stage sft \
   --do_train \
-  --model_name_or_path "${STAGE1_OUT}" \
+  --model_name_or_path "${MODEL_NAME_OR_PATH}" \
   --dataset "${DATASET_NAME}" \
   --eval_dataset "${EVAL_DATASET_NAME}" \
   --dataset_dir "${DATASET_DIR}" \
@@ -112,6 +112,7 @@ llamafactory-cli train \
   --fp16 "${FP16:-True}" \
   --seed "${SEED:-42}" \
   --tokenized_path "${TOKENIZED_PATH}" \
+  --adapter_name_or_path "${STAGE1_OUT}" \
   --language_column "${LANGUAGE_COLUMN}" \
   --language_map "${LANGUAGE_MAP}" \
   --moelpr_stage 2 \
