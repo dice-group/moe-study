@@ -13,7 +13,7 @@ STAGE1_OUTPUT=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/ll
 
 # Stage 2: original-language replay (English only)
 STAGE2_SHARD_DIR=/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/sharded_samples
-STAGE2_LANGUAGES="eng_Latn"
+STAGE2_LANGUAGES="english"
 STAGE2_TOKENIZER=meta-llama/Llama-3.1-8B
 STAGE2_OUTPUT=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.1-8B_tokenizer/moelpr_stage2_eng
 STAGE2_LANGUAGE_RATES_FILE="${SCRIPT_DIR}/../../configs/moelpr_stage2_language_rates.json"
@@ -43,7 +43,7 @@ bash "${SCRIPT_DIR}/tokenize_and_merge_pipeline.sh" \
   --languages "${STAGE2_LANGUAGES}" \
   --job-prefix moelpr_stage2_tok \
   --num-proc "${NUM_PROC}" \
-  --num-ranks "${NUM_RANKS}" \
+  --num-ranks 150 \
   --merge-workers "${MERGE_WORKERS}" \
   --language-rates "${LANG_RATE_FILE}"
 
