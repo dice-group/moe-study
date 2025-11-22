@@ -33,6 +33,7 @@ LANGUAGE_COLUMN="${MOELPR_LANGUAGE_COLUMN:?MOELPR_LANGUAGE_COLUMN not set}"
 LANGUAGE_MAP="${MOELPR_LANGUAGE_MAP:?MOELPR_LANGUAGE_MAP not set}"
 ORIGINAL_LANGUAGE="${MOELPR_ORIGINAL_LANGUAGE:?MOELPR_ORIGINAL_LANGUAGE not set}"
 DATASET_NAME="${MOELPR_DATASET_NAME:-moelpr_5_langs}"
+EVAL_DATASET_NAME="${MOELPR_EVAL_DATASET_NAME:-${DATASET_NAME}}"
 
 STAGE1_OUT="${MOELPR_STAGE1_OUTPUT:?MOELPR_STAGE1_OUTPUT not set}"
 STAGE2_OUT="${MOELPR_STAGE2_OUTPUT:?MOELPR_STAGE2_OUTPUT not set}"
@@ -47,6 +48,7 @@ llamafactory-cli train \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
   --dataset "${DATASET_NAME}" \
+  --eval_dataset "${EVAL_DATASET_NAME}" \
   --dataset_dir "${DATASET_DIR}" \
   --template llama3 \
   --finetuning_type moelpr \
@@ -86,6 +88,7 @@ llamafactory-cli train \
   --do_train \
   --model_name_or_path "${STAGE1_OUT}" \
   --dataset "${DATASET_NAME}" \
+  --eval_dataset "${EVAL_DATASET_NAME}" \
   --dataset_dir "${DATASET_DIR}" \
   --template llama3 \
   --finetuning_type moelpr \

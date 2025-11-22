@@ -35,6 +35,7 @@ DATASET_DIR="${DATASET_DIR:-./LLaMA-Factory/data}"
 TOKENIZED_PATH="${GENERIC_TOKENIZED_PATH:?GENERIC_TOKENIZED_PATH not set}"
 MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 DATASET_NAME="${GENERIC_DATASET_NAME:-c4}"
+EVAL_DATASET_NAME="${GENERIC_EVAL_DATASET_NAME:-${DATASET_NAME}}"
 
 echo "[INFO] Running AdaMoLE training into ${OUTPUT_DIR}"
 
@@ -43,6 +44,7 @@ llamafactory-cli train \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
   --dataset "${DATASET_NAME}" \
+  --eval_dataset "${EVAL_DATASET_NAME}" \
   --dataset_dir "${DATASET_DIR}" \
   --template llama3 \
   --finetuning_type adamole \
