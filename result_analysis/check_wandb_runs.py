@@ -17,7 +17,7 @@ import wandb
 
 PROJECT_PATH = "dice-nlp/moe-study-comparison"
 RUN_TAGS = ("adamole", "mola", "moelpr", "cola", "hydralora")
-REQUIRED_METRICS: Dict[str, List[str]] = {
+TRAIN_METRICS: Dict[str, List[str]] = {
     "adamole": [
         "train/adamole_aux_loss",
         "train/adamole/threshold_mean",
@@ -47,6 +47,7 @@ REQUIRED_METRICS: Dict[str, List[str]] = {
 OPTIONAL_METRICS: Dict[str, List[str]] = {
     "moelpr": ["train/moelpr/original_primary_expert"],
 }
+EVAL_METRICS = ["eval/loss", "eval/samples_per_second", "eval/steps_per_second"]
 
 
 @dataclass
@@ -113,11 +114,21 @@ def pick_latest_runs() -> Dict[str, RunStatus]:
             if tag in latest:
                 continue
             if tag in tags or tag in name.lower():
-                missing = [metric for metric in REQUIRED_METRICS[tag] if metric not in summary]
+                missing = [metric for metric in TRAIN_METRICS[tag] if metric not in summary]
                 stats = {}
-                for metric in REQUIRED_METRICS[tag]:
+                for metric in TRAIN_METRICS[tag]:
                     values = collect_metric_history(run, metric)
                     stats[metric] = MetricStats.from_history(values)
+                for metric in EVAL_METRICS:
+                    if metric in summary:
+                        stats[f"eval::{metric}"] = MetricStats(
+                            latest=summary.get(metric),
+                            minimum=summary.get(metric),
+                            maximum=summary.get(metric),
+                            mean=summary.get(metric),
+                            first=summary.get(metric),
+                            mid=summary.get(metric),
+                        )
                 latest[tag] = RunStatus(
                     name=name,
                     url=run.url,

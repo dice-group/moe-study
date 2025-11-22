@@ -1,55 +1,134 @@
 {
   "cola": {
-    "name": "/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs/cola_20251122_154827",
+    "name": "cola-20251122_160637_ep1_bs2x2_lr2e-4_nexp4_k2_fully_2913",
     "state": "running",
-    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/ti9i6o8j",
+    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/8lwzfrfa",
     "metrics": {
       "train/loss": {
-        "latest": 1.7284,
+        "latest": 1.6289,
         "minimum": 1.303,
-        "maximum": 5.7513,
-        "mean": 2.0794,
-        "first": 5.7513,
-        "mid": 1.5079
+        "maximum": 5.7512,
+        "mean": 1.864225,
+        "first": 5.7512,
+        "mid": 1.6215
       },
       "train/learning_rate": {
-        "latest": 1.7619577308120134e-05,
+        "latest": 3.541713014460512e-05,
         "minimum": 3.114571746384872e-07,
-        "maximum": 1.7619577308120134e-05,
-        "mean": 8.946607341490546e-06,
+        "maximum": 3.541713014460512e-05,
+        "mean": 1.7843715239154617e-05,
         "first": 3.114571746384872e-07,
-        "mid": 9.165739710789767e-06
+        "mid": 1.806451612903226e-05
       },
       "train/grad_norm": {
-        "latest": 2.805670738220215,
-        "minimum": 2.1768858432769775,
-        "maximum": 84.91455841064453,
-        "mean": 11.238204181194305,
-        "first": 58.36623001098633,
-        "mid": 3.0222437381744385
+        "latest": 4.368880748748779,
+        "minimum": 1.554648995399475,
+        "maximum": 84.91910552978516,
+        "mean": 7.123081935942173,
+        "first": 58.369529724121094,
+        "mid": 3.243070363998413
+      },
+      "eval::eval/loss": {
+        "latest": 1.6346497535705566,
+        "minimum": 1.6346497535705566,
+        "maximum": 1.6346497535705566,
+        "mean": 1.6346497535705566,
+        "first": 1.6346497535705566,
+        "mid": 1.6346497535705566
+      },
+      "eval::eval/samples_per_second": {
+        "latest": 58.31,
+        "minimum": 58.31,
+        "maximum": 58.31,
+        "mean": 58.31,
+        "first": 58.31,
+        "mid": 58.31
+      },
+      "eval::eval/steps_per_second": {
+        "latest": 29.155,
+        "minimum": 29.155,
+        "maximum": 29.155,
+        "mean": 29.155,
+        "first": 29.155,
+        "mid": 29.155
+      }
+    }
+  },
+  "moelpr": {
+    "name": "moelpr-stage1-20251122_160637_ep1_bs2x2_lr2e-4_k1_1907",
+    "state": "running",
+    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/r74dxlg3",
+    "metrics": {
+      "train/moelpr_aux_loss": {
+        "latest": 0,
+        "minimum": 0,
+        "maximum": 0.027679385617375374,
+        "mean": 0.0007591292494907975,
+        "first": 0.011899864301085472,
+        "mid": 0
+      },
+      "train/moelpr/expert_load_cv": {
+        "latest": 1.391237050294876,
+        "minimum": 0.9610238932073116,
+        "maximum": 1.637112107127905,
+        "mean": 1.4663462240900844,
+        "first": 0.9610238932073116,
+        "mid": 1.6187570504844189
+      },
+      "train/moelpr/router_entropy": {
+        "latest": 0.2613045359030366,
+        "minimum": 0.2042418895289302,
+        "maximum": 0.36206348054111004,
+        "mean": 0.25803279122570527,
+        "first": 0.36206348054111004,
+        "mid": 0.21701310435310006
+      },
+      "eval::eval/loss": {
+        "latest": 1.7724052667617798,
+        "minimum": 1.7724052667617798,
+        "maximum": 1.7724052667617798,
+        "mean": 1.7724052667617798,
+        "first": 1.7724052667617798,
+        "mid": 1.7724052667617798
+      },
+      "eval::eval/samples_per_second": {
+        "latest": 47.193,
+        "minimum": 47.193,
+        "maximum": 47.193,
+        "mean": 47.193,
+        "first": 47.193,
+        "mid": 47.193
+      },
+      "eval::eval/steps_per_second": {
+        "latest": 23.596,
+        "minimum": 23.596,
+        "maximum": 23.596,
+        "mean": 23.596,
+        "first": 23.596,
+        "mid": 23.596
       }
     }
   },
   "mola": {
-    "name": "/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs/mola_20251122_154827",
+    "name": "mola-20251122_160637_ep1_bs2x2_lr2e-4_nexp4_k2_6982",
     "state": "running",
-    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/yh0isft1",
+    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/pdpr6luf",
     "metrics": {
       "train/mola_aux_loss": {
-        "latest": 0.3627738952636719,
-        "minimum": 0.27464058995246887,
-        "maximum": 0.3748501241207123,
-        "mean": 0.3417796239256859,
-        "first": 0.2890129089355469,
-        "mid": 0.3423037827014923
+        "latest": 0.34581947326660156,
+        "minimum": 0.2789480686187744,
+        "maximum": 0.37870892882347107,
+        "mean": 0.34541652038693427,
+        "first": 0.2856961190700531,
+        "mid": 0.33661597967147827
       },
       "train/mola/null_token_pct": {
-        "latest": 0.41083526611328125,
-        "minimum": 0.383056640625,
-        "maximum": 0.60845947265625,
-        "mean": 0.4272980880737305,
-        "first": 0.5878219604492188,
-        "mid": 0.4182586669921875
+        "latest": 0.42154693603515625,
+        "minimum": 0.369964599609375,
+        "maximum": 0.6084671020507812,
+        "mean": 0.41341279983520507,
+        "first": 0.6084671020507812,
+        "mid": 0.4095001220703125
       },
       "train/mola/active_expert_frac": {
         "latest": 1,
@@ -58,99 +137,140 @@
         "mean": 1.0,
         "first": 1,
         "mid": 1
+      },
+      "eval::eval/loss": {
+        "latest": 2.002983570098877,
+        "minimum": 2.002983570098877,
+        "maximum": 2.002983570098877,
+        "mean": 2.002983570098877,
+        "first": 2.002983570098877,
+        "mid": 2.002983570098877
+      },
+      "eval::eval/samples_per_second": {
+        "latest": 20.969,
+        "minimum": 20.969,
+        "maximum": 20.969,
+        "mean": 20.969,
+        "first": 20.969,
+        "mid": 20.969
+      },
+      "eval::eval/steps_per_second": {
+        "latest": 10.484,
+        "minimum": 10.484,
+        "maximum": 10.484,
+        "mean": 10.484,
+        "first": 10.484,
+        "mid": 10.484
       }
     }
   },
-  "moelpr": {
-    "name": "/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs/moelpr_stage1_20251122_154827",
+  "hydralora": {
+    "name": "hydralora-20251122_160637_ep1_bs2x2_lr2e-4_nexp4_k2_3689",
     "state": "running",
-    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/03y3ll16",
+    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/6l0eyusu",
     "metrics": {
-      "train/moelpr_aux_loss": {
-        "latest": 0,
-        "minimum": 0,
-        "maximum": 0.02873155102133751,
-        "mean": 0.001225221659988165,
-        "first": 0.011899864301085472,
-        "mid": 0
+      "train/loss": {
+        "latest": 1.7176,
+        "minimum": 1.3368,
+        "maximum": 5.8164,
+        "mean": 2.5707975000000003,
+        "first": 5.7645,
+        "mid": 1.501
       },
-      "train/moelpr/expert_load_cv": {
-        "latest": 1.4004835560917854,
-        "minimum": 0.9610238932073116,
-        "maximum": 1.6341129429638386,
-        "mean": 1.458536033690907,
-        "first": 0.9610238932073116,
-        "mid": 1.3944608457386494
+      "train/learning_rate": {
+        "latest": 1.770856507230256e-05,
+        "minimum": 4.0044493882091217e-07,
+        "maximum": 1.770856507230256e-05,
+        "mean": 9.043381535038932e-06,
+        "first": 4.0044493882091217e-07,
+        "mid": 9.25472747497219e-06
       },
-      "train/moelpr/router_entropy": {
-        "latest": 0.2773663466796279,
-        "minimum": 0.20498297084122896,
-        "maximum": 0.3620702354237437,
-        "mean": 0.2561545528331772,
-        "first": 0.36206348054111004,
-        "mid": 0.28019580990076065
+      "train/grad_norm": {
+        "latest": 0.17900976538658142,
+        "minimum": 0.12200243026018143,
+        "maximum": 12.515892028808594,
+        "mean": 1.9985680865123867,
+        "first": 3.893449544906616,
+        "mid": 0.1529245525598526
+      },
+      "eval::eval/loss": {
+        "latest": 1.6509151458740234,
+        "minimum": 1.6509151458740234,
+        "maximum": 1.6509151458740234,
+        "mean": 1.6509151458740234,
+        "first": 1.6509151458740234,
+        "mid": 1.6509151458740234
+      },
+      "eval::eval/samples_per_second": {
+        "latest": 24.138,
+        "minimum": 24.138,
+        "maximum": 24.138,
+        "mean": 24.138,
+        "first": 24.138,
+        "mid": 24.138
+      },
+      "eval::eval/steps_per_second": {
+        "latest": 12.069,
+        "minimum": 12.069,
+        "maximum": 12.069,
+        "mean": 12.069,
+        "first": 12.069,
+        "mid": 12.069
       }
     }
   },
   "adamole": {
-    "name": "/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs/adamole_20251122_154827",
+    "name": "adamole-20251122_160637_ep1_bs2x2_lr2e-4_nexp4_4816",
     "state": "running",
-    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/67giif0p",
+    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/iq2pld34",
     "metrics": {
       "train/adamole_aux_loss": {
         "latest": 0,
         "minimum": 0,
         "maximum": 0.12404219806194305,
-        "mean": 0.012460793927311897,
+        "mean": 0.006423743106424808,
         "first": 0.12404219806194305,
         "mid": 0
       },
       "train/adamole/threshold_mean": {
-        "latest": 0.1389942169189453,
+        "latest": 0.13982486724853516,
         "minimum": 0.12267208099365234,
-        "maximum": 0.14646339416503906,
-        "mean": 0.13784974098205566,
+        "maximum": 0.14646244049072266,
+        "mean": 0.13852706909179688,
         "first": 0.12267208099365234,
-        "mid": 0.13853168487548828
+        "mid": 0.14618587493896484
       },
       "train/adamole/experts_per_token": {
-        "latest": 3.7785491943359375,
-        "minimum": 3.6649703979492188,
-        "maximum": 3.9814224243164062,
-        "mean": 3.7996044158935547,
+        "latest": 3.776763916015625,
+        "minimum": 3.6585235595703125,
+        "maximum": 3.9792327880859375,
+        "mean": 3.7907391357421876,
         "first": 3.9792327880859375,
-        "mid": 3.782958984375
-      }
-    }
-  },
-  "hydralora": {
-    "name": "/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs/hydralora_20251122_154827",
-    "state": "running",
-    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/itz2tcxj",
-    "metrics": {
-      "train/loss": {
-        "latest": 1.4368,
-        "minimum": 1.3368,
-        "maximum": 5.8161,
-        "mean": 3.5283,
-        "first": 5.7645,
-        "mid": 3.3456
+        "mid": 3.6881332397460938
       },
-      "train/learning_rate": {
-        "latest": 8.809788654060067e-06,
-        "minimum": 4.0044493882091217e-07,
-        "maximum": 8.809788654060067e-06,
-        "mean": 4.60511679644049e-06,
-        "first": 4.0044493882091217e-07,
-        "mid": 4.805339265850945e-06
+      "eval::eval/loss": {
+        "latest": 1.6557132005691528,
+        "minimum": 1.6557132005691528,
+        "maximum": 1.6557132005691528,
+        "mean": 1.6557132005691528,
+        "first": 1.6557132005691528,
+        "mid": 1.6557132005691528
       },
-      "train/grad_norm": {
-        "latest": 0.1567118614912033,
-        "minimum": 0.1567118614912033,
-        "maximum": 12.515422821044922,
-        "mean": 3.835968857258558,
-        "first": 3.893824338912964,
-        "mid": 7.157371997833252
+      "eval::eval/samples_per_second": {
+        "latest": 22.021,
+        "minimum": 22.021,
+        "maximum": 22.021,
+        "mean": 22.021,
+        "first": 22.021,
+        "mid": 22.021
+      },
+      "eval::eval/steps_per_second": {
+        "latest": 11.01,
+        "minimum": 11.01,
+        "maximum": 11.01,
+        "mean": 11.01,
+        "first": 11.01,
+        "mid": 11.01
       }
     }
   }
