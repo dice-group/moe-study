@@ -89,6 +89,14 @@ class MoeConfig(PeftConfig):
         default="none",
         metadata={"help": "Bias type to save alongside the adapter (none/lora_only/all)."},
     )
+    use_dora: bool = field(
+        default=False,
+        metadata={"help": "Enable DoRA-style updates. MoE-LPR does not use DoRA, so keep this False."},
+    )
+    use_rslora: bool = field(
+        default=False,
+        metadata={"help": "Enable rank-stabilized LoRA updates. Not used for MoE-LPR."},
+    )
 
     def __post_init__(self):
         self.peft_type = PeftType.MOELPR
