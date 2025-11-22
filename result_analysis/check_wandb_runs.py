@@ -16,7 +16,7 @@ from typing import Dict, List
 import wandb
 
 PROJECT_PATH = "dice-nlp/moe-study-comparison"
-RUN_TAGS = ("adamole", "mola", "moelpr")
+RUN_TAGS = ("adamole", "mola", "moelpr", "cola", "hydralora")
 REQUIRED_METRICS: Dict[str, List[str]] = {
     "adamole": [
         "train/adamole_aux_loss",
@@ -32,6 +32,16 @@ REQUIRED_METRICS: Dict[str, List[str]] = {
         "train/moelpr_aux_loss",
         "train/moelpr/expert_load_cv",
         "train/moelpr/router_entropy",
+    ],
+    "cola": [
+        "train/loss",
+        "train/learning_rate",
+        "train/grad_norm",
+    ],
+    "hydralora": [
+        "train/loss",
+        "train/learning_rate",
+        "train/grad_norm",
     ],
 }
 OPTIONAL_METRICS: Dict[str, List[str]] = {
