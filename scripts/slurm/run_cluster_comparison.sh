@@ -62,12 +62,16 @@ ADAMOLE_OUT="${OUTPUT_ROOT}/adamole_${timestamp}"
 MOLA_OUT="${OUTPUT_ROOT}/mola_${timestamp}"
 MOELPR_STAGE1_OUT="${OUTPUT_ROOT}/moelpr_stage1_${timestamp}"
 MOELPR_STAGE2_OUT="${OUTPUT_ROOT}/moelpr_stage2_${timestamp}"
+COLA_OUT="${OUTPUT_ROOT}/cola_${timestamp}"
+HYDRALORA_OUT="${OUTPUT_ROOT}/hydralora_${timestamp}"
 
 echo "[INFO] Outputs:"
 echo "  AdaMoLE -> ${ADAMOLE_OUT}"
 echo "  MoLA    -> ${MOLA_OUT}"
 echo "  MoE-LPR Stage1 -> ${MOELPR_STAGE1_OUT}"
 echo "  MoE-LPR Stage2 -> ${MOELPR_STAGE2_OUT}"
+echo "  CoLA    -> ${COLA_OUT}"
+echo "  HydraLoRA -> ${HYDRALORA_OUT}"
 
 submit_job() {
   local name=$1
@@ -114,12 +118,22 @@ MOELPR_JOB_ID=$(submit_job "MoE-LPR" "${COMPARISON_DIR}/moelpr_job.sh" "moelpr" 
   "WANDB_STAGE1_NAME=moelpr-stage1-${timestamp}" \
   "WANDB_STAGE2_NAME=moelpr-stage2-${timestamp}")
 
+COLA_JOB_ID=$(submit_job "CoLA" "${COMPARISON_DIR}/cola_job.sh" "cola" \
+  "OUTPUT_DIR=${COLA_OUT}" \
+  "WANDB_NAME=cola-${timestamp}")
+
+HYDRALORA_JOB_ID=$(submit_job "HydraLoRA" "${COMPARISON_DIR}/hydralora_job.sh" "hydralora" \
+  "OUTPUT_DIR=${HYDRALORA_OUT}" \
+  "WANDB_NAME=hydralora-${timestamp}")
+
 cat <<SUMMARY
 ========================================
 Submitted comparison jobs at ${timestamp}
   AdaMoLE : ${ADAMOLE_JOB_ID}
   MoLA    : ${MOLA_JOB_ID}
   MoE-LPR : ${MOELPR_JOB_ID}
+  CoLA    : ${COLA_JOB_ID}
+  HydraLoRA : ${HYDRALORA_JOB_ID}
 
 Outputs stored under ${OUTPUT_ROOT}
 Monitor training metrics in W&B project ${WANDB_PROJECT:-moe-study-comparison}
