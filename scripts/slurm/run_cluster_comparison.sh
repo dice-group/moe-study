@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+COMPARISON_DIR="${SCRIPT_DIR}/comparison"
+
+cd "${REPO_ROOT}"
+
 CONDA_BASE=${CONDA_BASE:-/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3}
 CONDA_ENV=${CONDA_ENV:-cola_llama_factory}
 MODULE_INIT=${MODULE_INIT:-module purge && module load toolchain/foss/2024a system/CUDA/12.6.0 lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0}
@@ -85,15 +91,15 @@ submit_job() {
   printf "%s" "${job_id}"
 }
 
-ADAMOLE_JOB_ID=$(submit_job "AdaMoLE" scripts/slurm/comparison/adamole_job.sh \
+ADAMOLE_JOB_ID=$(submit_job "AdaMoLE" "${COMPARISON_DIR}/adamole_job.sh" \
   "OUTPUT_DIR=${ADAMOLE_OUT}" \
   "WANDB_NAME=adamole-${timestamp}")
 
-MOLA_JOB_ID=$(submit_job "MoLA" scripts/slurm/comparison/mola_job.sh \
+MOLA_JOB_ID=$(submit_job "MoLA" "${COMPARISON_DIR}/adamoe_1_mola_job.sh" \
   "OUTPUT_DIR=${MOLA_OUT}" \
   "WANDB_NAME=mola-${timestamp}")
 
-MOELPR_JOB_ID=$(submit_job "MoE-LPR" scripts/slurm/comparison/moelpr_job.sh \
+MOELPR_JOB_ID=$(submit_job "MoE-LPR" "${COMPARISON_DIR}/moelpr_job.sh" \
   "MOELPR_STAGE1_OUTPUT=${MOELPR_STAGE1_OUT}" \
   "MOELPR_STAGE2_OUTPUT=${MOELPR_STAGE2_OUT}" \
   "WANDB_STAGE1_NAME=moelpr-stage1-${timestamp}" \
