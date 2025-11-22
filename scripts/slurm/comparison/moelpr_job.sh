@@ -39,8 +39,20 @@ STAGE1_OUT="${MOELPR_STAGE1_OUTPUT:?MOELPR_STAGE1_OUTPUT not set}"
 STAGE2_OUT="${MOELPR_STAGE2_OUTPUT:?MOELPR_STAGE2_OUTPUT not set}"
 mkdir -p "${STAGE1_OUT}" "${STAGE2_OUT}"
 
+STAGE1_EPOCHS="${MOELPR_STAGE1_EPOCHS:-1}"
+STAGE1_LR="${MOELPR_STAGE1_LR:-2e-4}"
+STAGE1_BS="${MOELPR_STAGE1_BATCH:-2}"
+STAGE2_EPOCHS="${MOELPR_STAGE2_EPOCHS:-1}"
+STAGE2_LR="${MOELPR_STAGE2_LR:-1e-4}"
+STAGE2_BS="${MOELPR_STAGE2_BATCH:-2}"
+GRAD_ACC="${GRADIENT_ACCUMULATION_STEPS:-2}"
+TOP_K="${MOELPR_TOP_K:-1}"
+RANDOM_ID=$(printf "%04d" $((RANDOM % 10000)))
+RUN_NAME_STAGE1="${WANDB_STAGE1_NAME:-moelpr-stage1}_ep${STAGE1_EPOCHS}_bs${STAGE1_BS}x${GRAD_ACC}_lr${STAGE1_LR}_k${TOP_K}_${RANDOM_ID}"
+RUN_NAME_STAGE2="${WANDB_STAGE2_NAME:-moelpr-stage2}_ep${STAGE2_EPOCHS}_bs${STAGE2_BS}x${GRAD_ACC}_lr${STAGE2_LR}_k${TOP_K}_${RANDOM_ID}"
+
 echo "[INFO] Starting MoE-LPR Stage 1 into ${STAGE1_OUT}"
-export WANDB_NAME="${WANDB_STAGE1_NAME:-moelpr-stage1}"
+export WANDB_NAME="${RUN_NAME_STAGE1}"
 export WANDB_TAGS="comparison,moelpr,stage1"
 
 llamafactory-cli train \
@@ -54,13 +66,14 @@ llamafactory-cli train \
   --finetuning_type moelpr \
   --output_dir "${STAGE1_OUT}" \
   --overwrite_output_dir \
-  --num_train_epochs "${MOELPR_STAGE1_EPOCHS:-1}" \
-  --learning_rate "${MOELPR_STAGE1_LR:-2e-4}" \
+  --run_name "${RUN_NAME_STAGE1}" \
+  --num_train_epochs "${STAGE1_EPOCHS}" \
+  --learning_rate "${STAGE1_LR}" \
   --lr_scheduler_type "${LR_SCHEDULER_TYPE:-cosine}" \
   --warmup_ratio "${WARMUP_RATIO:-0.03}" \
-  --per_device_train_batch_size "${MOELPR_STAGE1_BATCH:-2}" \
-  --per_device_eval_batch_size "${MOELPR_STAGE1_BATCH:-2}" \
-  --gradient_accumulation_steps "${GRADIENT_ACCUMULATION_STEPS:-2}" \
+  --per_device_train_batch_size "${STAGE1_BS}" \
+  --per_device_eval_batch_size "${STAGE1_BS}" \
+  --gradient_accumulation_steps "${GRAD_ACC}" \
   --logging_steps "${LOGGING_STEPS:-10}" \
   --evaluation_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-200}" \
@@ -82,7 +95,7 @@ llamafactory-cli train \
   --include_num_input_tokens_seen true
 
 echo "[INFO] Stage 1 finished, starting Stage 2 using ${STAGE1_OUT}"
-export WANDB_NAME="${WANDB_STAGE2_NAME:-moelpr-stage2}"
+export WANDB_NAME="${RUN_NAME_STAGE2}"
 export WANDB_TAGS="comparison,moelpr,stage2"
 
 llamafactory-cli train \
@@ -96,13 +109,14 @@ llamafactory-cli train \
   --finetuning_type moelpr \
   --output_dir "${STAGE2_OUT}" \
   --overwrite_output_dir \
-  --num_train_epochs "${MOELPR_STAGE2_EPOCHS:-1}" \
-  --learning_rate "${MOELPR_STAGE2_LR:-1e-4}" \
+  --run_name "${RUN_NAME_STAGE2}" \
+  --num_train_epochs "${STAGE2_EPOCHS}" \
+  --learning_rate "${STAGE2_LR}" \
   --lr_scheduler_type "${LR_SCHEDULER_TYPE:-cosine}" \
   --warmup_ratio "${WARMUP_RATIO:-0.03}" \
-  --per_device_train_batch_size "${MOELPR_STAGE2_BATCH:-2}" \
-  --per_device_eval_batch_size "${MOELPR_STAGE2_BATCH:-2}" \
-  --gradient_accumulation_steps "${GRADIENT_ACCUMULATION_STEPS:-2}" \
+  --per_device_train_batch_size "${STAGE2_BS}" \
+  --per_device_eval_batch_size "${STAGE2_BS}" \
+  --gradient_accumulation_steps "${GRAD_ACC}" \
   --logging_steps "${LOGGING_STEPS:-10}" \
   --evaluation_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-200}" \

@@ -37,6 +37,17 @@ MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 DATASET_NAME="${GENERIC_DATASET_NAME:-c4}"
 EVAL_DATASET_NAME="${GENERIC_EVAL_DATASET_NAME:-${DATASET_NAME}}"
 
+TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
+TRAIN_LR="${LEARNING_RATE:-2e-4}"
+TRAIN_BS="${PER_DEVICE_TRAIN_BATCH_SIZE:-2}"
+EVAL_BS="${PER_DEVICE_EVAL_BATCH_SIZE:-${TRAIN_BS}}"
+GRAD_ACC="${GRADIENT_ACCUMULATION_STEPS:-2}"
+NUM_EXPERTS="${HYDRALORA_NUM_EXPERTS:-4}"
+TOP_K="${HYDRALORA_TOP_K:-2}"
+RANDOM_ID=$(printf "%04d" $((RANDOM % 10000)))
+RUN_NAME="${WANDB_NAME:-hydralora}_ep${TRAIN_EPOCHS}_bs${TRAIN_BS}x${GRAD_ACC}_lr${TRAIN_LR}_nexp${NUM_EXPERTS}_k${TOP_K}_${RANDOM_ID}"
+export WANDB_NAME="${RUN_NAME}"
+
 echo "[INFO] Running HydraLoRA training into ${OUTPUT_DIR}"
 
 llamafactory-cli train \
@@ -50,13 +61,14 @@ llamafactory-cli train \
   --finetuning_type hydralora \
   --output_dir "${OUTPUT_DIR}" \
   --overwrite_output_dir \
-  --num_train_epochs "${NUM_TRAIN_EPOCHS:-1}" \
-  --learning_rate "${LEARNING_RATE:-2e-4}" \
+  --run_name "${RUN_NAME}" \
+  --num_train_epochs "${TRAIN_EPOCHS}" \
+  --learning_rate "${TRAIN_LR}" \
   --lr_scheduler_type "${LR_SCHEDULER_TYPE:-cosine}" \
   --warmup_ratio "${WARMUP_RATIO:-0.03}" \
-  --per_device_train_batch_size "${PER_DEVICE_TRAIN_BATCH_SIZE:-2}" \
-  --per_device_eval_batch_size "${PER_DEVICE_EVAL_BATCH_SIZE:-2}" \
-  --gradient_accumulation_steps "${GRADIENT_ACCUMULATION_STEPS:-2}" \
+  --per_device_train_batch_size "${TRAIN_BS}" \
+  --per_device_eval_batch_size "${EVAL_BS}" \
+  --gradient_accumulation_steps "${GRAD_ACC}" \
   --logging_steps "${LOGGING_STEPS:-10}" \
   --evaluation_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-200}" \
