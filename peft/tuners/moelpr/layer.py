@@ -22,6 +22,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss
 
+from peft.metrics import record_moelpr_language_routing, record_moelpr_scalars
 from peft.tuners.tuners_utils import BaseTunerLayer
 from transformers.utils import logging as hf_logging
 
@@ -102,6 +103,24 @@ class MLP(nn.Module, MoeLayer):
         self.update_layer(base_layer, adapter_name, num_experts, init_moe_weights)
         self.latest_router_logits = None
 
+    @staticmethod
+    def _flatten_batch_feature(value: Optional[torch.Tensor], batch_size: int, sequence_length: int) -> Optional[torch.Tensor]:
+        if value is None or not torch.is_tensor(value):
+            return None
+        tensor = value
+        if tensor.dim() == 0:
+            tensor = tensor.view(1, 1).expand(batch_size, sequence_length)
+        elif tensor.dim() == 1:
+            if tensor.size(0) == batch_size * sequence_length:
+                return tensor
+            if tensor.size(0) == batch_size:
+                tensor = tensor[:, None].expand(-1, sequence_length)
+            else:
+                return None
+        elif tensor.dim() == 2 and tensor.size(1) != sequence_length:
+            tensor = tensor[:, :sequence_length]
+        return tensor.reshape(-1)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         previous_dtype = x.dtype
         adapter = self.active_adapters[0]
@@ -171,6 +190,36 @@ class MLP(nn.Module, MoeLayer):
             # the `top_x` tensor here.
             final_hidden_states.index_add_(0, top_x, current_hidden_states.to(hidden_states.dtype))
         final_hidden_states = final_hidden_states.reshape(batch_size, sequence_length, hidden_dim)
+        with torch.no_grad():
+            token_count = routing_weights.size(0)
+            if token_count > 0:
+                expert_counts = torch.bincount(selected_experts.reshape(-1), minlength=self.num_experts[adapter])
+                load_cv = 0.0
+                if expert_counts.numel() > 0:
+                    mean_load = expert_counts.float().mean()
+                    if mean_load > 0:
+                        load_cv = float(
+                            (expert_counts.float().std(unbiased=False) / (mean_load + 1e-6)).item()
+                        )
+                entropy = (-routing_weights.float() * torch.log(routing_weights.float() + 1e-8)).sum(dim=-1).mean()
+                record_moelpr_scalars(
+                    {
+                        "expert_load_cv": load_cv,
+                        "router_entropy": float(entropy.item()),
+                    },
+                    weight=float(token_count),
+                )
+                language_ids = self._flatten_batch_feature(getattr(self, "language_ids", None), batch_size, sequence_length)
+                lang_mask = self._flatten_batch_feature(getattr(self, "lang_mask", None), batch_size, sequence_length)
+                attention = self._flatten_batch_feature(getattr(self, "attention_mask", None), batch_size, sequence_length)
+                record_moelpr_language_routing(
+                    language_ids=language_ids,
+                    selected_experts=selected_experts,
+                    routing_weights=routing_weights,
+                    num_experts=self.num_experts[adapter],
+                    lang_mask=lang_mask,
+                    attention_mask=attention,
+                )
         return final_hidden_states, router_logits
 
 """ NOTE: COPIED FROM ORIGINAL IMPLEMENTATION """

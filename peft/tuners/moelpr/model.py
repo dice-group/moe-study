@@ -15,6 +15,7 @@
 import operator
 import re
 import warnings
+from contextlib import contextmanager
 from dataclasses import asdict, replace
 from enum import Enum
 from functools import reduce
@@ -50,7 +51,18 @@ class MoeModel(BaseTuner):
         self.moe_layers = moe_layers.copy()
         self.moe_mlp_layers = []
         #要进入tuner去替换
+        self._cached_language_ids = None
         super().__init__(model, config, adapter_name)
+
+    @contextmanager
+    def _enable_peft_forward_hooks(self, *args, **kwargs):
+        language_ids = kwargs.get("language_ids")
+        if language_ids is not None:
+            self._cached_language_ids = language_ids
+        try:
+            yield
+        finally:
+            self._cached_language_ids = None
 
     def forward(self, *args, **kwargs):
         """
@@ -60,12 +72,16 @@ class MoeModel(BaseTuner):
         """
         lang_mask = kwargs.get("lang_mask", None)
         attention_mask = kwargs.get("attention_mask", None)
+        language_ids = kwargs.pop("language_ids", None)
+        if language_ids is None:
+            language_ids = self._cached_language_ids
 
         # Set masks on MLP layers
         for module in self.model.modules():
             if isinstance(module, MLP):
                 module.lang_mask = lang_mask
                 module.attention_mask = attention_mask
+                module.language_ids = language_ids
 
         return self.model(*args, **kwargs)
 

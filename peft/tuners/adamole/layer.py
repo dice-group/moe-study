@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ..lora import LoraLayer
+from ...metrics import record_adamole_metrics
 
 
 def _debug_print(msg: str) -> None:
@@ -113,6 +114,34 @@ class AdaMoeLayer(nn.Module):
                 )
                 if self.layer_loss is not None:
                     _debug_print("[ADAMOLE DEBUG] aux_loss={:.6f}".format(float(self.layer_loss.detach().item())))
+        with torch.no_grad():
+            token_count = selected_experts.size(0)
+            if token_count > 0:
+                experts_per_token = selected_experts.sum(dim=-1)
+                active_tokens = (experts_per_token > 0).sum().item()
+                zero_tokens = token_count - active_tokens
+                expert_counts = selected_experts.sum(dim=0)
+                load_cv = 0.0
+                if expert_counts.numel() > 0:
+                    mean_load = expert_counts.float().mean()
+                    if mean_load > 0:
+                        load_cv = float(
+                            (expert_counts.float().std(unbiased=False) / (mean_load + 1e-6)).item()
+                        )
+                margin_vals = adapted_gate_logits[selected_experts.bool()]
+                avg_margin = float(margin_vals.mean().item()) if margin_vals.numel() > 0 else 0.0
+                record_adamole_metrics(
+                    {
+                        "active_token_pct": active_tokens / float(token_count),
+                        "zero_routed_pct": zero_tokens / float(token_count),
+                        "experts_per_token": float(experts_per_token.float().mean().item()),
+                        "expert_load_cv": load_cv,
+                        "threshold_mean": float(thresholds.mean().item()),
+                        "threshold_std": float(thresholds.std(unbiased=False).item()),
+                        "margin_mean": avg_margin,
+                    },
+                    weight=float(token_count),
+                )
         return results
 
 

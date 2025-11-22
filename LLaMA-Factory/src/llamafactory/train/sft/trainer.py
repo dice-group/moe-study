@@ -70,6 +70,19 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
             self.add_callback(BAdamCallback)
 
     @override
+    def log(self, logs: Dict[str, float]) -> None:
+        extra = {}
+        try:
+            from peft.metrics import pop_tracked_metrics
+        except Exception:
+            extra = {}
+        else:
+            extra = pop_tracked_metrics()
+        if extra:
+            logs = {**extra, **logs}
+        super().log(logs)
+
+    @override
     def create_optimizer(self) -> "torch.optim.Optimizer":
         if self.optimizer is None:
             self.optimizer = create_custom_optimizer(self.model, self.args, self.finetuning_args)

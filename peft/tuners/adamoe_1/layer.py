@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ..lora import LoraLayer
+from ...metrics import record_mola_metrics
 
 
 def _debug_print(msg: str) -> None:
@@ -106,6 +107,37 @@ class TopKMoeLayer(nn.Module):
                     )
                 )
                 _debug_print("[MOLA DEBUG] aux_loss={:.6f}".format(float(self.layer_loss.detach().item())))
+        with torch.no_grad():
+            token_count = flattened_inputs.shape[0]
+            assign_count = selected_experts.numel()
+            if token_count > 0 and assign_count > 0:
+                entropy = (-gate_logits.float() * torch.log(gate_logits.float() + 1e-8)).sum(dim=-1).mean()
+                expert_counts = torch.bincount(selected_experts.reshape(-1), minlength=len(self.experts))
+                if self.use_null_expert and expert_counts.numel() > 0:
+                    true_counts = expert_counts[:-1]
+                    null_paths = float(expert_counts[-1].item())
+                    tokens_with_null = float((selected_experts == len(self.experts) - 1).any(dim=-1).sum().item())
+                else:
+                    true_counts = expert_counts
+                    null_paths = 0.0
+                    tokens_with_null = 0.0
+                load_cv = 0.0
+                active_frac = 0.0
+                if true_counts.numel() > 0:
+                    mean_load = true_counts.float().mean()
+                    if mean_load > 0:
+                        load_cv = float((true_counts.float().std(unbiased=False) / (mean_load + 1e-6)).item())
+                    active_frac = float((true_counts > 0).float().mean().item())
+                record_mola_metrics(
+                    {
+                        "null_token_pct": tokens_with_null / float(token_count),
+                        "null_path_pct": null_paths / float(assign_count),
+                        "expert_load_cv": load_cv,
+                        "router_entropy": float(entropy.item()),
+                        "active_expert_frac": active_frac,
+                    },
+                    weight=float(token_count),
+                )
         return results
 
 
