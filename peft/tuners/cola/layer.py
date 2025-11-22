@@ -111,6 +111,7 @@ class ColaLayer(BaseTunerLayer):
         self.num_experts = kwargs.pop("cola_num_experts", 1)
         self.cola_debug = kwargs.pop("cola_debug", False)
         self.top_k = kwargs.pop("cola_top_k", 1)
+        self.cola_strategy = kwargs.pop("cola_strategy", "fully")
         self.language_list = kwargs.pop("language_list", None)
         self.family_list = kwargs.pop("family_list", None)
         self.language_to_family_ids = kwargs.pop("language_to_family_ids", None)
@@ -291,6 +292,7 @@ class ColaLayer(BaseTunerLayer):
         # call this before dora_init
         self._move_adapter_to_device_of_base_layer(adapter_name)
 
+        self._active_adapters = [adapter_name]
         self.set_adapter(self._active_adapters)
 
     def set_adapter(self, adapter_names: str | list[str]) -> None:
@@ -729,38 +731,44 @@ class Linear(nn.Module, ColaLayer):
                 for active_adapter in self._active_adapters:
                     if active_adapter not in self.lora_A.keys():
                         continue
-                    # assert self.num_A[active_adapter] <= self.num_B[active_adapter], "The number of matrix A must not exceed the number of matrix B"
                     lora_A = self.lora_A[active_adapter]
                     lora_B = self.lora_B[active_adapter]
 
                     dropout = self.lora_dropout[active_adapter]
                     scaling = self.scaling[active_adapter]
                     x = x.to(lora_A[0].weight.dtype)
+                    dropped = dropout(x)
+                    a_outputs = [layer(dropped) for layer in lora_A]
+                    num_a = len(a_outputs)
+                    num_b = len(lora_B)
+                    strategy = getattr(self, "cola_strategy", "fully")
+                    if strategy == "heuristic" and num_b < num_a:
+                        # Heuristic strategy assumes >= relationship; fall back otherwise.
+                        strategy = "fully"
+                    if strategy == "random" and num_b == 0:
+                        strategy = "fully"
 
-                    # Fully Collaborative Strategy
-                    for i in range(self.num_A[active_adapter]):
-                        for j in range(self.num_B[active_adapter]):
-                            result = result + lora_B[j](lora_A[i](dropout(x))) * scaling
-
-                    # Random Collaborative Strategy #TODO: make configurable which to use
-                    # import random
-                    # for i in range(self.num_A[active_adapter]):
-                    #     result = result + random.choice(lora_B)(lora_A[i](dropout(x))) * scaling
-
-                    # Random Collaborative Strategy (reversal)
-                    # import random
-                    # for i in range(self.num_B[active_adapter]):
-                    #     result = result + lora_B[i](random.choice(lora_A)(dropout(x))) * scaling
-
-                    # Heuristic Collaborative Strategy
-                    # lora_num = self.num_B[active_adapter] // self.num_A[active_adapter]
-                    # B_i = 0
-                    # for i in range(self.num_A[active_adapter]):
-                    #     for _ in range(lora_num):
-                    #         result = result + lora_B[B_i](lora_A[i](dropout(x))) * scaling
-                    #         B_i += 1
-                    # for i in range(B_i, self.num_B[active_adapter]):
-                    #     result = result + lora_B[i](lora_A[i-B_i](dropout(x))) * scaling
+                    if strategy == "fully":
+                        for a_out in a_outputs:
+                            for b_layer in lora_B:
+                                result = result + b_layer(a_out) * scaling
+                    elif strategy == "random":
+                        for a_out in a_outputs:
+                            idx = torch.randint(0, num_b, (1,), device=a_out.device).item()
+                            result = result + lora_B[idx](a_out) * scaling
+                    elif strategy == "heuristic":
+                        if num_a == 1:
+                            shared = a_outputs[0]
+                            for b_layer in lora_B:
+                                result = result + b_layer(shared) * scaling
+                        else:
+                            # Pair first M-1 experts one-to-one, then share the last A across remaining B's.
+                            limit = min(num_a - 1, num_b)
+                            for i in range(limit):
+                                result = result + lora_B[i](a_outputs[i]) * scaling
+                            shared = a_outputs[-1]
+                            for j in range(limit, num_b):
+                                result = result + lora_B[j](shared) * scaling
 
             else:
                 logits = self.router(x.to(torch.float32)).to(x.dtype)

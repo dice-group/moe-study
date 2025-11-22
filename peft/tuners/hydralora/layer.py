@@ -208,6 +208,7 @@ class HydraLoraLayer(BaseTunerLayer):
         # call this before dora_init
         self._move_adapter_to_device_of_base_layer(adapter_name)
 
+        self._active_adapters = [adapter_name]
         self.set_adapter(self._active_adapters)
 
     def set_adapter(self, adapter_names: Union[str, list[str]]) -> None:
@@ -669,7 +670,6 @@ class Linear(nn.Module, HydraLoraLayer):
         cast_to_fp32 = device.type == "cpu" and dtype == torch.float16
 
         weight_A = self.lora_A[adapter].weight
-        # weight_B = self.lora_B[adapter].weight
         weight_B = torch.sum(torch.stack([layer.weight for layer in self.lora_B[adapter]]), dim=0)
 
         if cast_to_fp32:
@@ -683,8 +683,7 @@ class Linear(nn.Module, HydraLoraLayer):
 
             # cast back the weights
             self.lora_A[adapter].weight.data = weight_A.to(dtype)
-            #self.lora_B[adapter].weight.data = weight_B.to(dtype)
-            for i in range(self.num_B[adapter]):
+            for i in range(self.lora_num[adapter]):
                 self.lora_B[adapter][i].weight.data = self.lora_B[adapter][i].weight.to(dtype)
 
         return output_tensor
