@@ -888,14 +888,49 @@ class Linear(nn.Module, ColaLayer):
         return output_tensor
 
     def _adapter_delta(self, x: torch.Tensor, name: str) -> torch.Tensor:
+        """
+        Compute ΔW for a given adapter/expert while respecting the configured collaboration strategy.
+        """
         A_list = self.lora_A[name]
         B_list = self.lora_B[name]
         drop = self.lora_dropout[name]
         scale = self.scaling[name]
+        num_a = len(A_list)
+        num_b = len(B_list)
+
+        if num_a == 0 or num_b == 0:
+            return torch.zeros_like(x, device=x.device, dtype=x.dtype)
 
         intermediate = drop(x.to(A_list[0].weight.dtype))
-        a_dot_x = sum(A(intermediate) for A in A_list)
-        out = sum(B(a_dot_x) for B in B_list)
+        a_outputs = [A(intermediate) for A in A_list]
+        strategy = getattr(self, "cola_strategy", "fully")
+        if strategy == "heuristic" and num_b < num_a:
+            strategy = "fully"
+        if strategy == "random" and num_b == 0:
+            strategy = "fully"
+
+        out = 0
+        if strategy == "fully":
+            for a_out in a_outputs:
+                for b_layer in B_list:
+                    out = out + b_layer(a_out)
+        elif strategy == "random":
+            for a_out in a_outputs:
+                idx = torch.randint(0, num_b, (1,), device=a_out.device).item()
+                out = out + B_list[idx](a_out)
+        elif strategy == "heuristic":
+            if num_a == 1:
+                shared = a_outputs[0]
+                for b_layer in B_list:
+                    out = out + b_layer(shared)
+            else:
+                limit = min(num_a - 1, num_b)
+                for i in range(limit):
+                    out = out + B_list[i](a_outputs[i])
+                shared = a_outputs[-1]
+                for j in range(limit, num_b):
+                    out = out + B_list[j](shared)
+
         return out * scale
 
     def __repr__(self) -> str:

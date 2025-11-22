@@ -139,6 +139,9 @@ class HydraLoraLayer(BaseTunerLayer):
                     f"(in={self.in_features}, experts={self.num_experts}, top_k={self.top_k})"
                 )
 
+        # TODO: paper describes automatic intrinsic-component discovery (e.g., TF-IDF + k-means) to set `lora_num`
+        # per adapter. Current implementation requires manual configuration; consider adding optional clustering
+        # tooling that populates per-layer B heads before training.
 
     def update_layer(
         self, adapter_name, r, lora_alpha, lora_dropout, lora_num, init_lora_weights
@@ -695,19 +698,30 @@ class Linear(nn.Module, HydraLoraLayer):
         HydraLoRA layout:
           - lora_A[name]:      nn.Linear(in_features, r)
           - lora_B[name]:      nn.ModuleList[nn.Linear(r, out_features)]
+          - lora_route[name]:   nn.Linear(in_features, lora_num) (per-expert routing head)
           - lora_dropout[name]: nn.Dropout / nn.Identity
         """
         A = self.lora_A[name]              # nn.Linear
         B_list = self.lora_B[name]         # ModuleList of nn.Linear
+        route = self.lora_route[name]
         drop = self.lora_dropout[name]
         scale = self.scaling[name]
+        head_count = self.lora_num.get(name, len(B_list))
 
         # Match A's dtype to avoid mixed-precision issues
         intermediate = drop(x.to(A.weight.dtype))  # [B, S, D_in]
         a_dot_x = A(intermediate)                  # [B, S, r]
 
-        # Sum over the multiple B heads for this adapter
-        out = sum(B(a_dot_x) for B in B_list)      # [B, S, D_out]
+        logits = route(x.to(torch.float32)).to(a_dot_x.dtype)
+        head_targets = self._language_head_targets(None, name)
+        logits = self._apply_language_bias_heads(logits, head_targets)
+        weights = torch.softmax(logits, dim=-1, dtype=torch.float32).to(a_dot_x.dtype)
+        weights = self._enforce_language_heads(weights, head_targets)
+
+        out = 0
+        for i, b_layer in enumerate(B_list):
+            weight = weights[:, :, i]
+            out = out + torch.unsqueeze(weight, -1) * b_layer(a_dot_x)
         return out * scale
 
     def __repr__(self) -> str:
