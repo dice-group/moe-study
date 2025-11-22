@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 COMPARISON_DIR="${SCRIPT_DIR}/comparison"
+CALL_DIR="$(pwd)"
+LOG_DIR="${LOG_DIR:-${CALL_DIR}/logs/comparison}"
 
 cd "${REPO_ROOT}"
 
@@ -39,7 +41,7 @@ for path_var in "${required_paths[@]}"; do
   fi
 done
 
-mkdir -p logs/comparison "${OUTPUT_ROOT}"
+mkdir -p "${LOG_DIR}" "${OUTPUT_ROOT}"
 
 export CONDA_BASE CONDA_ENV MODULE_INIT
 export MODEL_NAME_OR_PATH GENERIC_TOKENIZED_PATH MOELPR_TOKENIZED_PATH
@@ -63,13 +65,14 @@ echo "  MoE-LPR Stage2 -> ${MOELPR_STAGE2_OUT}"
 submit_job() {
   local name=$1
   local script=$2
-  shift 2
+  local log_prefix=$3
+  shift 3
   local env_assignments=("$@")
   local cmd=(env)
   for assignment in "${env_assignments[@]}"; do
     cmd+=("${assignment}")
   done
-  cmd+=("sbatch")
+  cmd+=("sbatch" "--output=${LOG_DIR}/${log_prefix}_%j.log")
   if [[ -n "${SBATCH_ARGS:-}" ]]; then
     # shellcheck disable=SC2206
     cmd+=(${SBATCH_ARGS})
@@ -91,15 +94,15 @@ submit_job() {
   printf "%s" "${job_id}"
 }
 
-ADAMOLE_JOB_ID=$(submit_job "AdaMoLE" "${COMPARISON_DIR}/adamole_job.sh" \
+ADAMOLE_JOB_ID=$(submit_job "AdaMoLE" "${COMPARISON_DIR}/adamole_job.sh" "adamole" \
   "OUTPUT_DIR=${ADAMOLE_OUT}" \
   "WANDB_NAME=adamole-${timestamp}")
 
-MOLA_JOB_ID=$(submit_job "MoLA" "${COMPARISON_DIR}/adamoe_1_mola_job.sh" \
+MOLA_JOB_ID=$(submit_job "MoLA" "${COMPARISON_DIR}/adamoe_1_mola_job.sh" "mola" \
   "OUTPUT_DIR=${MOLA_OUT}" \
   "WANDB_NAME=mola-${timestamp}")
 
-MOELPR_JOB_ID=$(submit_job "MoE-LPR" "${COMPARISON_DIR}/moelpr_job.sh" \
+MOELPR_JOB_ID=$(submit_job "MoE-LPR" "${COMPARISON_DIR}/moelpr_job.sh" "moelpr" \
   "MOELPR_STAGE1_OUTPUT=${MOELPR_STAGE1_OUT}" \
   "MOELPR_STAGE2_OUTPUT=${MOELPR_STAGE2_OUT}" \
   "WANDB_STAGE1_NAME=moelpr-stage1-${timestamp}" \
