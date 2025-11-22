@@ -25,13 +25,17 @@ DATASET_DIR=${DATASET_DIR:-./LLaMA-Factory/data}
 OUTPUT_ROOT=${OUTPUT_ROOT:-/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs}
 WANDB_PROJECT=${WANDB_PROJECT:-moe-study-comparison}
 WANDB_ENTITY=${WANDB_ENTITY:-}
-WANDB_RUN_GROUP=${WANDB_RUN_GROUP:-refactor-benchmark}
+default_wandb_group="refactor-benchmark"
+if [[ -z "${WANDB_RUN_GROUP+x}" ]]; then
+  WANDB_RUN_GROUP="${default_wandb_group}"
+fi
 SBATCH_ARGS=${SBATCH_ARGS:-}
 
 required_paths=(
   GENERIC_TOKENIZED_PATH
   MOELPR_TOKENIZED_PATH
   MOELPR_LANGUAGE_MAP
+  DATASET_DIR
 )
 
 for path_var in "${required_paths[@]}"; do
@@ -50,6 +54,9 @@ export DATASET_DIR WANDB_PROJECT WANDB_ENTITY WANDB_RUN_GROUP
 export GENERIC_DATASET_NAME
 
 timestamp="$(date +%Y%m%d_%H%M%S)"
+if [[ "${WANDB_RUN_GROUP}" == "${default_wandb_group}" ]]; then
+  WANDB_RUN_GROUP="${WANDB_RUN_GROUP}-${timestamp}"
+fi
 
 ADAMOLE_OUT="${OUTPUT_ROOT}/adamole_${timestamp}"
 MOLA_OUT="${OUTPUT_ROOT}/mola_${timestamp}"
@@ -74,7 +81,6 @@ submit_job() {
   done
   cmd+=("sbatch" "--output=${LOG_DIR}/${log_prefix}_%j.log")
   if [[ -n "${SBATCH_ARGS:-}" ]]; then
-    # shellcheck disable=SC2206
     cmd+=(${SBATCH_ARGS})
   fi
   cmd+=("${script}")
