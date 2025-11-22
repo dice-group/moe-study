@@ -1,7 +1,16 @@
+#!/usr/bin/env python3
+"""
+Fetches the most recent AdaMoLE / MoLA / MoE-LPR runs from Weights & Biases,
+prints summary metrics (first/mid/latest/min/max/mean), and writes everything
+to `result_analysis/wandb_snapshot.json`.
+"""
 from __future__ import annotations
 
+import json
+import statistics
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List
 
 import wandb
@@ -31,12 +40,50 @@ OPTIONAL_METRICS: Dict[str, List[str]] = {
 
 
 @dataclass
+class MetricStats:
+    latest: float | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+    mean: float | None = None
+    first: float | None = None
+    mid: float | None = None
+
+    @classmethod
+    def from_history(cls, values: List[float]) -> "MetricStats":
+        if not values:
+            return cls()
+        mid_idx = len(values) // 2
+        return cls(
+            latest=values[-1],
+            minimum=min(values),
+            maximum=max(values),
+            mean=statistics.fmean(values),
+            first=values[0],
+            mid=values[mid_idx],
+        )
+
+
+@dataclass
 class RunStatus:
     name: str
     url: str
     state: str
     missing_metrics: List[str]
     summary_keys: List[str]
+    metrics: Dict[str, MetricStats] = field(default_factory=dict)
+
+
+def collect_metric_history(run: wandb.apis.public.Run, metric: str, max_points: int = 200) -> List[float]:
+    try:
+        history_rows = run.history(keys=[metric], pandas=False)
+    except wandb.errors.CommError:
+        return []
+    values = [
+        row.get(metric)
+        for row in history_rows[:max_points]
+        if metric in row and isinstance(row.get(metric), (int, float))
+    ]
+    return values
 
 
 def pick_latest_runs() -> Dict[str, RunStatus]:
@@ -57,20 +104,44 @@ def pick_latest_runs() -> Dict[str, RunStatus]:
                 continue
             if tag in tags or tag in name.lower():
                 missing = [metric for metric in REQUIRED_METRICS[tag] if metric not in summary]
+                stats = {}
+                for metric in REQUIRED_METRICS[tag]:
+                    values = collect_metric_history(run, metric)
+                    stats[metric] = MetricStats.from_history(values)
                 latest[tag] = RunStatus(
                     name=name,
                     url=run.url,
                     state=run.state,
                     missing_metrics=missing,
                     summary_keys=list(summary.keys()),
+                    metrics=stats,
                 )
                 break
 
     return latest
 
 
+def write_snapshot(latest: Dict[str, RunStatus], path: Path) -> None:
+    payload = {
+        alias: {
+            "name": status.name,
+            "state": status.state,
+            "url": status.url,
+            "metrics": {
+                metric: status.metrics[metric].__dict__
+                for metric in status.metrics
+            },
+        }
+        for alias, status in latest.items()
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
 def main() -> None:
     latest = pick_latest_runs()
+    write_snapshot(latest, Path("result_analysis/wandb_snapshot.json"))
+
     for alias in RUN_TAGS:
         if alias not in latest:
             print(f"[WARN] No recent run found for {alias}.")
@@ -84,6 +155,13 @@ def main() -> None:
             print(f"    Missing metrics: {', '.join(status.missing_metrics)}")
         else:
             print("    All expected metrics present.")
+        for metric, stats in status.metrics.items():
+            if stats.latest is None:
+                continue
+            print(
+                f"      - {metric}: first={stats.first:.4g}, mid={stats.mid:.4g}, latest={stats.latest:.4g}, "
+                f"min={stats.minimum:.4g}, max={stats.maximum:.4g}, mean={stats.mean:.4g}"
+            )
         if optional_missing:
             print(f"    Optional metrics not found: {', '.join(optional_missing)}")
 

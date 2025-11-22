@@ -1,0 +1,95 @@
+{
+  "moelpr": {
+    "name": "/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs/moelpr_stage1_20251122_141931",
+    "state": "failed",
+    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/gahugwy1",
+    "metrics": {
+      "train/moelpr_aux_loss": {
+        "latest": 0,
+        "minimum": 0,
+        "maximum": 0.028789252042770386,
+        "mean": 0.0014274136815220118,
+        "first": 0.011899864301085472,
+        "mid": 0
+      },
+      "train/moelpr/expert_load_cv": {
+        "latest": 1.3779312185943127,
+        "minimum": 0.9610238932073116,
+        "maximum": 1.6355475783348083,
+        "mean": 1.4576371492445468,
+        "first": 0.9610238932073116,
+        "mid": 1.4154577516019344
+      },
+      "train/moelpr/router_entropy": {
+        "latest": 0.2716554133221507,
+        "minimum": 0.20406305696815252,
+        "maximum": 0.3620707932859659,
+        "mean": 0.25823524640407414,
+        "first": 0.36206348054111004,
+        "mid": 0.2706350199878216
+      }
+    }
+  },
+  "mola": {
+    "name": "/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs/mola_20251122_141931",
+    "state": "running",
+    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/8o6adlq9",
+    "metrics": {
+      "train/mola_aux_loss": {
+        "latest": 0.3427470624446869,
+        "minimum": 0.2746310532093048,
+        "maximum": 0.3754604756832123,
+        "mean": 0.3416524589061737,
+        "first": 0.2890129089355469,
+        "mid": 0.3423416316509247
+      },
+      "train/mola/null_token_pct": {
+        "latest": 0.40726470947265625,
+        "minimum": 0.3743743896484375,
+        "maximum": 0.6084671020507812,
+        "mean": 0.4244801330566406,
+        "first": 0.5878219604492188,
+        "mid": 0.41748809814453125
+      },
+      "train/mola/active_expert_frac": {
+        "latest": 1,
+        "minimum": 1,
+        "maximum": 1,
+        "mean": 1.0,
+        "first": 1,
+        "mid": 1
+      }
+    }
+  },
+  "adamole": {
+    "name": "/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs/adamole_20251122_141931",
+    "state": "running",
+    "url": "https://wandb.ai/dice-nlp/moe-study-comparison/runs/yw28xpaa",
+    "metrics": {
+      "train/adamole_aux_loss": {
+        "latest": 0,
+        "minimum": 0,
+        "maximum": 0.12404219806194305,
+        "mean": 0.013688559010624886,
+        "first": 0.1239064410328865,
+        "mid": 0
+      },
+      "train/adamole/threshold_mean": {
+        "latest": 0.1418161392211914,
+        "minimum": 0.12267208099365234,
+        "maximum": 0.1463613510131836,
+        "mean": 0.13784068584442138,
+        "first": 0.1228170394897461,
+        "mid": 0.14188385009765625
+      },
+      "train/adamole/experts_per_token": {
+        "latest": 3.7483367919921875,
+        "minimum": 3.6635818481445312,
+        "maximum": 3.981475830078125,
+        "mean": 3.7989941787719728,
+        "first": 3.978912353515625,
+        "mid": 3.7441482543945312
+      }
+    }
+  }
+}
