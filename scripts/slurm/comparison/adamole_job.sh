@@ -75,6 +75,8 @@ llamafactory-cli train \
   --adamole_max_threshold "${ADAMOLE_MAX_THRESHOLD:-0.25}" \
   --adamole_aux_loss_coef "${ADAMOLE_AUX_LOSS_COEF:-0.01}" \
   --adamole_debug_mode "${ADAMOLE_DEBUG_MODE:-False}" \
-  --report_to wandb
+  --report_to wandb \
+  --include_effective_tokens_per_second true \
+  --include_num_input_tokens_seen true
 
 echo "[INFO] AdaMoLE job completed"

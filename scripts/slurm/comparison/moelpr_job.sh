@@ -77,7 +77,9 @@ llamafactory-cli train \
   --moelpr_top_k "${MOELPR_TOP_K:-1}" \
   --moelpr_aux_loss_coef "${MOELPR_STAGE1_AUX_LOSS_COEF:-0.01}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
-  --report_to wandb
+  --report_to wandb \
+  --include_effective_tokens_per_second true \
+  --include_num_input_tokens_seen true
 
 echo "[INFO] Stage 1 finished, starting Stage 2 using ${STAGE1_OUT}"
 export WANDB_NAME="${WANDB_STAGE2_NAME:-moelpr-stage2}"
@@ -119,6 +121,8 @@ llamafactory-cli train \
   --moelpr_lpr_loss_coef "${MOELPR_STAGE2_LPR_LOSS_COEF:-0.1}" \
   --moelpr_original_language "${ORIGINAL_LANGUAGE}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
-  --report_to wandb
+  --report_to wandb \
+  --include_effective_tokens_per_second true \
+  --include_num_input_tokens_seen true
 
 echo "[INFO] MoE-LPR Stage 2 completed"

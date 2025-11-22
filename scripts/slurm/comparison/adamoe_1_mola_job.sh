@@ -77,6 +77,8 @@ llamafactory-cli train \
   --mola_null_expert_penalty "${MOLA_NULL_EXPERT_PENALTY:-0.1}" \
   --mola_aux_loss_annealing "${MOLA_AUX_LOSS_ANNEALING:-False}" \
   --mola_debug_mode "${MOLA_DEBUG_MODE:-False}" \
-  --report_to wandb
+  --report_to wandb \
+  --include_effective_tokens_per_second true \
+  --include_num_input_tokens_seen true
 
 echo "[INFO] MoLA job completed"
