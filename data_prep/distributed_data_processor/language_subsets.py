@@ -1,4 +1,5 @@
 # NOTE: english not contained in here
+# UPDATE NOTE 24.11: English rows are now appended to every medoid subset for replay data.
 
 five_representatives_mediods = [
     "wbm_Latn",
@@ -6,6 +7,7 @@ five_representatives_mediods = [
     "fas_Arab",
     "crl_Cans",
     "abk_Cyrl",
+    "eng_Latn",
 ]
 
 ten_representatives_mediods = [
@@ -19,6 +21,7 @@ ten_representatives_mediods = [
     "ekk_Latn",
     "lao_Laoo",
     "uzs_Arab",
+    "english",
 ]
 
 twenty_two_representatives_mediods = [
@@ -44,6 +47,7 @@ twenty_two_representatives_mediods = [
     "amr_Latn",
     "sat_Olck",
     "esi_Latn",
+    "english",
 ]
 
 fourty_six_representatives_mediods = [
@@ -92,7 +96,8 @@ fourty_six_representatives_mediods = [
     "spa_Latn",
     "poi_Latn",
     "crx_Latn",
-    "xav_Latn"
+    "xav_Latn",
+    "english",
 ]
 
 ninty_five_representatives_mediods = [
@@ -191,6 +196,7 @@ ninty_five_representatives_mediods = [
     "crk_Latn",
     "knv_Latn",
     "tuo_Latn",
+    "english",
 ]
 
 hundred_ninty_nine_representatives_mediods = [
@@ -393,6 +399,7 @@ hundred_ninty_nine_representatives_mediods = [
     "mie_Latn",
     "ogo_Latn",
     "ben_Latn",
+    "english",
 ]
 
 hierarchical_four_families = [
