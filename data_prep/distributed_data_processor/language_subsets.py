@@ -7,7 +7,7 @@ five_representatives_mediods = [
     "fas_Arab",
     "crl_Cans",
     "abk_Cyrl",
-    "eng_Latn",
+    "english",
 ]
 
 ten_representatives_mediods = [

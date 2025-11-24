@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PIPELINE_SCRIPT="${SCRIPT_DIR}/tokenize_and_merge_pipeline.sh"
+CONFIG_DIR="$(cd "${SCRIPT_DIR}/../../configs" && pwd)"
 
 if [[ ! -x "${PIPELINE_SCRIPT}" ]]; then
   echo "Missing pipeline script: ${PIPELINE_SCRIPT}" >&2
@@ -96,19 +97,24 @@ TOKENIZERS=(
 )
 
 SUBSETS=(
-  "5_langs|five_representatives_mediods"
-  "10_langs|ten_representatives_mediods"
-  "46_langs|fourty_six_representatives_mediods"
-  "95_langs|ninty_five_representatives_mediods"
-  "199_langs|hundred_ninty_nine_representatives_mediods"
+  "5_langs|five_representatives_mediods|${CONFIG_DIR}/language_rates_five_representatives_mediods.json"
+  "10_langs|ten_representatives_mediods|${CONFIG_DIR}/language_rates_ten_representatives_mediods.json"
+  "22_langs|twenty_two_representatives_mediods|${CONFIG_DIR}/language_rates_twenty_two_representatives_mediods.json"
+  "46_langs|fourty_six_representatives_mediods|${CONFIG_DIR}/language_rates_fourty_six_representatives_mediods.json"
+  "95_langs|ninty_five_representatives_mediods|${CONFIG_DIR}/language_rates_ninty_five_representatives_mediods.json"
+  "199_langs|hundred_ninty_nine_representatives_mediods|${CONFIG_DIR}/language_rates_hundred_ninty_nine_representatives_mediods.json"
 )
 
 for tok_entry in "${TOKENIZERS[@]}"; do
   IFS='|' read -r tok_dir tok_name <<<"${tok_entry}"
   for subset_entry in "${SUBSETS[@]}"; do
-    IFS='|' read -r subset_dir subset_flag <<<"${subset_entry}"
+    IFS='|' read -r subset_dir subset_flag subset_rates <<<"${subset_entry}"
     output_dir="${OUTPUT_BASE}/${tok_dir}/${subset_dir}"
     job_prefix="${JOB_PREFIX_BASE}_${tok_dir}_${subset_dir}"
+    rate_flag=()
+    if [[ -n "${subset_rates}" ]]; then
+      rate_flag=(--language-rates "${subset_rates}")
+    fi
     echo "Submitting ${tok_name} / ${subset_flag} -> ${output_dir}"
     "${PIPELINE_SCRIPT}" \
       --shard-dir "${SHARD_DIR}" \
@@ -128,6 +134,7 @@ for tok_entry in "${TOKENIZERS[@]}"; do
       --merge-split-fraction "${MERGE_SPLIT_FRACTION}" \
       --merge-split-seed "${MERGE_SPLIT_SEED}" \
       --job-prefix "${job_prefix}" \
-      --output-root "${output_dir}"
+      --output-root "${output_dir}" \
+      "${rate_flag[@]}"
   done
 done
