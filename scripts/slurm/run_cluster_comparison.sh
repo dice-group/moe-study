@@ -14,9 +14,9 @@ CONDA_ENV=${CONDA_ENV:-moe_study_factory}
 MODULE_INIT=${MODULE_INIT:-module purge && module load toolchain/foss/2024a system/CUDA/12.6.0 lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0}
 
 MODEL_NAME_OR_PATH=${MODEL_NAME_OR_PATH:-meta-llama/Llama-3.2-1B}
-GENERIC_TOKENIZED_PATH=${GENERIC_TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter/llama-3.1-8B_tokenizer/5_langs}
+GENERIC_TOKENIZED_PATH=${GENERIC_TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moe_study_comparison/llama-3.2-1B_tokenizer/22_langs}
 GENERIC_DATASET_NAME=${GENERIC_DATASET_NAME:-c4}
-MOELPR_TOKENIZED_PATH=${MOELPR_TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.1-8B_tokenizer/moelpr_stage1_5newlangs} # TODO: Stage 2 should eventually point to its replay subset.
+MOELPR_TOKENIZED_PATH=${MOELPR_TOKENIZED_PATH:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moe_study_comparison/llama-3.2-1B_tokenizer/22_langs} # TODO: Stage 2 should eventually point to its replay subset.
 MOELPR_LANGUAGE_COLUMN=${MOELPR_LANGUAGE_COLUMN:-language}
 MOELPR_LANGUAGE_MAP=${MOELPR_LANGUAGE_MAP:-/scratch/hpc-prf-merlin/joel/moe-study/configs/moelpr_lang_map.json}
 MOELPR_ORIGINAL_LANGUAGE=${MOELPR_ORIGINAL_LANGUAGE:-english}
@@ -58,21 +58,6 @@ if [[ "${WANDB_RUN_GROUP}" == "${default_wandb_group}" ]]; then
   WANDB_RUN_GROUP="${WANDB_RUN_GROUP}-${timestamp}"
 fi
 
-ADAMOLE_OUT="${OUTPUT_ROOT}/adamole_${timestamp}"
-MOLA_OUT="${OUTPUT_ROOT}/mola_${timestamp}"
-MOELPR_STAGE1_OUT="${OUTPUT_ROOT}/moelpr_stage1_${timestamp}"
-MOELPR_STAGE2_OUT="${OUTPUT_ROOT}/moelpr_stage2_${timestamp}"
-COLA_OUT="${OUTPUT_ROOT}/cola_${timestamp}"
-HYDRALORA_OUT="${OUTPUT_ROOT}/hydralora_${timestamp}"
-
-echo "[INFO] Outputs:"
-echo "  AdaMoLE -> ${ADAMOLE_OUT}"
-echo "  MoLA    -> ${MOLA_OUT}"
-echo "  MoE-LPR Stage1 -> ${MOELPR_STAGE1_OUT}"
-echo "  MoE-LPR Stage2 -> ${MOELPR_STAGE2_OUT}"
-echo "  CoLA    -> ${COLA_OUT}"
-echo "  HydraLoRA -> ${HYDRALORA_OUT}"
-
 submit_job() {
   local name=$1
   local script=$2
@@ -104,36 +89,92 @@ submit_job() {
   printf "%s" "${job_id}"
 }
 
-ADAMOLE_JOB_ID=$(submit_job "AdaMoLE" "${COMPARISON_DIR}/adamole_job.sh" "adamole" \
-  "OUTPUT_DIR=${ADAMOLE_OUT}" \
-  "WANDB_NAME=adamole-${timestamp}")
+declare -A JOB_IDS=()
 
-MOLA_JOB_ID=$(submit_job "MoLA" "${COMPARISON_DIR}/adamoe_1_mola_job.sh" "mola" \
-  "OUTPUT_DIR=${MOLA_OUT}" \
-  "WANDB_NAME=mola-${timestamp}")
+ADA_VARIANTS=(
+  "default|ADAMOLE_NUM_EXPERTS=4|ADAMOLE_AUX_LOSS_COEF=0.001|ADAMOLE_MAX_THRESHOLD=0.25"
+  "low-aux|ADAMOLE_NUM_EXPERTS=4|ADAMOLE_AUX_LOSS_COEF=0.0005|ADAMOLE_MAX_THRESHOLD=0.25"
+  "high-aux|ADAMOLE_NUM_EXPERTS=4|ADAMOLE_AUX_LOSS_COEF=0.003|ADAMOLE_MAX_THRESHOLD=0.25"
+)
 
-MOELPR_JOB_ID=$(submit_job "MoE-LPR" "${COMPARISON_DIR}/moelpr_job.sh" "moelpr" \
-  "MOELPR_STAGE1_OUTPUT=${MOELPR_STAGE1_OUT}" \
-  "MOELPR_STAGE2_OUTPUT=${MOELPR_STAGE2_OUT}" \
-  "WANDB_STAGE1_NAME=moelpr-stage1-${timestamp}" \
-  "WANDB_STAGE2_NAME=moelpr-stage2-${timestamp}")
+MOLA_VARIANTS=(
+  "default|MOLA_TOP_K=1|MOLA_NULL_EXPERT_PENALTY=0|MOLA_ROUTER_AUX_LOSS_COEF=0.02"
+  "low-aux|MOLA_TOP_K=1|MOLA_NULL_EXPERT_PENALTY=0|MOLA_ROUTER_AUX_LOSS_COEF=0.01"
+  "high-aux|MOLA_TOP_K=1|MOLA_NULL_EXPERT_PENALTY=0|MOLA_ROUTER_AUX_LOSS_COEF=0.03"
+)
 
-COLA_JOB_ID=$(submit_job "CoLA" "${COMPARISON_DIR}/cola_job.sh" "cola" \
-  "OUTPUT_DIR=${COLA_OUT}" \
-  "WANDB_NAME=cola-${timestamp}")
+HYDRA_VARIANTS=(
+  "shared-lora|USE_HYDRALORA_EXPERTS=False|HYDRALORA_NUM_EXPERTS=1|HYDRALORA_TOP_K=1"
+  "hydra-default|USE_HYDRALORA_EXPERTS=True|HYDRALORA_NUM_EXPERTS=4|HYDRALORA_TOP_K=1"
+  "hydra-high|USE_HYDRALORA_EXPERTS=True|HYDRALORA_NUM_EXPERTS=8|HYDRALORA_TOP_K=1"
+)
 
-HYDRALORA_JOB_ID=$(submit_job "HydraLoRA" "${COMPARISON_DIR}/hydralora_job.sh" "hydralora" \
-  "OUTPUT_DIR=${HYDRALORA_OUT}" \
-  "WANDB_NAME=hydralora-${timestamp}")
+COLA_VARIANTS=(
+  "flat-2x3|USE_COLA_EXPERTS=False|COLA_NUM_A=2|COLA_NUM_B=3|COLA_STRATEGY=fully|COLA_TOP_K=1"
+  "collab-rand|USE_COLA_EXPERTS=False|COLA_NUM_A=1|COLA_NUM_B=4|COLA_STRATEGY=random|COLA_TOP_K=1"
+  "dense-1x4|USE_COLA_EXPERTS=False|COLA_NUM_A=1|COLA_NUM_B=4|COLA_STRATEGY=fully|COLA_TOP_K=1"
+)
+
+MOELPR_VARIANTS=(
+  "default|MOELPR_STAGE1_AUX_LOSS_COEF=0.05|MOELPR_STAGE2_LPR_LOSS_COEF=0.1|MOELPR_TOP_K=1"
+  "strong-prior|MOELPR_STAGE1_AUX_LOSS_COEF=0.08|MOELPR_STAGE2_LPR_LOSS_COEF=0.2|MOELPR_TOP_K=1"
+  "low-aux|MOELPR_STAGE1_AUX_LOSS_COEF=0.03|MOELPR_STAGE2_LPR_LOSS_COEF=0.05|MOELPR_TOP_K=1"
+)
+
+run_sweep() {
+  local approach=$1
+  local script=$2
+  local log_prefix=$3
+  local -n variants_ref=$4
+  local base_dir="${OUTPUT_ROOT}/${approach}"
+  mkdir -p "${base_dir}"
+  for spec in "${variants_ref[@]}"; do
+    IFS='|' read -r label env1 env2 env3 env4 <<<"${spec}"
+    local out_dir="${base_dir}/${label}_${timestamp}"
+    mkdir -p "${out_dir}"
+    local envs=(
+      "OUTPUT_DIR=${out_dir}"
+      "WANDB_NAME=${approach}-${label}-${timestamp}"
+    )
+    for extra in "${env1}" "${env2}" "${env3}" "${env4}"; do
+      if [[ -n "${extra}" ]]; then
+        envs+=("${extra}")
+      fi
+    done
+    job_id=$(submit_job "${approach}-${label}" "${script}" "${log_prefix}_${label}" "${envs[@]}")
+    JOB_IDS["${approach}-${label}"]="${job_id}"
+  done
+}
+
+run_sweep "adamole" "${COMPARISON_DIR}/adamole_job.sh" "adamole" ADA_VARIANTS
+run_sweep "mola" "${COMPARISON_DIR}/adamoe_1_mola_job.sh" "mola" MOLA_VARIANTS
+run_sweep "hydralora" "${COMPARISON_DIR}/hydralora_job.sh" "hydralora" HYDRA_VARIANTS
+run_sweep "cola" "${COMPARISON_DIR}/cola_job.sh" "cola" COLA_VARIANTS
+
+for spec in "${MOELPR_VARIANTS[@]}"; do
+  IFS='|' read -r label env1 env2 env3 <<<"${spec}"
+  stage1_dir="${OUTPUT_ROOT}/moelpr/${label}_stage1_${timestamp}"
+  stage2_dir="${OUTPUT_ROOT}/moelpr/${label}_stage2_${timestamp}"
+  mkdir -p "${stage1_dir}" "${stage2_dir}"
+  envs=(
+    "MOELPR_STAGE1_OUTPUT=${stage1_dir}"
+    "MOELPR_STAGE2_OUTPUT=${stage2_dir}"
+    "WANDB_STAGE1_NAME=moelpr-stage1-${label}-${timestamp}"
+    "WANDB_STAGE2_NAME=moelpr-stage2-${label}-${timestamp}"
+  )
+  for extra in "${env1}" "${env2}" "${env3}"; do
+    if [[ -n "${extra}" ]]; then
+      envs+=("${extra}")
+    fi
+  done
+  job_id=$(submit_job "moelpr-${label}" "${COMPARISON_DIR}/moelpr_job.sh" "moelpr_${label}" "${envs[@]}")
+  JOB_IDS["moelpr-${label}"]="${job_id}"
+done
 
 cat <<SUMMARY
 ========================================
-Submitted comparison jobs at ${timestamp}
-  AdaMoLE : ${ADAMOLE_JOB_ID}
-  MoLA    : ${MOLA_JOB_ID}
-  MoE-LPR : ${MOELPR_JOB_ID}
-  CoLA    : ${COLA_JOB_ID}
-  HydraLoRA : ${HYDRALORA_JOB_ID}
+Submitted comparison sweeps at ${timestamp}
+$(for key in "${!JOB_IDS[@]}"; do printf "  %-25s : %s\n" "${key}" "${JOB_IDS[$key]}"; done | sort)
 
 Outputs stored under ${OUTPUT_ROOT}
 Monitor training metrics in W&B project ${WANDB_PROJECT:-moe-study-comparison}

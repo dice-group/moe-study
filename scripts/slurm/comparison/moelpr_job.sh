@@ -28,6 +28,7 @@ export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-moe-study}"
 
 DATASET_DIR="${DATASET_DIR:-./LLaMA-Factory/data}"
 TOKENIZED_PATH="${MOELPR_TOKENIZED_PATH:?MOELPR_TOKENIZED_PATH not set}" # TODO: for Stage 2, point to replay data (<1%) if available.
+TOKENIZED_PATH2="/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.2-1B_tokenizer/moelpr_stage2_eng" # TODO: achtung das ist hardocded weil ich grad faul bin
 MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 LANGUAGE_COLUMN="${MOELPR_LANGUAGE_COLUMN:?MOELPR_LANGUAGE_COLUMN not set}"
 LANGUAGE_MAP="${MOELPR_LANGUAGE_MAP:?MOELPR_LANGUAGE_MAP not set}"
@@ -125,7 +126,7 @@ llamafactory-cli train \
   --bf16 "${BF16:-False}" \
   --fp16 "${FP16:-True}" \
   --seed "${SEED:-42}" \
-  --tokenized_path "${TOKENIZED_PATH}" \
+  --tokenized_path "${TOKENIZED_PATH2}" \
   --adapter_name_or_path "${STAGE1_OUT}" \
   --language_column "${LANGUAGE_COLUMN}" \
   --language_map "${LANGUAGE_MAP}" \

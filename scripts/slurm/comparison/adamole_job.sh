@@ -76,7 +76,6 @@ llamafactory-cli train \
   --disable_gradient_checkpointing "${DISABLE_GRADIENT_CHECKPOINTING:-True}" \
   --bf16 "${BF16:-False}" \
   --fp16 "${FP16:-True}" \
-  --seed "${SEED:-42}" \
   --tokenized_path "${TOKENIZED_PATH}" \
   --lora_rank "${LORA_R:-8}" \
   --lora_alpha "${LORA_ALPHA:-16}" \
