@@ -156,7 +156,7 @@ for clean up everythign if necessary:
 ```bash
 BASE=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter
 TOKENIZERS=(llama-3.1-8B_tokenizer llama-3.2-1B_tokenizer llama-3.2-3B_tokenizer)
-SUBSETS=(5_langs 10_langs 46_langs 95_langs 199_langs)
+SUBSETS=(5_langs 10_langs 46_langs 95_langs 199_langs 22_langs)
 for tok in "${TOKENIZERS[@]}"; do
   for subset in "${SUBSETS[@]}"; do
     TARGET="${BASE}/${tok}/${subset}"
@@ -183,10 +183,10 @@ ls /scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter
 Only remove rank folders when you no longer need to re-run merges:
 
 ```bash
-  BASE=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/hierarchical_adapter
+  BASE=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moe_study_comparison
   TOKENIZERS=(llama-3.1-8B_tokenizer llama-3.2-1B_tokenizer llama-3.2-
   3B_tokenizer)
-  SUBSETS=(5_langs 10_langs 46_langs 95_langs 199_langs)
+  SUBSETS=(5_langs 10_langs 46_langs 95_langs 199_langs 22_langs)
   for tok in "${TOKENIZERS[@]}"; do
     for subset in "${SUBSETS[@]}"; do
       TARGET="${BASE}/${tok}/${subset}_ranks" # we only remove ranks and keep combined datasets

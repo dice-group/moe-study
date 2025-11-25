@@ -8,14 +8,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Stage 1: languages that also exist in Belebele (no English)
 STAGE1_SHARD_DIR=/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/sharded_samples
 STAGE1_LANGUAGES="wbm_Latn tel_Telu fas_Arab crl_Cans abk_Cyrl"
-STAGE1_TOKENIZER=meta-llama/Llama-3.1-8B
-STAGE1_OUTPUT=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.1-8B_tokenizer/moelpr_stage1_5newlangs
+STAGE1_TOKENIZER=meta-llama/Llama-3.2-1B
+STAGE1_OUTPUT=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.2-1B_tokenizer/moelpr_stage1_5newlangs
 
 # Stage 2: original-language replay (English only)
 STAGE2_SHARD_DIR=/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/sharded_samples
 STAGE2_LANGUAGES="english"
-STAGE2_TOKENIZER=meta-llama/Llama-3.1-8B
-STAGE2_OUTPUT=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.1-8B_tokenizer/moelpr_stage2_eng
+STAGE2_TOKENIZER=meta-llama/Llama-3.2-1B
+STAGE2_OUTPUT=/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.2-1B_tokenizer/moelpr_stage2_eng
 STAGE2_LANGUAGE_RATES_FILE="${SCRIPT_DIR}/../../configs/moelpr_stage2_language_rates.json"
 
 NUM_PROC=4
