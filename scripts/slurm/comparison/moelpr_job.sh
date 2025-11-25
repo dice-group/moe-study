@@ -88,7 +88,7 @@ llamafactory-cli train \
   --moelpr_stage 1 \
   --moelpr_num_experts "${MOELPR_NUM_EXPERTS:-4}" \
   --moelpr_top_k "${MOELPR_TOP_K:-1}" \
-  --moelpr_aux_loss_coef "${MOELPR_STAGE1_AUX_LOSS_COEF:-0.01}" \
+  --moelpr_aux_loss_coef "${MOELPR_STAGE1_AUX_LOSS_COEF:-0.05}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
@@ -132,7 +132,7 @@ llamafactory-cli train \
   --moelpr_stage 2 \
   --moelpr_num_experts "${MOELPR_NUM_EXPERTS:-4}" \
   --moelpr_top_k "${MOELPR_TOP_K:-1}" \
-  --moelpr_aux_loss_coef "${MOELPR_STAGE2_AUX_LOSS_COEF:-0.0}" \
+  --moelpr_aux_loss_coef "${MOELPR_STAGE2_AUX_LOSS_COEF:-0.01}" \
   --moelpr_lpr_loss_coef "${MOELPR_STAGE2_LPR_LOSS_COEF:-0.1}" \
   --moelpr_original_language "${ORIGINAL_LANGUAGE}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \

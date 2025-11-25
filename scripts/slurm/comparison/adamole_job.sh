@@ -83,8 +83,8 @@ llamafactory-cli train \
   --lora_dropout "${LORA_DROPOUT:-0.05}" \
   --lora_target "${LORA_TARGETS:-q_proj,k_proj,v_proj,o_proj}" \
   --adamole_num_experts "${ADAMOLE_NUM_EXPERTS:-4}" \
-  --adamole_max_threshold "${ADAMOLE_MAX_THRESHOLD:-0.25}" \
-  --adamole_aux_loss_coef "${ADAMOLE_AUX_LOSS_COEF:-0.001}" \
+  --adamole_max_threshold "${ADAMOLE_MAX_THRESHOLD:-0.2}" \
+  --adamole_aux_loss_coef "${ADAMOLE_AUX_LOSS_COEF:-0.01}" \
   --adamole_debug_mode "${ADAMOLE_DEBUG_MODE:-False}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
