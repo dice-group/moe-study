@@ -10,9 +10,9 @@
 | MoLA/AdaMOE| `default`     | Top‑1 routing, no null penalty (TODO revisit); aux=0.02.             |
 |            | `low-aux`     | Aux=0.01 to observe softer routing.                                  |
 |            | `high-aux`    | Aux=0.03 for more aggressive load balancing.                         |
-| HydraLoRA  | `shared-lora` | Plain LoRA head (no experts) as control.                             |
-|            | `hydra-default`| Paper-like Hydra: 4 experts, top‑1 routing.                          |
-|            | `hydra-high`  | Higher capacity Hydra with 8 experts (top‑1).                        |
+| HydraLoRA  | `shared-lora` | Plain LoRA head (no experts) as control (bs=12).                     |
+|            | `hydra-default`| Paper-like Hydra: 4 experts, top‑1 routing (bs=8).                  |
+|            | `hydra-high`  | Higher capacity Hydra with 8 experts (top‑1, bs=6).                  |
 | CoLA       | `flat-2x3`    | Collaborative baseline (2 A, 3 B, top‑1).                            |
 |            | `collab-rand` | Random pairing (1 A, 4 B, top‑1).                                    |
 |            | `dense-1x4`   | Fully shared 1×4 block, top‑1 router (kept disabled).                |
@@ -21,6 +21,7 @@
 |            | `low-aux`     | Lighter Stage‑1/2 weights (0.03 / 0.05).                             |
 
 Notes:
+- AdaMoLE always trains with batch size 12; MoLA/AdaMOE uses 42 to saturate the null-expert setup, HydraLoRA’s variants carry the batch sizes noted above, and CoLA sticks to 12.
 - All runs pin the number of experts per AdaMoLE layer to 4 to stay within the paper’s LoRA-r32 budget for now.
 - Every router/top‑k setting is forced to 1 to keep the first multilingual sweep simple; we’ll relax this later.
 - AdaMOE null penalties are disabled in every variant (TODO: reintroduce and study their effect once base training is stable).

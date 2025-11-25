@@ -104,15 +104,15 @@ MOLA_VARIANTS=(
 )
 
 HYDRA_VARIANTS=(
-  "shared-lora|USE_HYDRALORA_EXPERTS=False|HYDRALORA_NUM_EXPERTS=1|HYDRALORA_TOP_K=1"
-  "hydra-default|USE_HYDRALORA_EXPERTS=True|HYDRALORA_NUM_EXPERTS=4|HYDRALORA_TOP_K=1"
-  "hydra-high|USE_HYDRALORA_EXPERTS=True|HYDRALORA_NUM_EXPERTS=8|HYDRALORA_TOP_K=1"
+  "shared-lora|USE_HYDRALORA_EXPERTS=False|HYDRALORA_NUM_EXPERTS=1|HYDRALORA_TOP_K=1|12"
+  "hydra-default|USE_HYDRALORA_EXPERTS=True|HYDRALORA_NUM_EXPERTS=4|HYDRALORA_TOP_K=1|8"
+  "hydra-high|USE_HYDRALORA_EXPERTS=True|HYDRALORA_NUM_EXPERTS=8|HYDRALORA_TOP_K=1|6"
 )
 
 COLA_VARIANTS=(
-  "flat-2x3|USE_COLA_EXPERTS=False|COLA_NUM_A=2|COLA_NUM_B=3|COLA_STRATEGY=fully|COLA_TOP_K=1"
-  "collab-rand|USE_COLA_EXPERTS=False|COLA_NUM_A=1|COLA_NUM_B=4|COLA_STRATEGY=random|COLA_TOP_K=1"
-  "dense-1x4|USE_COLA_EXPERTS=False|COLA_NUM_A=1|COLA_NUM_B=4|COLA_STRATEGY=fully|COLA_TOP_K=1"
+  "flat-2x3|USE_COLA_EXPERTS=False|COLA_NUM_A=2|COLA_NUM_B=3|COLA_STRATEGY=fully|COLA_TOP_K=1|12"
+  "collab-rand|USE_COLA_EXPERTS=False|COLA_NUM_A=1|COLA_NUM_B=4|COLA_STRATEGY=random|COLA_TOP_K=1|12"
+  "dense-1x4|USE_COLA_EXPERTS=False|COLA_NUM_A=1|COLA_NUM_B=4|COLA_STRATEGY=fully|COLA_TOP_K=1|12"
 )
 
 MOELPR_VARIANTS=(
@@ -121,35 +121,48 @@ MOELPR_VARIANTS=(
   "low-aux|MOELPR_STAGE1_AUX_LOSS_COEF=0.03|MOELPR_STAGE2_LPR_LOSS_COEF=0.05|MOELPR_TOP_K=1"
 )
 
-run_sweep() {
+run_sweep_from_specs() {
   local approach=$1
   local script=$2
-  local log_prefix=$3
-  local -n variants_ref=$4
+  local log=$3
+  local default_bs=$4
+  local -n variants_ref=$5
   local base_dir="${OUTPUT_ROOT}/${approach}"
   mkdir -p "${base_dir}"
   for spec in "${variants_ref[@]}"; do
-    IFS='|' read -r label env1 env2 env3 env4 <<<"${spec}"
+    IFS='|' read -r -a parts <<<"${spec}"
+    local label="${parts[0]}"
+    local idx_last=$(( ${#parts[@]} - 1 ))
+    local maybe_bs="${parts[$idx_last]}"
+    local bs="${default_bs}"
+    local env_end=$idx_last
+    if [[ "${maybe_bs}" =~ ^[0-9]+$ ]]; then
+      bs="${maybe_bs}"
+      env_end=$((idx_last - 1))
+    fi
     local out_dir="${base_dir}/${label}_${timestamp}"
     mkdir -p "${out_dir}"
     local envs=(
       "OUTPUT_DIR=${out_dir}"
       "WANDB_NAME=${approach}-${label}-${timestamp}"
+      "PER_DEVICE_TRAIN_BATCH_SIZE=${bs}"
+      "PER_DEVICE_EVAL_BATCH_SIZE=${bs}"
     )
-    for extra in "${env1}" "${env2}" "${env3}" "${env4}"; do
+    for ((i=1; i<=env_end; i++)); do
+      extra="${parts[$i]}"
       if [[ -n "${extra}" ]]; then
         envs+=("${extra}")
       fi
     done
-    job_id=$(submit_job "${approach}-${label}" "${script}" "${log_prefix}_${label}" "${envs[@]}")
+    job_id=$(submit_job "${approach}-${label}" "${script}" "${log}_${label}" "${envs[@]}")
     JOB_IDS["${approach}-${label}"]="${job_id}"
   done
 }
 
-run_sweep "adamole" "${COMPARISON_DIR}/adamole_job.sh" "adamole" ADA_VARIANTS
-run_sweep "mola" "${COMPARISON_DIR}/adamoe_1_mola_job.sh" "mola" MOLA_VARIANTS
-run_sweep "hydralora" "${COMPARISON_DIR}/hydralora_job.sh" "hydralora" HYDRA_VARIANTS
-run_sweep "cola" "${COMPARISON_DIR}/cola_job.sh" "cola" COLA_VARIANTS
+run_sweep_from_specs "adamole" "${COMPARISON_DIR}/adamole_job.sh" "adamole" 12 ADA_VARIANTS
+run_sweep_from_specs "mola" "${COMPARISON_DIR}/adamoe_1_mola_job.sh" "mola" 42 MOLA_VARIANTS
+run_sweep_from_specs "hydralora" "${COMPARISON_DIR}/hydralora_job.sh" "hydralora" 12 HYDRA_VARIANTS
+run_sweep_from_specs "cola" "${COMPARISON_DIR}/cola_job.sh" "cola" 12 COLA_VARIANTS
 
 for spec in "${MOELPR_VARIANTS[@]}"; do
   IFS='|' read -r label env1 env2 env3 <<<"${spec}"
@@ -180,3 +193,5 @@ Outputs stored under ${OUTPUT_ROOT}
 Monitor training metrics in W&B project ${WANDB_PROJECT:-moe-study-comparison}
 ========================================
 SUMMARY
+HYDRA_BATCH_DEFAULT=12
+COLA_BATCH_DEFAULT=12
