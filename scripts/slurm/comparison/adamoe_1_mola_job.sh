@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:h100:1
 #SBATCH --mem=64G
-#SBATCH --time=08:00:00
+#SBATCH --time=38:00:00
 #SBATCH --partition=gpu
 #SBATCH --output=logs/comparison/mola_%j.log
 

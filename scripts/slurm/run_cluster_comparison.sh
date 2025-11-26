@@ -22,8 +22,8 @@ MOELPR_LANGUAGE_MAP=${MOELPR_LANGUAGE_MAP:-/scratch/hpc-prf-merlin/joel/moe-stud
 MOELPR_ORIGINAL_LANGUAGE=${MOELPR_ORIGINAL_LANGUAGE:-english}
 DATASET_DIR=${DATASET_DIR:-./LLaMA-Factory/data}
 
-OUTPUT_ROOT=${OUTPUT_ROOT:-/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs}
-WANDB_PROJECT=${WANDB_PROJECT:-moe-study-comparison}
+OUTPUT_ROOT=${OUTPUT_ROOT:-/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs_kw_48}
+WANDB_PROJECT=${WANDB_PROJECT:-moe-study-comparison-kw-48-1}
 WANDB_ENTITY=${WANDB_ENTITY:-}
 default_wandb_group="refactor-benchmark"
 if [[ -z "${WANDB_RUN_GROUP+x}" ]]; then
@@ -116,9 +116,9 @@ COLA_VARIANTS=(
 )
 
 MOELPR_VARIANTS=(
-  "default|MOELPR_STAGE1_AUX_LOSS_COEF=0.05|MOELPR_STAGE2_LPR_LOSS_COEF=0.1|MOELPR_TOP_K=1"
-  "strong-prior|MOELPR_STAGE1_AUX_LOSS_COEF=0.08|MOELPR_STAGE2_LPR_LOSS_COEF=0.2|MOELPR_TOP_K=1"
-  "low-aux|MOELPR_STAGE1_AUX_LOSS_COEF=0.03|MOELPR_STAGE2_LPR_LOSS_COEF=0.05|MOELPR_TOP_K=1"
+  "default|MOELPR_STAGE1_AUX_LOSS_COEF=0.05|MOELPR_STAGE2_LPR_LOSS_COEF=0.1|MOELPR_TOP_K=1|16"
+  "strong-prior|MOELPR_STAGE1_AUX_LOSS_COEF=0.08|MOELPR_STAGE2_LPR_LOSS_COEF=0.2|MOELPR_TOP_K=1|16"
+  "low-aux|MOELPR_STAGE1_AUX_LOSS_COEF=0.03|MOELPR_STAGE2_LPR_LOSS_COEF=0.05|MOELPR_TOP_K=1|16"
 )
 
 run_sweep_from_specs() {
@@ -164,8 +164,19 @@ run_sweep_from_specs "mola" "${COMPARISON_DIR}/adamoe_1_mola_job.sh" "mola" 42 M
 run_sweep_from_specs "hydralora" "${COMPARISON_DIR}/hydralora_job.sh" "hydralora" 12 HYDRA_VARIANTS
 run_sweep_from_specs "cola" "${COMPARISON_DIR}/cola_job.sh" "cola" 12 COLA_VARIANTS
 
+MOELPR_BATCH_DEFAULT=16
+
 for spec in "${MOELPR_VARIANTS[@]}"; do
-  IFS='|' read -r label env1 env2 env3 <<<"${spec}"
+  IFS='|' read -r -a parts <<<"${spec}"
+  label="${parts[0]}"
+  idx_last=$(( ${#parts[@]} - 1 ))
+  maybe_bs="${parts[$idx_last]}"
+  bs="${MOELPR_BATCH_DEFAULT}"
+  env_end=$idx_last
+  if [[ "${maybe_bs}" =~ ^[0-9]+$ ]]; then
+    bs="${maybe_bs}"
+    env_end=$((idx_last - 1))
+  fi
   stage1_dir="${OUTPUT_ROOT}/moelpr/${label}_stage1_${timestamp}"
   stage2_dir="${OUTPUT_ROOT}/moelpr/${label}_stage2_${timestamp}"
   mkdir -p "${stage1_dir}" "${stage2_dir}"
@@ -174,8 +185,11 @@ for spec in "${MOELPR_VARIANTS[@]}"; do
     "MOELPR_STAGE2_OUTPUT=${stage2_dir}"
     "WANDB_STAGE1_NAME=moelpr-stage1-${label}-${timestamp}"
     "WANDB_STAGE2_NAME=moelpr-stage2-${label}-${timestamp}"
+    "PER_DEVICE_TRAIN_BATCH_SIZE=${bs}"
+    "PER_DEVICE_EVAL_BATCH_SIZE=${bs}"
   )
-  for extra in "${env1}" "${env2}" "${env3}"; do
+  for ((i=1; i<=env_end; i++)); do
+    extra="${parts[$i]}"
     if [[ -n "${extra}" ]]; then
       envs+=("${extra}")
     fi
@@ -190,7 +204,7 @@ Submitted comparison sweeps at ${timestamp}
 $(for key in "${!JOB_IDS[@]}"; do printf "  %-25s : %s\n" "${key}" "${JOB_IDS[$key]}"; done | sort)
 
 Outputs stored under ${OUTPUT_ROOT}
-Monitor training metrics in W&B project ${WANDB_PROJECT:-moe-study-comparison}
+Monitor training metrics in W&B project ${WANDB_PROJECT:-moe-study-comparison_kw48}
 ========================================
 SUMMARY
 HYDRA_BATCH_DEFAULT=12
