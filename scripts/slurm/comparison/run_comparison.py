@@ -103,6 +103,8 @@ def run_simple_variants(
     sbatch_args: str,
     registry: Dict[str, str],
     lm_eval_cfg: dict,
+    default_gpus: int,
+    default_gpu_type: str,
 ) -> None:
     script = COMPARISON_DIR / cfg["script"]
     batch_size = int(cfg.get("batch_size", 16))
@@ -112,6 +114,8 @@ def run_simple_variants(
         variant_name = variant["name"]
         variant_env = {k: to_env_value(v) for k, v in variant.get("env", {}).items()}
         bs = int(variant.get("batch_size", batch_size))
+        job_gpus = int(variant.get("gpus_per_job", cfg.get("gpus_per_job", default_gpus)))
+        job_gpu_type = variant.get("gpu_type", cfg.get("gpu_type", default_gpu_type))
         run_dir = output_root / approach_name / f"{variant_name}_{timestamp}"
         run_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_root / f"{log_prefix}_{variant_name}_{timestamp}.log"
@@ -123,12 +127,17 @@ def run_simple_variants(
                 "WANDB_NAME": f"{dataset_label}-{approach_name}-{variant_name}-{timestamp}",
                 "PER_DEVICE_TRAIN_BATCH_SIZE": str(bs),
                 "PER_DEVICE_EVAL_BATCH_SIZE": str(bs),
+                "GPUS_PER_NODE": str(job_gpus),
+                "GPU_TYPE": job_gpu_type,
             }
         )
         job_key = f"{dataset_label}-{approach_name}-{variant_name}"
         print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
-        job_id = submit_job(job_key, script, log_path, env_assignments, sbatch_args)
+        job_specific_args = " ".join(
+            arg for arg in [sbatch_args, f"--gres=gpu:{job_gpu_type}:{job_gpus}"] if arg
+        )
+        job_id = submit_job(job_key, script, log_path, env_assignments, job_specific_args)
         registry[job_key] = job_id
         launch_eval_watcher(
             run_dir,
@@ -152,6 +161,8 @@ def run_moelpr_variants(
     sbatch_args: str,
     registry: Dict[str, str],
     lm_eval_cfg: dict,
+    default_gpus: int,
+    default_gpu_type: str,
 ) -> None:
     script = COMPARISON_DIR / cfg["script"]
     log_prefix = cfg.get("log_prefix", "moelpr")
@@ -159,6 +170,8 @@ def run_moelpr_variants(
         variant_name = variant["name"]
         variant_env = {k: to_env_value(v) for k, v in variant.get("env", {}).items()}
         bs = int(variant.get("batch_size", default_bs))
+        job_gpus = int(variant.get("gpus_per_job", cfg.get("gpus_per_job", default_gpus)))
+        job_gpu_type = variant.get("gpu_type", cfg.get("gpu_type", default_gpu_type))
         stage1_dir = output_root / "moelpr" / f"{variant_name}_stage1_{timestamp}"
         stage2_dir = output_root / "moelpr" / f"{variant_name}_stage2_{timestamp}"
         stage1_dir.mkdir(parents=True, exist_ok=True)
@@ -173,13 +186,18 @@ def run_moelpr_variants(
                 "WANDB_STAGE2_NAME": f"moelpr-stage2-{dataset_label}-{variant_name}-{timestamp}",
                 "PER_DEVICE_TRAIN_BATCH_SIZE": str(bs),
                 "PER_DEVICE_EVAL_BATCH_SIZE": str(bs),
+                "GPUS_PER_NODE": str(job_gpus),
+                "GPU_TYPE": job_gpu_type,
             }
         )
         log_path = log_root / f"{log_prefix}_{variant_name}_{timestamp}.log"
         job_key = f"{dataset_label}-moelpr-{variant_name}"
         print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
-        job_id = submit_job(job_key, script, log_path, env_assignments, sbatch_args)
+        job_specific_args = " ".join(
+            arg for arg in [sbatch_args, f"--gres=gpu:{job_gpu_type}:{job_gpus}"] if arg
+        )
+        job_id = submit_job(job_key, script, log_path, env_assignments, job_specific_args)
         registry[job_key] = job_id
         launch_eval_watcher(
             stage2_dir,
@@ -282,12 +300,21 @@ def main() -> None:
         global_cfg.get("moelpr_language_map", "./configs/moelpr_lang_map.json")
     )
     moelpr_original_language = global_cfg.get("moelpr_original_language", "english")
+    eval_steps = int(global_cfg.get("eval_steps", 200))
+    default_gpu_type = global_cfg.get("gpu_type", "h100")
+    default_gpus_per_job = int(global_cfg.get("gpus_per_job", 4))
+    deepspeed_config = global_cfg.get("deepspeed_config")
 
     ensure_dir(dataset_dir, "DATASET_DIR")
     ensure_dir(moelpr_language_map, "MOELPR_LANGUAGE_MAP")
     ensure_dir(tokenized_base, "tokenized_base")
     output_root.mkdir(parents=True, exist_ok=True)
     log_root.mkdir(parents=True, exist_ok=True)
+    if not deepspeed_config:
+        sys.exit("[ERROR] global.deepspeed_config must be provided for DeepSpeed execution.")
+    deepspeed_config_path = resolve_path(deepspeed_config)
+    if not deepspeed_config_path.exists():
+        sys.exit(f"[ERROR] DeepSpeed config {deepspeed_config_path} not found.")
 
     base_env = {
         "DATASET_DIR": str(dataset_dir),
@@ -296,6 +323,8 @@ def main() -> None:
         "MOELPR_LANGUAGE_COLUMN": moelpr_language_column,
         "MOELPR_LANGUAGE_MAP": str(moelpr_language_map),
         "MOELPR_ORIGINAL_LANGUAGE": moelpr_original_language,
+        "EVAL_STEPS": str(eval_steps),
+        "DEEPSPEED_CONFIG": str(deepspeed_config_path),
     }
     for key in ("CONDA_BASE", "CONDA_ENV", "MODULE_INIT"):
         if os.environ.get(key):
@@ -344,6 +373,8 @@ def main() -> None:
                         sbatch_args,
                         job_registry,
                         lm_eval_cfg,
+                        default_gpus_per_job,
+                        default_gpu_type,
                     )
                 else:
                     run_simple_variants(
@@ -357,6 +388,8 @@ def main() -> None:
                         sbatch_args,
                         job_registry,
                         lm_eval_cfg,
+                        default_gpus_per_job,
+                        default_gpu_type,
                     )
 
     if not job_registry:

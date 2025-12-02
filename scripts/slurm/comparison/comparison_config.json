@@ -10,7 +10,11 @@
     "moelpr_language_column": "language",
     "moelpr_language_map": "./configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",
-    "moelpr_batch_size": 16
+    "moelpr_batch_size": 16,
+    "eval_steps": 50,
+    "gpu_type": "h100",
+    "gpus_per_job": 4,
+    "deepspeed_config": "./configs/deepspeed/comparison_ds_config.json"
   },
   "models": [
     {

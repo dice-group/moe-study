@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:h100:1
+#SBATCH --gres=gpu:h100:4
 #SBATCH --mem=64G
 #SBATCH --time=38:00:00
 #SBATCH --partition=gpu
@@ -35,6 +35,13 @@ LANGUAGE_MAP="${MOELPR_LANGUAGE_MAP:?MOELPR_LANGUAGE_MAP not set}"
 ORIGINAL_LANGUAGE="${MOELPR_ORIGINAL_LANGUAGE:?MOELPR_ORIGINAL_LANGUAGE not set}"
 DATASET_NAME="${MOELPR_DATASET_NAME:-moelpr_5_langs}"
 EVAL_DATASET_NAME="${MOELPR_EVAL_DATASET_NAME:-${DATASET_NAME}}"
+GPUS_PER_NODE="${GPUS_PER_NODE:-4}"
+MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
+MASTER_PORT="${MASTER_PORT:-$((10000 + RANDOM % 20000))}"
+NNODES="${NNODES:-1}"
+DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:?DEEPSPEED_CONFIG not set}"
+LAUNCH_CMD=(torchrun --nnodes="${NNODES}" --nproc_per_node="${GPUS_PER_NODE}" --master_addr="${MASTER_ADDR}" --master_port="${MASTER_PORT}")
+echo "[INFO] Using ${GPUS_PER_NODE} GPU(s) per node (DeepSpeed config: ${DEEPSPEED_CONFIG})"
 
 STAGE1_OUT="${MOELPR_STAGE1_OUTPUT:?MOELPR_STAGE1_OUTPUT not set}"
 STAGE2_OUT="${MOELPR_STAGE2_OUTPUT:?MOELPR_STAGE2_OUTPUT not set}"
@@ -56,7 +63,7 @@ echo "[INFO] Starting MoE-LPR Stage 1 into ${STAGE1_OUT}"
 export WANDB_NAME="${RUN_NAME_STAGE1}"
 export WANDB_TAGS="comparison,moelpr,stage1"
 
-llamafactory-cli train \
+"${LAUNCH_CMD[@]}" llamafactory-cli train \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
@@ -91,6 +98,7 @@ llamafactory-cli train \
   --moelpr_top_k "${MOELPR_TOP_K:-1}" \
   --moelpr_aux_loss_coef "${MOELPR_STAGE1_AUX_LOSS_COEF:-0.05}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
+  --deepspeed "${DEEPSPEED_CONFIG}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
@@ -99,7 +107,7 @@ echo "[INFO] Stage 1 finished, starting Stage 2 using ${STAGE1_OUT}"
 export WANDB_NAME="${RUN_NAME_STAGE2}"
 export WANDB_TAGS="comparison,moelpr,stage2"
 
-llamafactory-cli train \
+"${LAUNCH_CMD[@]}" llamafactory-cli train \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
@@ -137,6 +145,7 @@ llamafactory-cli train \
   --moelpr_lpr_loss_coef "${MOELPR_STAGE2_LPR_LOSS_COEF:-0.1}" \
   --moelpr_original_language "${ORIGINAL_LANGUAGE}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
+  --deepspeed "${DEEPSPEED_CONFIG}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true

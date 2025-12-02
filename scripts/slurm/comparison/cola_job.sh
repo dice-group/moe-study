@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:h100:1
+#SBATCH --gres=gpu:h100:4
 #SBATCH --mem=64G
 #SBATCH --time=38:00:00
 #SBATCH --partition=gpu
@@ -36,6 +36,13 @@ TOKENIZED_PATH="${GENERIC_TOKENIZED_PATH:?GENERIC_TOKENIZED_PATH not set}"
 MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 DATASET_NAME="${GENERIC_DATASET_NAME:-c4}"
 EVAL_DATASET_NAME="${GENERIC_EVAL_DATASET_NAME:-${DATASET_NAME}}"
+GPUS_PER_NODE="${GPUS_PER_NODE:-4}"
+MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
+MASTER_PORT="${MASTER_PORT:-$((10000 + RANDOM % 20000))}"
+NNODES="${NNODES:-1}"
+DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:?DEEPSPEED_CONFIG not set}"
+LAUNCH_CMD=(torchrun --nnodes="${NNODES}" --nproc_per_node="${GPUS_PER_NODE}" --master_addr="${MASTER_ADDR}" --master_port="${MASTER_PORT}")
+echo "[INFO] Using ${GPUS_PER_NODE} GPU(s) per node (DeepSpeed config: ${DEEPSPEED_CONFIG})"
 
 TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
 TRAIN_LR="${LEARNING_RATE:-2e-4}"
@@ -51,7 +58,7 @@ export WANDB_NAME="${RUN_NAME}"
 
 echo "[INFO] Running CoLA training into ${OUTPUT_DIR}"
 
-llamafactory-cli train \
+"${LAUNCH_CMD[@]}" llamafactory-cli train \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
@@ -90,6 +97,7 @@ llamafactory-cli train \
   --cola_num_experts "${COLA_NUM_EXPERTS:-4}" \
   --cola_top_k "${COLA_TOP_K:-2}" \
   --cola_debug "${COLA_DEBUG:-False}" \
+  --deepspeed "${DEEPSPEED_CONFIG}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
