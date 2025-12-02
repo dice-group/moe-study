@@ -14,7 +14,8 @@
     "eval_steps": 50,
     "gpu_type": "h100",
     "gpus_per_job": 4,
-    "deepspeed_config": "./configs/deepspeed/comparison_ds_config.json"
+    "accelerate_config": "./configs/accelerate/fsdp_4gpu_config.yaml",
+    "accelerate_use_fsdp": true
   },
   "models": [
     {

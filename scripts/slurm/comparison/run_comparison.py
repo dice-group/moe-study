@@ -303,18 +303,19 @@ def main() -> None:
     eval_steps = int(global_cfg.get("eval_steps", 200))
     default_gpu_type = global_cfg.get("gpu_type", "h100")
     default_gpus_per_job = int(global_cfg.get("gpus_per_job", 4))
-    deepspeed_config = global_cfg.get("deepspeed_config")
+    accelerate_config = global_cfg.get("accelerate_config")
+    accelerate_use_fsdp = global_cfg.get("accelerate_use_fsdp", True)
 
     ensure_dir(dataset_dir, "DATASET_DIR")
     ensure_dir(moelpr_language_map, "MOELPR_LANGUAGE_MAP")
     ensure_dir(tokenized_base, "tokenized_base")
     output_root.mkdir(parents=True, exist_ok=True)
     log_root.mkdir(parents=True, exist_ok=True)
-    if not deepspeed_config:
-        sys.exit("[ERROR] global.deepspeed_config must be provided for DeepSpeed execution.")
-    deepspeed_config_path = resolve_path(deepspeed_config)
-    if not deepspeed_config_path.exists():
-        sys.exit(f"[ERROR] DeepSpeed config {deepspeed_config_path} not found.")
+    if not accelerate_config:
+        sys.exit("[ERROR] global.accelerate_config must be provided for Accelerate execution.")
+    accelerate_config_path = resolve_path(accelerate_config)
+    if not accelerate_config_path.exists():
+        sys.exit(f"[ERROR] Accelerate config {accelerate_config_path} not found.")
 
     base_env = {
         "DATASET_DIR": str(dataset_dir),
@@ -324,7 +325,8 @@ def main() -> None:
         "MOELPR_LANGUAGE_MAP": str(moelpr_language_map),
         "MOELPR_ORIGINAL_LANGUAGE": moelpr_original_language,
         "EVAL_STEPS": str(eval_steps),
-        "DEEPSPEED_CONFIG": str(deepspeed_config_path),
+        "ACCELERATE_CONFIG_FILE": str(accelerate_config_path),
+        "ACCELERATE_USE_FSDP": "1" if accelerate_use_fsdp else "0",
     }
     for key in ("CONDA_BASE", "CONDA_ENV", "MODULE_INIT"):
         if os.environ.get(key):

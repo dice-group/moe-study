@@ -36,17 +36,16 @@ MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 DATASET_NAME="${GENERIC_DATASET_NAME:-c4}"
 EVAL_DATASET_NAME="${GENERIC_EVAL_DATASET_NAME:-${DATASET_NAME}}"
 GPUS_PER_NODE="${GPUS_PER_NODE:-4}"
-MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
-MASTER_PORT="${MASTER_PORT:-$((10000 + RANDOM % 20000))}"
-NNODES="${NNODES:-1}"
-DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:?DEEPSPEED_CONFIG not set}"
+ACCELERATE_CONFIG="${ACCELERATE_CONFIG_FILE:?ACCELERATE_CONFIG_FILE not set}"
+ACCELERATE_USE_FSDP="${ACCELERATE_USE_FSDP:-1}"
+export ACCELERATE_USE_FSDP
 LLAMAFACTORY_BIN="${LLAMAFACTORY_BIN:-$(command -v llamafactory-cli || true)}"
 if [[ -z "${LLAMAFACTORY_BIN}" ]]; then
   echo "[ERROR] llamafactory-cli not found in PATH." >&2
   exit 1
 fi
-LAUNCH_CMD=(torchrun --nnodes="${NNODES}" --nproc_per_node="${GPUS_PER_NODE}" --master_addr="${MASTER_ADDR}" --master_port="${MASTER_PORT}" "${LLAMAFACTORY_BIN}" train)
-echo "[INFO] Using ${GPUS_PER_NODE} GPU(s) per node (DeepSpeed config: ${DEEPSPEED_CONFIG})"
+LAUNCH_CMD=(accelerate launch --config_file "${ACCELERATE_CONFIG}" "${LLAMAFACTORY_BIN}" train)
+echo "[INFO] Using Accelerate config ${ACCELERATE_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node"
 
 TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
 TRAIN_LR="${LEARNING_RATE:-2e-4}"
@@ -96,7 +95,6 @@ echo "[INFO] Running AdaMoLE training into ${OUTPUT_DIR}"
   --adamole_max_threshold "${ADAMOLE_MAX_THRESHOLD:-0.2}" \
   --adamole_aux_loss_coef "${ADAMOLE_AUX_LOSS_COEF:-0.01}" \
   --adamole_debug_mode "${ADAMOLE_DEBUG_MODE:-False}" \
-  --deepspeed "${DEEPSPEED_CONFIG}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true

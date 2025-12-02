@@ -36,17 +36,16 @@ ORIGINAL_LANGUAGE="${MOELPR_ORIGINAL_LANGUAGE:?MOELPR_ORIGINAL_LANGUAGE not set}
 DATASET_NAME="${MOELPR_DATASET_NAME:-moelpr_5_langs}"
 EVAL_DATASET_NAME="${MOELPR_EVAL_DATASET_NAME:-${DATASET_NAME}}"
 GPUS_PER_NODE="${GPUS_PER_NODE:-4}"
-MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
-MASTER_PORT="${MASTER_PORT:-$((10000 + RANDOM % 20000))}"
-NNODES="${NNODES:-1}"
-DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:?DEEPSPEED_CONFIG not set}"
+ACCELERATE_CONFIG="${ACCELERATE_CONFIG_FILE:?ACCELERATE_CONFIG_FILE not set}"
+ACCELERATE_USE_FSDP="${ACCELERATE_USE_FSDP:-1}"
+export ACCELERATE_USE_FSDP
 LLAMAFACTORY_BIN="${LLAMAFACTORY_BIN:-$(command -v llamafactory-cli || true)}"
 if [[ -z "${LLAMAFACTORY_BIN}" ]]; then
   echo "[ERROR] llamafactory-cli not found in PATH." >&2
   exit 1
 fi
-LAUNCH_CMD=(torchrun --nnodes="${NNODES}" --nproc_per_node="${GPUS_PER_NODE}" --master_addr="${MASTER_ADDR}" --master_port="${MASTER_PORT}" "${LLAMAFACTORY_BIN}" train)
-echo "[INFO] Using ${GPUS_PER_NODE} GPU(s) per node (DeepSpeed config: ${DEEPSPEED_CONFIG})"
+LAUNCH_CMD=(accelerate launch --config_file "${ACCELERATE_CONFIG}" "${LLAMAFACTORY_BIN}" train)
+echo "[INFO] Using Accelerate config ${ACCELERATE_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node"
 
 STAGE1_OUT="${MOELPR_STAGE1_OUTPUT:?MOELPR_STAGE1_OUTPUT not set}"
 STAGE2_OUT="${MOELPR_STAGE2_OUTPUT:?MOELPR_STAGE2_OUTPUT not set}"
@@ -103,7 +102,6 @@ export WANDB_TAGS="comparison,moelpr,stage1"
   --moelpr_top_k "${MOELPR_TOP_K:-1}" \
   --moelpr_aux_loss_coef "${MOELPR_STAGE1_AUX_LOSS_COEF:-0.05}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
-  --deepspeed "${DEEPSPEED_CONFIG}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
@@ -150,7 +148,6 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --moelpr_lpr_loss_coef "${MOELPR_STAGE2_LPR_LOSS_COEF:-0.1}" \
   --moelpr_original_language "${ORIGINAL_LANGUAGE}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
-  --deepspeed "${DEEPSPEED_CONFIG}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
