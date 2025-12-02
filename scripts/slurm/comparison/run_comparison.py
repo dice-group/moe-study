@@ -233,6 +233,7 @@ def launch_eval_watcher(
             "WATCH_LABEL": label,
             "EVAL_SCRIPT": str(eval_script),
             "EVAL_LOG_DIR": str(log_root),
+            "WATCH_CHECKPOINTS_PATH": str(COMPARISON_DIR / "watch_checkpoints.py"),
             "LM_EVAL_TASKS": lm_eval_cfg.get("_tasks_resolved", lm_eval_cfg.get("tasks", "belebele")),
             "LM_EVAL_BATCH_SIZE": str(lm_eval_cfg.get("batch_size", "auto")),
             "LM_EVAL_LIMIT": str(lm_eval_cfg.get("limit", 0)),

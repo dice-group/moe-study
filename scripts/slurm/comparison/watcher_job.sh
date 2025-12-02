@@ -9,6 +9,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WATCH_CHECKPOINTS_PATH="${WATCH_CHECKPOINTS_PATH:-${SCRIPT_DIR}/watch_checkpoints.py}"
 
 if [[ -n "${MODULE_INIT:-}" ]]; then
   eval "${MODULE_INIT}"
@@ -19,7 +20,7 @@ if [[ -n "${CONDA_BASE:-}" && -n "${CONDA_ENV:-}" ]]; then
   conda activate "${CONDA_ENV}"
 fi
 
-python3 "${SCRIPT_DIR}/watch_checkpoints.py" \
+python3 "${WATCH_CHECKPOINTS_PATH}" \
   --watch-dir "${WATCH_DIR:?WATCH_DIR not set}" \
   --label "${WATCH_LABEL:?WATCH_LABEL not set}" \
   --eval-script "${EVAL_SCRIPT:?EVAL_SCRIPT not set}" \
