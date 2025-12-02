@@ -11,7 +11,7 @@
     "moelpr_language_map": "./configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",
     "moelpr_batch_size": 16,
-    "eval_steps": 50,
+    "eval_steps": 200,
     "gpu_type": "h100",
     "gpus_per_job": 4,
     "deepspeed_config": "./configs/deepspeed/comparison_ds_config.json"
@@ -149,7 +149,7 @@
     "max_duration_minutes": 120,
     "start_after_checkpoints": 0,
     "max_evals": 0,
-    "limit": 10,
+    "limit": 0,
     "eval_script": "lm_eval_checkpoint.sh",
     "watcher_sbatch": {
       "partition": "",
