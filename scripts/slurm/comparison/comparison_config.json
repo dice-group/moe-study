@@ -135,5 +135,25 @@
         }
       ]
     }
+  },
+  "lm_eval": {
+    "enabled": true,
+    "tasks": "belebele",
+    "batch_size": "auto",
+    "poll_interval_seconds": 120,
+    "idle_timeout_minutes": 60,
+    "max_duration_minutes": 1440,
+    "eval_script": "lm_eval_checkpoint.sh",
+    "watcher_sbatch": {
+      "partition": "cpu",
+      "time": "1-00:00:00",
+      "cpus_per_task": 1,
+      "mem": "4G"
+    },
+    "eval_sbatch": {
+      "partition": "gpu",
+      "time": "04:00:00",
+      "gpus": 1
+    }
   }
 }

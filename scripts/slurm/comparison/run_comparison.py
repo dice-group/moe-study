@@ -6,6 +6,7 @@ import os
 import shlex
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -91,7 +92,18 @@ def submit_job(job_name: str, script: Path, log_path: Path, env_assignments: Lis
     return job_id
 
 
-def run_simple_variants(dataset_label: str, dataset_env: Dict[str, str], approach_name: str, cfg: dict, timestamp: str, output_root: Path, log_root: Path, sbatch_args: str, registry: Dict[str, str]) -> None:
+def run_simple_variants(
+    dataset_label: str,
+    dataset_env: Dict[str, str],
+    approach_name: str,
+    cfg: dict,
+    timestamp: str,
+    output_root: Path,
+    log_root: Path,
+    sbatch_args: str,
+    registry: Dict[str, str],
+    lm_eval_cfg: dict,
+) -> None:
     script = COMPARISON_DIR / cfg["script"]
     batch_size = int(cfg.get("batch_size", 16))
     log_prefix = cfg.get("log_prefix", approach_name)
@@ -118,6 +130,15 @@ def run_simple_variants(dataset_label: str, dataset_env: Dict[str, str], approac
         env_assignments = prepare_env(env)
         job_id = submit_job(job_key, script, log_path, env_assignments, sbatch_args)
         registry[job_key] = job_id
+        launch_eval_watcher(
+            run_dir,
+            dataset_label,
+            approach_name,
+            variant_name,
+            dataset_env,
+            log_root,
+            lm_eval_cfg,
+        )
 
 
 def run_moelpr_variants(
@@ -130,6 +151,7 @@ def run_moelpr_variants(
     default_bs: int,
     sbatch_args: str,
     registry: Dict[str, str],
+    lm_eval_cfg: dict,
 ) -> None:
     script = COMPARISON_DIR / cfg["script"]
     log_prefix = cfg.get("log_prefix", "moelpr")
@@ -159,6 +181,67 @@ def run_moelpr_variants(
         env_assignments = prepare_env(env)
         job_id = submit_job(job_key, script, log_path, env_assignments, sbatch_args)
         registry[job_key] = job_id
+        launch_eval_watcher(
+            stage2_dir,
+            dataset_label,
+            "moelpr",
+            variant_name,
+            dataset_env,
+            log_root,
+            lm_eval_cfg,
+        )
+
+
+def launch_eval_watcher(
+    watch_dir: Path,
+    dataset_label: str,
+    approach_name: str,
+    variant_name: str,
+    dataset_env: Dict[str, str],
+    log_root: Path,
+    lm_eval_cfg: dict,
+) -> None:
+    if not lm_eval_cfg.get("enabled"):
+        return
+    eval_script = (COMPARISON_DIR / lm_eval_cfg.get("eval_script", "lm_eval_checkpoint.sh")).resolve()
+    watcher_script = (COMPARISON_DIR / "watcher_job.sh").resolve()
+    if not eval_script.exists() or not watcher_script.exists():
+        return
+    label = f"{dataset_label}-{approach_name}-{variant_name}"
+    watcher_env = dict(dataset_env)
+    watcher_env.update(
+        {
+            "WATCH_DIR": str(watch_dir),
+            "WATCH_LABEL": label,
+            "EVAL_SCRIPT": str(eval_script),
+            "EVAL_LOG_DIR": str(log_root),
+            "LM_EVAL_TASKS": lm_eval_cfg.get("tasks", "belebele"),
+            "LM_EVAL_BATCH_SIZE": str(lm_eval_cfg.get("batch_size", "auto")),
+            "LM_EVAL_POLL_INTERVAL": str(lm_eval_cfg.get("poll_interval_seconds", 120)),
+            "LM_EVAL_IDLE_TIMEOUT": str(lm_eval_cfg.get("idle_timeout_minutes", 60)),
+            "LM_EVAL_MAX_DURATION": str(lm_eval_cfg.get("max_duration_minutes", 1440)),
+            "LM_EVAL_RESULTS_DIR": str(watch_dir / "lm_eval_results"),
+            "TOKENIZER_PATH": dataset_env.get("MODEL_NAME_OR_PATH", ""),
+            "WANDB_GROUP": dataset_env.get("WANDB_RUN_GROUP", label),
+            "EVAL_PARTITION": lm_eval_cfg.get("eval_sbatch", {}).get("partition", ""),
+            "EVAL_TIME": lm_eval_cfg.get("eval_sbatch", {}).get("time", ""),
+            "EVAL_GPUS": str(lm_eval_cfg.get("eval_sbatch", {}).get("gpus", 1)),
+            "EVAL_EXTRA_SBATCH": lm_eval_cfg.get("eval_sbatch", {}).get("extra_args", ""),
+        }
+    )
+    env_assignments = prepare_env(watcher_env)
+    log_path = log_root / f"watcher_{approach_name}_{variant_name}_{int(time.time())}.log"
+    cmd = ["env", *env_assignments, "sbatch", f"--output={log_path}"]
+    watcher_sbatch = lm_eval_cfg.get("watcher_sbatch", {})
+    if watcher_sbatch.get("partition"):
+        cmd.append(f"--partition={watcher_sbatch['partition']}")
+    if watcher_sbatch.get("time"):
+        cmd.append(f"--time={watcher_sbatch['time']}")
+    if watcher_sbatch.get("cpus_per_task"):
+        cmd.append(f"--cpus-per-task={watcher_sbatch['cpus_per_task']}")
+    if watcher_sbatch.get("mem"):
+        cmd.append(f"--mem={watcher_sbatch['mem']}")
+    subprocess.run(cmd + [str(watcher_script)], check=True)
 
 
 def main() -> None:
@@ -170,6 +253,7 @@ def main() -> None:
     global_cfg = config.get("global", {})
     models = config.get("models", [])
     approaches = config.get("approaches", {})
+    lm_eval_cfg = config.get("lm_eval", {})
     if not models or not approaches:
         sys.exit("[ERROR] Config must define both 'models' and 'approaches'.")
 
@@ -247,6 +331,7 @@ def main() -> None:
                         moelpr_batch_size,
                         sbatch_args,
                         job_registry,
+                        lm_eval_cfg,
                     )
                 else:
                     run_simple_variants(
@@ -259,6 +344,7 @@ def main() -> None:
                         dataset_log_root,
                         sbatch_args,
                         job_registry,
+                        lm_eval_cfg,
                     )
 
     if not job_registry:
