@@ -138,7 +138,7 @@
   },
   "lm_eval": {
     "enabled": true,
-    "tasks": "belebele",
+    "tasks_file": "./configs/lm_eval_tasks.txt",
     "batch_size": "auto",
     "poll_interval_seconds": 120,
     "idle_timeout_minutes": 60,
