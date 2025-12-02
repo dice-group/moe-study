@@ -11,6 +11,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+
 if [[ -n "${MODULE_INIT:-}" ]]; then
   eval "${MODULE_INIT}"
 fi
@@ -36,16 +39,23 @@ ORIGINAL_LANGUAGE="${MOELPR_ORIGINAL_LANGUAGE:?MOELPR_ORIGINAL_LANGUAGE not set}
 DATASET_NAME="${MOELPR_DATASET_NAME:-moelpr_5_langs}"
 EVAL_DATASET_NAME="${MOELPR_EVAL_DATASET_NAME:-${DATASET_NAME}}"
 GPUS_PER_NODE="${GPUS_PER_NODE:-4}"
-ACCELERATE_CONFIG="${ACCELERATE_CONFIG_FILE:?ACCELERATE_CONFIG_FILE not set}"
-ACCELERATE_USE_FSDP="${ACCELERATE_USE_FSDP:-1}"
-export ACCELERATE_USE_FSDP
+DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG_FILE:-${REPO_ROOT}/configs/deepspeed/comparison_ds_config.json}"
+if [[ ! -f "${DEEPSPEED_CONFIG}" ]]; then
+  echo "[ERROR] DeepSpeed config ${DEEPSPEED_CONFIG} not found." >&2
+  exit 1
+fi
 LLAMAFACTORY_BIN="${LLAMAFACTORY_BIN:-$(command -v llamafactory-cli || true)}"
 if [[ -z "${LLAMAFACTORY_BIN}" ]]; then
   echo "[ERROR] llamafactory-cli not found in PATH." >&2
   exit 1
 fi
-LAUNCH_CMD=(accelerate launch --config_file "${ACCELERATE_CONFIG}" "${LLAMAFACTORY_BIN}" train)
-echo "[INFO] Using Accelerate config ${ACCELERATE_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node"
+TORCHRUN_BIN="${TORCHRUN_BIN:-$(command -v torchrun || true)}"
+if [[ -z "${TORCHRUN_BIN}" ]]; then
+  echo "[ERROR] torchrun not found in PATH." >&2
+  exit 1
+fi
+LAUNCH_CMD=("${TORCHRUN_BIN}" --nproc_per_node "${GPUS_PER_NODE}" "${LLAMAFACTORY_BIN}" train)
+echo "[INFO] Using DeepSpeed config ${DEEPSPEED_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node"
 
 STAGE1_OUT="${MOELPR_STAGE1_OUTPUT:?MOELPR_STAGE1_OUTPUT not set}"
 STAGE2_OUT="${MOELPR_STAGE2_OUTPUT:?MOELPR_STAGE2_OUTPUT not set}"
@@ -102,6 +112,7 @@ export WANDB_TAGS="comparison,moelpr,stage1"
   --moelpr_top_k "${MOELPR_TOP_K:-1}" \
   --moelpr_aux_loss_coef "${MOELPR_STAGE1_AUX_LOSS_COEF:-0.05}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
+  --deepspeed "${DEEPSPEED_CONFIG}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
@@ -148,6 +159,7 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --moelpr_lpr_loss_coef "${MOELPR_STAGE2_LPR_LOSS_COEF:-0.1}" \
   --moelpr_original_language "${ORIGINAL_LANGUAGE}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
+  --deepspeed "${DEEPSPEED_CONFIG}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true

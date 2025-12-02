@@ -11,6 +11,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+
 if [[ -n "${MODULE_INIT:-}" ]]; then
   eval "${MODULE_INIT}"
 fi
@@ -37,16 +40,23 @@ MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 DATASET_NAME="${GENERIC_DATASET_NAME:-c4}"
 EVAL_DATASET_NAME="${GENERIC_EVAL_DATASET_NAME:-${DATASET_NAME}}"
 GPUS_PER_NODE="${GPUS_PER_NODE:-4}"
-ACCELERATE_CONFIG="${ACCELERATE_CONFIG_FILE:?ACCELERATE_CONFIG_FILE not set}"
-ACCELERATE_USE_FSDP="${ACCELERATE_USE_FSDP:-1}"
-export ACCELERATE_USE_FSDP
+DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG_FILE:-${REPO_ROOT}/configs/deepspeed/comparison_ds_config.json}"
+if [[ ! -f "${DEEPSPEED_CONFIG}" ]]; then
+  echo "[ERROR] DeepSpeed config ${DEEPSPEED_CONFIG} not found." >&2
+  exit 1
+fi
 LLAMAFACTORY_BIN="${LLAMAFACTORY_BIN:-$(command -v llamafactory-cli || true)}"
 if [[ -z "${LLAMAFACTORY_BIN}" ]]; then
   echo "[ERROR] llamafactory-cli not found in PATH." >&2
   exit 1
 fi
-LAUNCH_CMD=(accelerate launch --config_file "${ACCELERATE_CONFIG}" "${LLAMAFACTORY_BIN}" train)
-echo "[INFO] Using Accelerate config ${ACCELERATE_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node"
+TORCHRUN_BIN="${TORCHRUN_BIN:-$(command -v torchrun || true)}"
+if [[ -z "${TORCHRUN_BIN}" ]]; then
+  echo "[ERROR] torchrun not found in PATH." >&2
+  exit 1
+fi
+LAUNCH_CMD=("${TORCHRUN_BIN}" --nproc_per_node "${GPUS_PER_NODE}" "${LLAMAFACTORY_BIN}" train)
+echo "[INFO] Using DeepSpeed config ${DEEPSPEED_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node"
 
 TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
 TRAIN_LR="${LEARNING_RATE:-2e-4}"
@@ -98,6 +108,7 @@ echo "[INFO] Running HydraLoRA training into ${OUTPUT_DIR}"
   --hydralora_num_experts "${HYDRALORA_NUM_EXPERTS:-4}" \
   --hydralora_top_k "${HYDRALORA_TOP_K:-2}" \
   --hydralora_debug "${HYDRALORA_DEBUG:-False}" \
+  --deepspeed "${DEEPSPEED_CONFIG}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
