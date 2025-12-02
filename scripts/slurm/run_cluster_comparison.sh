@@ -2,11 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_JSON="${CONFIG_JSON:-${SCRIPT_DIR}/comparison/comparison_config.json}"
+CONFIG_JSON="${SCRIPT_DIR}/comparison/comparison_config.json"
 
-if [[ ! -f "${CONFIG_JSON}" ]]; then
-  echo "[ERROR] CONFIG_JSON ${CONFIG_JSON} not found." >&2
-  exit 1
-fi
+export CONDA_BASE="${CONDA_BASE:-/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3}"
+export CONDA_ENV="${CONDA_ENV:-moe_study_factory}"
+export MODULE_INIT="${MODULE_INIT:-module purge && module load toolchain/foss/2024a system/CUDA/12.6.0 lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0}"
 
-python "${SCRIPT_DIR}/comparison/run_comparison.py" --config "${CONFIG_JSON}"
+python3 "${SCRIPT_DIR}/comparison/run_comparison.py" --config "${CONFIG_JSON}"

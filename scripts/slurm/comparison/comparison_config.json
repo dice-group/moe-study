@@ -1,20 +1,21 @@
 {
   "global": {
     "output_root": "/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs_kw_48",
-    "log_root": "./logs/comparison",
-    "dataset_dir": "./LLaMA-Factory/data",
+    "log_root": "./scripts/slurm/logs/comparison",
+    "dataset_dir": "./LLaMA-Factory/data",  
     "wandb_project": "moe-study-comparison-kw-48-1",
     "wandb_entity": "",
     "wandb_group_prefix": "refactor-benchmark",
+    "tokenized_base": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moe_study_comparison",
     "moelpr_language_column": "language",
-    "moelpr_language_map": "/scratch/hpc-prf-merlin/joel/moe-study/configs/moelpr_lang_map.json",
+    "moelpr_language_map": "./configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",
     "moelpr_batch_size": 16
   },
   "models": [
     {
       "model_name_or_path": "meta-llama/Llama-3.1-8B",
-      "tokenizer_root": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moe_study_comparison/llama-3.1-8B_tokenizer",
+      "tokenizer_name": "llama-3.1-8B_tokenizer",
       "datasets": [
         "5_langs",
         "10_langs",
@@ -26,7 +27,7 @@
     },
     {
       "model_name_or_path": "meta-llama/Llama-3.2-1B",
-      "tokenizer_root": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moe_study_comparison/llama-3.2-1B_tokenizer",
+      "tokenizer_name": "llama-3.2-1B_tokenizer",
       "datasets": [
         "5_langs",
         "10_langs",
@@ -38,7 +39,7 @@
     },
     {
       "model_name_or_path": "meta-llama/Llama-3.2-3B",
-      "tokenizer_root": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moe_study_comparison/llama-3.2-3B_tokenizer",
+      "tokenizer_name": "llama-3.2-3B_tokenizer",
       "datasets": [
         "5_langs",
         "10_langs",
