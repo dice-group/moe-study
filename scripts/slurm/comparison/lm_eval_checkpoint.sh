@@ -26,6 +26,7 @@ TOKENIZER_PATH="${TOKENIZER_PATH:-${CHECKPOINT_PATH}}"
 TASKS="${LM_EVAL_TASKS:-belebele}"
 BATCH_SIZE="${LM_EVAL_BATCH_SIZE:-auto}"
 RESULTS_DIR="${LM_EVAL_RESULTS_DIR:-${CHECKPOINT_PATH}/lm_eval_results}"
+LIMIT="${LM_EVAL_LIMIT:-0}"
 mkdir -p "${RESULTS_DIR}"
 
 timestamp="$(date +%Y%m%d_%H%M%S)"
@@ -39,10 +40,18 @@ if [[ -n "${WANDB_ENTITY:-}" ]]; then
   wandb_args+=",entity=${WANDB_ENTITY}"
 fi
 
-lm_eval \
-  --model hf \
-  --model_args pretrained="${CHECKPOINT_PATH}",tokenizer="${TOKENIZER_PATH}",trust_remote_code=True \
-  --tasks "${TASKS}" \
-  --batch_size "${BATCH_SIZE}" \
-  --output_path "${output_json}" \
+cmd=(
+  lm_eval
+  --model hf
+  --model_args pretrained="${CHECKPOINT_PATH}",tokenizer="${TOKENIZER_PATH}",trust_remote_code=True
+  --tasks "${TASKS}"
+  --batch_size "${BATCH_SIZE}"
+  --output_path "${output_json}"
   --wandb_args "${wandb_args}"
+)
+
+if [[ "${LIMIT}" != "0" && -n "${LIMIT}" ]]; then
+  cmd+=(--limit "${LIMIT}")
+fi
+
+"${cmd[@]}"

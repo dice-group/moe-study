@@ -215,8 +215,9 @@ def launch_eval_watcher(
             "WATCH_LABEL": label,
             "EVAL_SCRIPT": str(eval_script),
             "EVAL_LOG_DIR": str(log_root),
-            "LM_EVAL_TASKS": lm_eval_cfg.get("tasks", "belebele"),
+            "LM_EVAL_TASKS": lm_eval_cfg.get("_tasks_resolved", lm_eval_cfg.get("tasks", "belebele")),
             "LM_EVAL_BATCH_SIZE": str(lm_eval_cfg.get("batch_size", "auto")),
+            "LM_EVAL_LIMIT": str(lm_eval_cfg.get("limit", 0)),
             "LM_EVAL_POLL_INTERVAL": str(lm_eval_cfg.get("poll_interval_seconds", 120)),
             "LM_EVAL_IDLE_TIMEOUT": str(lm_eval_cfg.get("idle_timeout_minutes", 60)),
             "LM_EVAL_MAX_DURATION": str(lm_eval_cfg.get("max_duration_minutes", 1440)),
@@ -254,6 +255,17 @@ def main() -> None:
     models = config.get("models", [])
     approaches = config.get("approaches", {})
     lm_eval_cfg = config.get("lm_eval", {})
+    tasks_value = lm_eval_cfg.get("tasks", "belebele")
+    tasks_file = lm_eval_cfg.get("tasks_file")
+    if tasks_file:
+        path = resolve_path(tasks_file)
+        ensure_dir(path.parent, "LM_EVAL tasks file directory")
+        if not path.exists():
+            sys.exit(f"[ERROR] LM_EVAL tasks file {path} does not exist.")
+        tasks_lines = [line.strip() for line in path.read_text().splitlines() if line.strip() and not line.startswith("#")]
+        if tasks_lines:
+            tasks_value = ",".join(tasks_lines)
+    lm_eval_cfg["_tasks_resolved"] = tasks_value
     if not models or not approaches:
         sys.exit("[ERROR] Config must define both 'models' and 'approaches'.")
 
