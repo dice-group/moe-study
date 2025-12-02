@@ -40,7 +40,12 @@ MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 MASTER_PORT="${MASTER_PORT:-$((10000 + RANDOM % 20000))}"
 NNODES="${NNODES:-1}"
 DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:?DEEPSPEED_CONFIG not set}"
-LAUNCH_CMD=(torchrun --nnodes="${NNODES}" --nproc_per_node="${GPUS_PER_NODE}" --master_addr="${MASTER_ADDR}" --master_port="${MASTER_PORT}")
+LLAMAFACTORY_BIN="${LLAMAFACTORY_BIN:-$(command -v llamafactory-cli || true)}"
+if [[ -z "${LLAMAFACTORY_BIN}" ]]; then
+  echo "[ERROR] llamafactory-cli not found in PATH." >&2
+  exit 1
+fi
+LAUNCH_CMD=(torchrun --nnodes="${NNODES}" --nproc_per_node="${GPUS_PER_NODE}" --master_addr="${MASTER_ADDR}" --master_port="${MASTER_PORT}" "${LLAMAFACTORY_BIN}" train)
 echo "[INFO] Using ${GPUS_PER_NODE} GPU(s) per node (DeepSpeed config: ${DEEPSPEED_CONFIG})"
 
 STAGE1_OUT="${MOELPR_STAGE1_OUTPUT:?MOELPR_STAGE1_OUTPUT not set}"
@@ -63,7 +68,7 @@ echo "[INFO] Starting MoE-LPR Stage 1 into ${STAGE1_OUT}"
 export WANDB_NAME="${RUN_NAME_STAGE1}"
 export WANDB_TAGS="comparison,moelpr,stage1"
 
-"${LAUNCH_CMD[@]}" llamafactory-cli train \
+"${LAUNCH_CMD[@]}" \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
@@ -107,7 +112,7 @@ echo "[INFO] Stage 1 finished, starting Stage 2 using ${STAGE1_OUT}"
 export WANDB_NAME="${RUN_NAME_STAGE2}"
 export WANDB_TAGS="comparison,moelpr,stage2"
 
-"${LAUNCH_CMD[@]}" llamafactory-cli train \
+"${LAUNCH_CMD[@]}" \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \

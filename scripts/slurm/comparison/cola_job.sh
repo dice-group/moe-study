@@ -41,7 +41,12 @@ MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 MASTER_PORT="${MASTER_PORT:-$((10000 + RANDOM % 20000))}"
 NNODES="${NNODES:-1}"
 DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:?DEEPSPEED_CONFIG not set}"
-LAUNCH_CMD=(torchrun --nnodes="${NNODES}" --nproc_per_node="${GPUS_PER_NODE}" --master_addr="${MASTER_ADDR}" --master_port="${MASTER_PORT}")
+LLAMAFACTORY_BIN="${LLAMAFACTORY_BIN:-$(command -v llamafactory-cli || true)}"
+if [[ -z "${LLAMAFACTORY_BIN}" ]]; then
+  echo "[ERROR] llamafactory-cli not found in PATH." >&2
+  exit 1
+fi
+LAUNCH_CMD=(torchrun --nnodes="${NNODES}" --nproc_per_node="${GPUS_PER_NODE}" --master_addr="${MASTER_ADDR}" --master_port="${MASTER_PORT}" "${LLAMAFACTORY_BIN}" train)
 echo "[INFO] Using ${GPUS_PER_NODE} GPU(s) per node (DeepSpeed config: ${DEEPSPEED_CONFIG})"
 
 TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
@@ -58,7 +63,7 @@ export WANDB_NAME="${RUN_NAME}"
 
 echo "[INFO] Running CoLA training into ${OUTPUT_DIR}"
 
-"${LAUNCH_CMD[@]}" llamafactory-cli train \
+"${LAUNCH_CMD[@]}" \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
