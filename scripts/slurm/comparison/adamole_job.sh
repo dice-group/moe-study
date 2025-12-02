@@ -16,7 +16,6 @@ if [[ -n "${MODULE_INIT:-}" ]]; then
 fi
 
 if [[ -n "${CONDA_BASE:-}" && -n "${CONDA_ENV:-}" ]]; then
-  # shellcheck disable=SC1090
   source "${CONDA_BASE}/etc/profile.d/conda.sh"
   conda activate "${CONDA_ENV}"
 fi
