@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent.parent
+REPO_ROOT = SCRIPT_DIR.parent.parent.parent
 CALL_DIR = Path.cwd()
 COMPARISON_DIR = SCRIPT_DIR
 
@@ -114,6 +114,7 @@ def run_simple_variants(dataset_label: str, dataset_env: Dict[str, str], approac
             }
         )
         job_key = f"{dataset_label}-{approach_name}-{variant_name}"
+        print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
         job_id = submit_job(job_key, script, log_path, env_assignments, sbatch_args)
         registry[job_key] = job_id
@@ -154,6 +155,7 @@ def run_moelpr_variants(
         )
         log_path = log_root / f"{log_prefix}_{variant_name}_{timestamp}.log"
         job_key = f"{dataset_label}-moelpr-{variant_name}"
+        print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
         job_id = submit_job(job_key, script, log_path, env_assignments, sbatch_args)
         registry[job_key] = job_id
@@ -172,8 +174,9 @@ def main() -> None:
         sys.exit("[ERROR] Config must define both 'models' and 'approaches'.")
 
     output_root = resolve_path(global_cfg.get("output_root", "./comparison_runs"))
-    log_root = resolve_path(global_cfg.get("log_root", "./logs/comparison"))
+    log_root = resolve_path(global_cfg.get("log_root", "./scripts/slurm/logs/comparison"))
     dataset_dir = resolve_path(global_cfg.get("dataset_dir", "./LLaMA-Factory/data"))
+    tokenized_base = resolve_path(global_cfg.get("tokenized_base", "./tokenized"))
     wandb_project = global_cfg.get("wandb_project", "")
     wandb_entity = global_cfg.get("wandb_entity", "")
     wandb_group_prefix = global_cfg.get("wandb_group_prefix", "refactor-benchmark")
@@ -186,6 +189,7 @@ def main() -> None:
 
     ensure_dir(dataset_dir, "DATASET_DIR")
     ensure_dir(moelpr_language_map, "MOELPR_LANGUAGE_MAP")
+    ensure_dir(tokenized_base, "tokenized_base")
     output_root.mkdir(parents=True, exist_ok=True)
     log_root.mkdir(parents=True, exist_ok=True)
 
@@ -207,7 +211,10 @@ def main() -> None:
 
     for model_entry in models:
         model_name = model_entry["model_name_or_path"]
-        tokenizer_root = Path(model_entry["tokenizer_root"]).resolve()
+        tokenizer_name = model_entry.get("tokenizer_name")
+        if not tokenizer_name:
+            sys.exit(f"[ERROR] tokenizer_name missing for model {model_name}.")
+        tokenizer_root = (tokenized_base / tokenizer_name).resolve()
         ensure_dir(tokenizer_root, f"tokenizer_root ({model_name})")
         datasets = discover_datasets(tokenizer_root, model_entry.get("datasets", []))
         for dataset_name, dataset_path in datasets:
