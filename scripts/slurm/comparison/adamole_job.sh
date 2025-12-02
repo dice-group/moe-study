@@ -44,18 +44,34 @@ if [[ ! -f "${DEEPSPEED_CONFIG}" ]]; then
   echo "[ERROR] DeepSpeed config ${DEEPSPEED_CONFIG} not found." >&2
   exit 1
 fi
-LLAMAFACTORY_BIN="${LLAMAFACTORY_BIN:-$(command -v llamafactory-cli || true)}"
-if [[ -z "${LLAMAFACTORY_BIN}" ]]; then
-  echo "[ERROR] llamafactory-cli not found in PATH." >&2
+if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  PORT_SEED="${SLURM_JOB_ID}"
+else
+  PORT_SEED=$((RANDOM + 10000))
+fi
+MASTER_PORT="${MASTER_PORT:-$((15000 + PORT_SEED % 20000))}"
+NNODES="${SLURM_JOB_NUM_NODES:-1}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
+if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+  echo "[ERROR] ${PYTHON_BIN} not found in PATH." >&2
   exit 1
 fi
-TORCHRUN_BIN="${TORCHRUN_BIN:-$(command -v torchrun || true)}"
-if [[ -z "${TORCHRUN_BIN}" ]]; then
-  echo "[ERROR] torchrun not found in PATH." >&2
+LLAMAFACTORY_MODULE="${LLAMAFACTORY_MODULE:-llamafactory.launcher}"
+DEEPSPEED_BIN="${DEEPSPEED_BIN:-$(command -v deepspeed || true)}"
+if [[ -z "${DEEPSPEED_BIN}" ]]; then
+  echo "[ERROR] deepspeed launcher not found in PATH." >&2
   exit 1
 fi
-LAUNCH_CMD=("${TORCHRUN_BIN}" --nproc_per_node "${GPUS_PER_NODE}" "${LLAMAFACTORY_BIN}" train)
-echo "[INFO] Using DeepSpeed config ${DEEPSPEED_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node"
+LAUNCH_CMD=(
+  "${DEEPSPEED_BIN}"
+  "--num_nodes=${NNODES}"
+  "--num_gpus=${GPUS_PER_NODE}"
+  "--master_port=${MASTER_PORT}"
+  "${PYTHON_BIN}"
+  -m
+  "${LLAMAFACTORY_MODULE}"
+)
+echo "[INFO] Using DeepSpeed config ${DEEPSPEED_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node (master_port=${MASTER_PORT})"
 
 TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
 TRAIN_LR="${LEARNING_RATE:-2e-4}"
