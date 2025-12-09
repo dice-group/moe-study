@@ -8,7 +8,10 @@
 - Coverage (optional): `--compute-base-coverage` / `--compute-extended-coverage` collect tokenizer metrics.
 - Allocation: computes inefficiency scores and writes the token-allocation CSV.
 - Extension (optional): `--extend` loads per-language frequency CSVs and updates the base tokenizer.
+- Embedding init (optional): set `init_embeddings: true` (plus optional `init_model_path` / `init_model_output_dir`) to immediately resize the base model and initialize the newly added embeddings via mean pooling over the original tokenizer’s subwords.
 - Comparison (optional): merge base and extended metrics and save the diff summary.
+
+`init_model_path` defaults to the configured `extension_base_path`, and `init_model_output_dir` defaults to `<output_dir>/initialized_model` when not provided.
 
 ### SLURM Pipeline
 - to run on cluster, use  `tokenize_extension/run_pipeline_slurm.sh`
