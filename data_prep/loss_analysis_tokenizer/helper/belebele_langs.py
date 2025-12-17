@@ -328,18 +328,20 @@ moe_study_dataset_langs = [
 ]
 
 overlap_langs = ["arz_Arab", "asm_Beng", "ben_Latn", "fin_Latn", "fuv_Latn", "hin_Deva", "hin_Latn", "jav_Latn", "kat_Geor", "lao_Laoo", "nya_Latn", "ory_Orya", "rus_Cyrl", "slv_Latn", "spa_Latn", "srp_Cyrl", "tel_Telu", "tso_Latn", "zsm_Latn"]
-for lang in overlap_langs:
-    print(lang)
+
+if __name__ == "__main__":
+    for lang in overlap_langs:
+        print(lang)
 
 
-print("Length of moe study langs ", len(moe_study_dataset_langs))
-print("Length of belebele langs ", len(belebele_langs))
+    print("Length of moe study langs ", len(moe_study_dataset_langs))
+    print("Length of belebele langs ", len(belebele_langs))
 
-# they are unique so we actually have 201 langs in the dataset
-print(len(belebele_langs) == len(set(belebele_langs)))
-print(len(moe_study_dataset_langs) == len(set(moe_study_dataset_langs)))
+    # they are unique so we actually have 201 langs in the dataset
+    print(len(belebele_langs) == len(set(belebele_langs)))
+    print(len(moe_study_dataset_langs) == len(set(moe_study_dataset_langs)))
 
 
-overlap = set(belebele_langs) & set(moe_study_dataset_langs)
-print("In both:", sorted(overlap), "+  english since is differently named")
-print("Count:", len(overlap) + 1)
+    overlap = set(belebele_langs) & set(moe_study_dataset_langs)
+    print("In both:", sorted(overlap), "+  english since is differently named")
+    print("Count:", len(overlap) + 1)

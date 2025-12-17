@@ -6,11 +6,16 @@ from datatrove.pipeline.writers import JsonlWriter
 from datatrove.executor import LocalPipelineExecutor
 from datatrove.executor import SlurmPipelineExecutor
 
+# Adding this to avoid: "429 Client Error: Too Many Requests for url ... We had to rate limit you, you hit the quota of 5000 resolvers requests per 5 minutes period."
+RANDOM_DELAY_LIMIT = 1 # the maximum number of seconds to delay the start of each task.
 
-SAMPLE_PERCENTAGE = 1          # % of rows to sample (adjust as needed)
-METADATA_PATH = "data_dir/fineweb2_metadata/llm_nested_samples/199_representative_mediods.csv" # covering all selected languages
-OUTPUT_DIR = "data_dir/fw_samples/"                # folder where *.tsv files will be written
-MIN_DOC_COUNT = 10_000  # minimum threshold to apply sampling logic
+DOCS_PER_SEC = 500  # Approx. docs processed per second by a single task
+
+SAMPLE_PERCENTAGE = 10          # % of rows to sample (adjust as needed)
+METADATA_PATH = "data_dir/fineweb2_metadata/misc/leftover_l2v.csv" # covering all selected languages
+OUTPUT_DIR = "data_dir/fw_l2v_samples/" # folder where *.tsv files will be written
+MIN_DOC_COUNT = 1_000_000  # minimum threshold to apply sampling logic
+#MIN_DOC_COUNT = 0  # minimum threshold to apply sampling logic
 
 TASKS_PER_SUBSET = 1
 ENGLISH_DOC_COUNT = 25_900_000_000 # 25.9 billion documents in fineweb
@@ -59,11 +64,21 @@ def get_lpe_instance(subset: str, sample_size: int):
     )
     return pipeline_exec
 
+def _seconds_to_hhmmss(total_seconds: int) -> str:
+    """Convert seconds to a Slurm‑compatible HH:MM:SS string."""
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
 def get_spe_instance(subset: str, sample_size: int):
     jsonl_writer, parquet_reader = _get_subset_args(subset, sample_size)
     
     log_dir = _output_path('slurm_dir', subset) # this needs to be different for every subset
     os.makedirs(log_dir, exist_ok=True)
+    
+    estimated_seconds = max(sample_size // DOCS_PER_SEC, 3600) + RANDOM_DELAY_LIMIT
+    estimated_time_str = _seconds_to_hhmmss(estimated_seconds)
     
     pipeline_exec = SlurmPipelineExecutor(
         pipeline=[
@@ -75,10 +90,11 @@ def get_spe_instance(subset: str, sample_size: int):
         requeue=False, # If the job fails, shows the proper error message
         qos="", # leaving it blank because the default qos causes error
         logging_dir=log_dir, # Scripts and other aux files are also stored in this
-        time="20:00:00",
+        time=estimated_time_str, # estimated based on 500 docs per second
         partition="normal", # Cluster specific, remains same for PC²
-        cpus_per_task=4,
-        mem_per_cpu_gb=5
+        cpus_per_task=8,
+        mem_per_cpu_gb=5,
+        randomize_start_duration=RANDOM_DELAY_LIMIT,
     )
     return pipeline_exec
 

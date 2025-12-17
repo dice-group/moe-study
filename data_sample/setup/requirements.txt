@@ -10,3 +10,4 @@ plotly
 nbformat
 datasets
 datatrove[all]
+# lang2vec # install manually: https://github.com/antonisa/lang2vec?tab=readme-ov-file#lang2vec
