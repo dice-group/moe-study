@@ -7,7 +7,7 @@ from datatrove.executor import LocalPipelineExecutor
 from datatrove.executor import SlurmPipelineExecutor
 
 # Adding this to avoid: "429 Client Error: Too Many Requests for url ... We had to rate limit you, you hit the quota of 5000 resolvers requests per 5 minutes period."
-RANDOM_DELAY_LIMIT = 1 # the maximum number of seconds to delay the start of each task.
+RANDOM_DELAY_LIMIT = 3600 # the maximum number of seconds to delay the start of each task.
 
 DOCS_PER_SEC = 500  # Approx. docs processed per second by a single task
 
@@ -19,7 +19,7 @@ MIN_DOC_COUNT = 1_000_000  # minimum threshold to apply sampling logic
 
 TASKS_PER_SUBSET = 1
 ENGLISH_DOC_COUNT = 25_900_000_000 # 25.9 billion documents in fineweb
-ENGLISH_UNDERSAMPLED_COUNT = ENGLISH_DOC_COUNT // 5 # Undersampling English since it's highly overrepresented
+ENGLISH_UNDERSAMPLED_COUNT = ENGLISH_DOC_COUNT // 50 # Undersampling English since it's highly overrepresented # bringing it to ~500 million
 
 # Helpers
 def _calc_sample_size(percent: float, estimate: int) -> int:
