@@ -1,0 +1,3 @@
+[submodule "data_prep/merlin_data_prep"]
+	path = data_prep/merlin_data_prep
+	url = git@github.com:dice-group/merlin_data_prep.git
