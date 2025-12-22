@@ -107,7 +107,7 @@ echo "[INFO] Running HydraLoRA training into ${OUTPUT_DIR}"
   --per_device_eval_batch_size "${EVAL_BS}" \
   --gradient_accumulation_steps "${GRAD_ACC}" \
   --logging_steps "${LOGGING_STEPS:-10}" \
-  --evaluation_strategy "${EVAL_STRATEGY:-steps}" \
+  --eval_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
   --max_steps "${MAX_STEPS:-0}" \

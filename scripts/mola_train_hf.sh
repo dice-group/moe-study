@@ -19,7 +19,7 @@ python src/train_hf.py \
   --mola_num_experts 4 \
   --mola_top_k 2 \
   --mola_use_null_expert \
-  --evaluation_strategy steps \
+  --eval_strategy steps \
   --eval_steps 500 \
   --do_harness_eval \
   --logging_steps 1 \

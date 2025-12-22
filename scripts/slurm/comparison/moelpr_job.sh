@@ -113,7 +113,7 @@ export WANDB_TAGS="comparison,moelpr,stage1"
   --per_device_eval_batch_size "${STAGE1_BS}" \
   --gradient_accumulation_steps "${GRAD_ACC}" \
   --logging_steps "${LOGGING_STEPS:-10}" \
-  --evaluation_strategy "${EVAL_STRATEGY:-steps}" \
+  --eval_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
   --max_steps "${MOELPR_STAGE1_MAX_STEPS:-0}" \
@@ -157,7 +157,7 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --per_device_eval_batch_size "${STAGE2_BS}" \
   --gradient_accumulation_steps "${GRAD_ACC}" \
   --logging_steps "${LOGGING_STEPS:-10}" \
-  --evaluation_strategy "${EVAL_STRATEGY:-steps}" \
+  --eval_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
   --max_steps "${MOELPR_STAGE2_MAX_STEPS:-0}" \
