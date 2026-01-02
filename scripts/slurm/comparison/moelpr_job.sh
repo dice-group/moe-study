@@ -33,6 +33,7 @@ fi
 set -u
 
 export PYTHONUNBUFFERED=1
+export LLAMAFACTORY_SAVE_ADAPTER_CHECKPOINTS="${LLAMAFACTORY_SAVE_ADAPTER_CHECKPOINTS:-1}"
 export WANDB_PROJECT="${WANDB_PROJECT:-moe-study-comparison}"
 export WANDB_ENTITY="${WANDB_ENTITY:-}"
 export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-moe-study}"
@@ -132,6 +133,7 @@ export WANDB_TAGS="comparison,moelpr,stage1"
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
   --save_safetensors "${SAVE_SAFETENSORS:-False}" \
+  --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --max_steps "${MOELPR_STAGE1_MAX_STEPS:-0}" \
   --bf16 "${BF16:-True}" \
   --fp16 "${FP16:-False}" \
@@ -176,6 +178,7 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
   --save_safetensors "${SAVE_SAFETENSORS:-False}" \
+  --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --max_steps "${MOELPR_STAGE2_MAX_STEPS:-0}" \
   --bf16 "${BF16:-True}" \
   --fp16 "${FP16:-False}" \

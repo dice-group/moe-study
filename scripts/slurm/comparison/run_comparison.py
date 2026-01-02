@@ -171,7 +171,7 @@ def run_simple_variants(
         env.update(
             {
                 "OUTPUT_DIR": str(run_dir),
-                "WANDB_NAME": f"{dataset_label}-{approach_name}-{variant_name}-{timestamp}",
+                "WANDB_NAME": f"{dataset_env.get('MODEL_LABEL', 'model')}-{dataset_label}-{approach_name}-{variant_name}-{timestamp}",
                 "PER_DEVICE_TRAIN_BATCH_SIZE": str(bs),
                 "PER_DEVICE_EVAL_BATCH_SIZE": str(bs),
                 "GPUS_PER_NODE": str(job_gpus),
@@ -234,8 +234,8 @@ def run_moelpr_variants(
             {
                 "MOELPR_STAGE1_OUTPUT": str(stage1_dir),
                 "MOELPR_STAGE2_OUTPUT": str(stage2_dir),
-                "WANDB_STAGE1_NAME": f"moelpr-stage1-{dataset_label}-{variant_name}-{timestamp}",
-                "WANDB_STAGE2_NAME": f"moelpr-stage2-{dataset_label}-{variant_name}-{timestamp}",
+                "WANDB_STAGE1_NAME": f"moelpr-stage1-{dataset_env.get('MODEL_LABEL', 'model')}-{dataset_label}-{variant_name}-{timestamp}",
+                "WANDB_STAGE2_NAME": f"moelpr-stage2-{dataset_env.get('MODEL_LABEL', 'model')}-{dataset_label}-{variant_name}-{timestamp}",
                 "PER_DEVICE_TRAIN_BATCH_SIZE": str(bs),
                 "PER_DEVICE_EVAL_BATCH_SIZE": str(bs),
                 "GPUS_PER_NODE": str(job_gpus),
@@ -392,6 +392,7 @@ def main() -> None:
 
     for model_entry in models:
         model_name = model_entry["model_name_or_path"]
+        model_label = model_name.replace("/", "-")
         tokenizer_name = model_entry.get("tokenizer_name")
         if not tokenizer_name:
             sys.exit(f"[ERROR] tokenizer_name missing for model {model_name}.")
@@ -419,6 +420,7 @@ def main() -> None:
             dataset_env.update(
                 {
                     "MODEL_NAME_OR_PATH": model_name,
+                    "MODEL_LABEL": model_label,
                     "GENERIC_TOKENIZED_PATH": str(dataset_path),
                     "GENERIC_DATASET_NAME": dataset_name,
                     "MOELPR_TOKENIZED_PATH": str(moelpr_stage1),

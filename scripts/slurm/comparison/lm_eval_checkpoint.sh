@@ -10,6 +10,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
+LLAMAFACTORY_SRC="${REPO_ROOT}/LLaMA-Factory/src"
 
 if [[ -n "${MODULE_INIT:-}" ]]; then
   eval "${MODULE_INIT}"
@@ -21,6 +23,14 @@ if [[ -n "${CONDA_BASE:-}" && -n "${EVAL_CONDA_ENV:-}" ]]; then
   # shellcheck disable=SC1090
   source "${CONDA_BASE}/etc/profile.d/conda.sh"
   conda activate "${EVAL_CONDA_ENV}"
+fi
+
+if [[ -d "${LLAMAFACTORY_SRC}" ]]; then
+  if [[ -n "${PYTHONPATH:-}" ]]; then
+    export PYTHONPATH="${LLAMAFACTORY_SRC}:${PYTHONPATH}"
+  else
+    export PYTHONPATH="${LLAMAFACTORY_SRC}"
+  fi
 fi
 set -u
 
@@ -43,10 +53,32 @@ if [[ -n "${WANDB_ENTITY:-}" ]]; then
   wandb_args+=",entity=${WANDB_ENTITY}"
 fi
 
+MODEL_ARGS="pretrained=${CHECKPOINT_PATH},tokenizer=${TOKENIZER_PATH},trust_remote_code=True"
+if [[ -f "${CHECKPOINT_PATH}/adapter_config.json" ]]; then
+  BASE_MODEL="${TOKENIZER_PATH}"
+  if [[ -z "${BASE_MODEL}" || "${BASE_MODEL}" == "${CHECKPOINT_PATH}" ]]; then
+    BASE_MODEL="$(python - <<'PY' "${CHECKPOINT_PATH}/adapter_config.json"
+import json, sys
+cfg = json.load(open(sys.argv[1]))
+print(cfg.get("base_model_name_or_path", ""))
+PY
+)"
+  fi
+  if [[ -z "${BASE_MODEL}" ]]; then
+    echo "[ERROR] Base model not found for adapter checkpoint: ${CHECKPOINT_PATH}" >&2
+    exit 1
+  fi
+  TOKENIZER_USE="${TOKENIZER_PATH}"
+  if [[ -z "${TOKENIZER_USE}" || "${TOKENIZER_USE}" == "${CHECKPOINT_PATH}" ]]; then
+    TOKENIZER_USE="${BASE_MODEL}"
+  fi
+  MODEL_ARGS="pretrained=${BASE_MODEL},peft=${CHECKPOINT_PATH},tokenizer=${TOKENIZER_USE},trust_remote_code=True"
+fi
+
 cmd=(
   lm_eval
   --model hf
-  --model_args pretrained="${CHECKPOINT_PATH}",tokenizer="${TOKENIZER_PATH}",trust_remote_code=True
+  --model_args "${MODEL_ARGS}"
   --tasks "${TASKS}"
   --batch_size "${BATCH_SIZE}"
   --output_path "${output_json}"

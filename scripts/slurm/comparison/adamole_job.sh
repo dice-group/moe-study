@@ -37,6 +37,7 @@ export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-moe-study}"
 export WANDB_NAME="${WANDB_NAME:-adamole}"
 export WANDB_TAGS="comparison,adamole"
 export PYTHONUNBUFFERED=1
+export LLAMAFACTORY_SAVE_ADAPTER_CHECKPOINTS="${LLAMAFACTORY_SAVE_ADAPTER_CHECKPOINTS:-1}"
 
 OUTPUT_DIR="${OUTPUT_DIR:?OUTPUT_DIR not set}"
 mkdir -p "${OUTPUT_DIR}"
@@ -124,6 +125,7 @@ echo "[INFO] Running AdaMoLE training into ${OUTPUT_DIR}"
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
   --save_safetensors "${SAVE_SAFETENSORS:-False}" \
+  --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --max_steps "${MAX_STEPS:-0}" \
   --seed "${SEED:-42}" \
   --disable_gradient_checkpointing "${DISABLE_GRADIENT_CHECKPOINTING:-True}" \
