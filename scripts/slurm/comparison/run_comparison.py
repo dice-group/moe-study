@@ -7,6 +7,7 @@ import shlex
 import subprocess
 import sys
 import time
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -85,6 +86,35 @@ def accelerate_env_for_gpus(gpus_per_job: int, repo_root: Path) -> Dict[str, str
     }
 
 
+def _tier_hours(dataset_name: str) -> float | None:
+    head = dataset_name.split("_", 1)[0]
+    if not head.isdigit():
+        return None
+    lang_count = int(head)
+    tier_hours = {
+        5: 24.00,
+        10: 27.69,
+        22: 36.55,
+        46: 54.28,
+        96: 91.20,
+        200: 168.00,
+    }
+    return tier_hours.get(lang_count)
+
+
+def _format_sbatch_time(hours: float | None) -> str | None:
+    if hours is None:
+        return None
+    total_minutes = int(math.ceil(hours * 60))
+    days = total_minutes // (24 * 60)
+    rem_minutes = total_minutes % (24 * 60)
+    hours_part = rem_minutes // 60
+    minutes_part = rem_minutes % 60
+    if days > 0:
+        return f"{days}-{hours_part:02d}:{minutes_part:02d}:00"
+    return f"{hours_part:02d}:{minutes_part:02d}:00"
+
+
 def submit_job(job_name: str, script: Path, log_path: Path, env_assignments: List[str], sbatch_args: str) -> str:
     script = script.resolve()
     if not script.exists():
@@ -117,6 +147,7 @@ def run_simple_variants(
     output_root: Path,
     log_root: Path,
     sbatch_args: str,
+    time_limit: str | None,
     registry: Dict[str, str],
     lm_eval_cfg: dict,
     default_gpus: int,
@@ -151,8 +182,11 @@ def run_simple_variants(
         job_key = f"{dataset_label}-{approach_name}-{variant_name}"
         print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
+        time_arg = ""
+        if time_limit and "--time" not in sbatch_args:
+            time_arg = f"--time={time_limit}"
         job_specific_args = " ".join(
-            arg for arg in [sbatch_args, f"--gres=gpu:{job_gpu_type}:{job_gpus}"] if arg
+            arg for arg in [sbatch_args, f"--gres=gpu:{job_gpu_type}:{job_gpus}", time_arg] if arg
         )
         job_id = submit_job(job_key, script, log_path, env_assignments, job_specific_args)
         registry[job_key] = job_id
@@ -176,6 +210,7 @@ def run_moelpr_variants(
     log_root: Path,
     default_bs: int,
     sbatch_args: str,
+    time_limit: str | None,
     registry: Dict[str, str],
     lm_eval_cfg: dict,
     default_gpus: int,
@@ -212,8 +247,11 @@ def run_moelpr_variants(
         job_key = f"{dataset_label}-moelpr-{variant_name}"
         print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
+        time_arg = ""
+        if time_limit and "--time" not in sbatch_args:
+            time_arg = f"--time={time_limit}"
         job_specific_args = " ".join(
-            arg for arg in [sbatch_args, f"--gres=gpu:{job_gpu_type}:{job_gpus}"] if arg
+            arg for arg in [sbatch_args, f"--gres=gpu:{job_gpu_type}:{job_gpus}", time_arg] if arg
         )
         job_id = submit_job(job_key, script, log_path, env_assignments, job_specific_args)
         registry[job_key] = job_id
@@ -365,6 +403,7 @@ def main() -> None:
         datasets = discover_datasets(tokenizer_root, model_entry.get("datasets", []))
         for dataset_name, dataset_path in datasets:
             dataset_label = f"{tokenizer_root.name}-{dataset_name}"
+            time_limit = _format_sbatch_time(_tier_hours(dataset_name))
             dataset_output_root = output_root / dataset_label
             dataset_log_root = log_root / dataset_label
             dataset_output_root.mkdir(parents=True, exist_ok=True)
@@ -401,6 +440,7 @@ def main() -> None:
                         dataset_log_root,
                         moelpr_batch_size,
                         sbatch_args,
+                        time_limit,
                         job_registry,
                         lm_eval_cfg,
                         model_gpus,
@@ -416,6 +456,7 @@ def main() -> None:
                         dataset_output_root,
                         dataset_log_root,
                         sbatch_args,
+                        time_limit,
                         job_registry,
                         lm_eval_cfg,
                         model_gpus,
