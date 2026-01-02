@@ -6,7 +6,7 @@
     "wandb_project": "moe-study-comparison-kw-48-1",
     "wandb_entity": "",
     "wandb_group_prefix": "refactor-benchmark",
-    "tokenized_base": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moe_study_comparison",
+    "tokenized_base": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison",
     "moelpr_language_column": "language",
     "moelpr_language_map": "./configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",
@@ -25,8 +25,8 @@
         "10_langs",
         "22_langs",
         "46_langs",
-        "95_langs",
-        "199_langs"
+        "96_langs",
+        "200_langs"
       ]
     },
     {
@@ -37,8 +37,8 @@
         "10_langs",
         "22_langs",
         "46_langs",
-        "95_langs",
-        "199_langs"
+        "96_langs",
+        "200_langs"
       ]
     },
     {
@@ -49,8 +49,8 @@
         "10_langs",
         "22_langs",
         "46_langs",
-        "95_langs",
-        "199_langs"
+        "96_langs",
+        "200_langs"
       ]
     }
   ],

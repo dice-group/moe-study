@@ -30,8 +30,8 @@ export WANDB_ENTITY="${WANDB_ENTITY:-}"
 export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-moe-study}"
 
 DATASET_DIR="${DATASET_DIR:-./LLaMA-Factory/data}"
-TOKENIZED_PATH="${MOELPR_TOKENIZED_PATH:?MOELPR_TOKENIZED_PATH not set}" # TODO: for Stage 2, point to replay data (<1%) if available.
-TOKENIZED_PATH2="/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.2-1B_tokenizer/moelpr_stage2_eng" # TODO: achtung das ist hardocded weil ich grad faul bin
+TOKENIZED_PATH="${MOELPR_TOKENIZED_PATH:?MOELPR_TOKENIZED_PATH not set}"
+TOKENIZED_PATH2="${MOELPR_TOKENIZED_PATH_STAGE2:-${MOELPR_TOKENIZED_PATH2:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.2-1B_tokenizer/moelpr_stage2_eng}}"
 MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 LANGUAGE_COLUMN="${MOELPR_LANGUAGE_COLUMN:?MOELPR_LANGUAGE_COLUMN not set}"
 LANGUAGE_MAP="${MOELPR_LANGUAGE_MAP:?MOELPR_LANGUAGE_MAP not set}"

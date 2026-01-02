@@ -350,12 +350,21 @@ def main() -> None:
             dataset_output_root.mkdir(parents=True, exist_ok=True)
             dataset_log_root.mkdir(parents=True, exist_ok=True)
             dataset_env = dict(base_env)
+            moelpr_root = (tokenized_base / "moelpr" / tokenizer_name / dataset_name).resolve()
+            moelpr_stage1 = moelpr_root / "stage1_newlangs"
+            moelpr_stage2 = moelpr_root / "stage2_english"
+            if not moelpr_stage1.exists() or not moelpr_stage2.exists():
+                print(
+                    f"[WARN] MoE-LPR datasets missing for {tokenizer_name}/{dataset_name}: "
+                    f"{moelpr_stage1} / {moelpr_stage2}"
+                )
             dataset_env.update(
                 {
                     "MODEL_NAME_OR_PATH": model_name,
                     "GENERIC_TOKENIZED_PATH": str(dataset_path),
                     "GENERIC_DATASET_NAME": dataset_name,
-                    "MOELPR_TOKENIZED_PATH": str(dataset_path),
+                    "MOELPR_TOKENIZED_PATH": str(moelpr_stage1),
+                    "MOELPR_TOKENIZED_PATH_STAGE2": str(moelpr_stage2),
                     "MOELPR_DATASET_NAME": dataset_name,
                     "MOELPR_EVAL_DATASET_NAME": dataset_name,
                     "WANDB_RUN_GROUP": f"{wandb_group_prefix}-{dataset_label}-{timestamp}",
