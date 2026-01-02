@@ -18,10 +18,12 @@ if [[ -n "${MODULE_INIT:-}" ]]; then
   eval "${MODULE_INIT}"
 fi
 
+set +u
 if [[ -n "${CONDA_BASE:-}" && -n "${CONDA_ENV:-}" ]]; then
   source "${CONDA_BASE}/etc/profile.d/conda.sh"
   conda activate "${CONDA_ENV}"
 fi
+set -u
 
 export WANDB_PROJECT="${WANDB_PROJECT:-moe-study-comparison}"
 export WANDB_ENTITY="${WANDB_ENTITY:-}"

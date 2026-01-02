@@ -15,10 +15,12 @@ if [[ -n "${MODULE_INIT:-}" ]]; then
   eval "${MODULE_INIT}"
 fi
 
+set +u
 if [[ -n "${CONDA_BASE:-}" && -n "${CONDA_ENV:-}" ]]; then
   source "${CONDA_BASE}/etc/profile.d/conda.sh"
   conda activate "${CONDA_ENV}"
 fi
+set -u
 
 python3 "${WATCH_CHECKPOINTS_PATH}" \
   --watch-dir "${WATCH_DIR:?WATCH_DIR not set}" \

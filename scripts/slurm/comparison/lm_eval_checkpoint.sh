@@ -15,11 +15,13 @@ if [[ -n "${MODULE_INIT:-}" ]]; then
   eval "${MODULE_INIT}"
 fi
 
+set +u
 if [[ -n "${CONDA_BASE:-}" && -n "${CONDA_ENV:-}" ]]; then
   # shellcheck disable=SC1090
   source "${CONDA_BASE}/etc/profile.d/conda.sh"
   conda activate "${CONDA_ENV}"
 fi
+set -u
 
 CHECKPOINT_PATH="${CHECKPOINT_PATH:?CHECKPOINT_PATH not set}"
 TOKENIZER_PATH="${TOKENIZER_PATH:-${CHECKPOINT_PATH}}"
