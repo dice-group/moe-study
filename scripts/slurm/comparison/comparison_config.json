@@ -137,7 +137,7 @@
           "env": {
             "MOELPR_STAGE1_AUX_LOSS_COEF": 0.01,
             "MOELPR_STAGE2_LPR_LOSS_COEF": 0.1,
-            "MOELPR_TOP_K": 2,
+            "MOELPR_TOP_K": 1,
             "MOELPR_NUM_EXPERTS": 4
           }
         }

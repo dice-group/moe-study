@@ -16,10 +16,11 @@ if [[ -n "${MODULE_INIT:-}" ]]; then
 fi
 
 set +u
-if [[ -n "${CONDA_BASE:-}" && -n "${CONDA_ENV:-}" ]]; then
+EVAL_CONDA_ENV="${EVAL_CONDA_ENV:-${CONDA_ENV:-}}"
+if [[ -n "${CONDA_BASE:-}" && -n "${EVAL_CONDA_ENV:-}" ]]; then
   # shellcheck disable=SC1090
   source "${CONDA_BASE}/etc/profile.d/conda.sh"
-  conda activate "${CONDA_ENV}"
+  conda activate "${EVAL_CONDA_ENV}"
 fi
 set -u
 
