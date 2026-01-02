@@ -12,7 +12,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+if [[ -n "${REPO_ROOT:-}" ]]; then
+  REPO_ROOT="${REPO_ROOT}"
+elif [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+  REPO_ROOT="${SLURM_SUBMIT_DIR}"
+else
+  REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+fi
 
 if [[ -n "${MODULE_INIT:-}" ]]; then
   eval "${MODULE_INIT}"

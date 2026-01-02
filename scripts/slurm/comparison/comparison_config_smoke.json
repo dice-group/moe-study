@@ -49,7 +49,7 @@
           "name": "paper-best",
           "env": {
             "MOLA_NUM_EXPERTS": 4,
-            "MOLA_TOP_K": 3,
+            "MOLA_TOP_K": 1,
             "MOLA_ROUTER_AUX_LOSS_COEF": 0.02,
             "MOLA_NULL_EXPERT_PENALTY": 0,
             "MOLA_AUX_LOSS_ANNEALING": true
