@@ -208,7 +208,6 @@ def run_moelpr_variants(
     timestamp: str,
     output_root: Path,
     log_root: Path,
-    default_bs: int,
     sbatch_args: str,
     time_limit: str | None,
     registry: Dict[str, str],
@@ -217,11 +216,12 @@ def run_moelpr_variants(
     default_gpu_type: str,
 ) -> None:
     script = COMPARISON_DIR / cfg["script"]
+    batch_size = int(cfg.get("batch_size", 16))
     log_prefix = cfg.get("log_prefix", "moelpr")
     for variant in cfg.get("variants", []):
         variant_name = variant["name"]
         variant_env = {k: to_env_value(v) for k, v in variant.get("env", {}).items()}
-        bs = int(variant.get("batch_size", default_bs))
+        bs = int(variant.get("batch_size", batch_size))
         job_gpus = int(variant.get("gpus_per_job", cfg.get("gpus_per_job", default_gpus)))
         job_gpu_type = variant.get("gpu_type", cfg.get("gpu_type", default_gpu_type))
         stage1_dir = output_root / "moelpr" / f"{variant_name}_stage1_{timestamp}"
@@ -351,7 +351,6 @@ def main() -> None:
     wandb_project = global_cfg.get("wandb_project", "")
     wandb_entity = global_cfg.get("wandb_entity", "")
     wandb_group_prefix = global_cfg.get("wandb_group_prefix", "refactor-benchmark")
-    moelpr_batch_size = int(global_cfg.get("moelpr_batch_size", 16))
     moelpr_language_column = global_cfg.get("moelpr_language_column", "language")
     moelpr_language_map = resolve_path(
         global_cfg.get("moelpr_language_map", "./configs/moelpr_lang_map.json")
@@ -360,28 +359,22 @@ def main() -> None:
     eval_steps = int(global_cfg.get("eval_steps", 200))
     default_gpu_type = global_cfg.get("gpu_type", "h100")
     default_gpus_per_job = int(global_cfg.get("gpus_per_job", 4))
-    deepspeed_config = global_cfg.get("deepspeed_config")
 
     ensure_dir(dataset_dir, "DATASET_DIR")
     ensure_dir(moelpr_language_map, "MOELPR_LANGUAGE_MAP")
     ensure_dir(tokenized_base, "tokenized_base")
     output_root.mkdir(parents=True, exist_ok=True)
     log_root.mkdir(parents=True, exist_ok=True)
-    if not deepspeed_config:
-        sys.exit("[ERROR] global.deepspeed_config must be provided for DeepSpeed execution.")
-    deepspeed_config_path = resolve_path(deepspeed_config)
-    if not deepspeed_config_path.exists():
-        sys.exit(f"[ERROR] DeepSpeed config {deepspeed_config_path} not found.")
 
     base_env = {
         "DATASET_DIR": str(dataset_dir),
         "WANDB_PROJECT": wandb_project,
         "WANDB_ENTITY": wandb_entity,
+        "USE_ACCELERATE": "1",
         "MOELPR_LANGUAGE_COLUMN": moelpr_language_column,
         "MOELPR_LANGUAGE_MAP": str(moelpr_language_map),
         "MOELPR_ORIGINAL_LANGUAGE": moelpr_original_language,
         "EVAL_STEPS": str(eval_steps),
-        "DEEPSPEED_CONFIG_FILE": str(deepspeed_config_path),
     }
     for key in ("CONDA_BASE", "CONDA_ENV", "MODULE_INIT"):
         if os.environ.get(key):
@@ -438,7 +431,6 @@ def main() -> None:
                         timestamp,
                         dataset_output_root,
                         dataset_log_root,
-                        moelpr_batch_size,
                         sbatch_args,
                         time_limit,
                         job_registry,

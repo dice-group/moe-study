@@ -39,11 +39,6 @@ ORIGINAL_LANGUAGE="${MOELPR_ORIGINAL_LANGUAGE:?MOELPR_ORIGINAL_LANGUAGE not set}
 DATASET_NAME="${MOELPR_DATASET_NAME:-moelpr_5_langs}"
 EVAL_DATASET_NAME="${MOELPR_EVAL_DATASET_NAME:-${DATASET_NAME}}"
 GPUS_PER_NODE="${GPUS_PER_NODE:-4}"
-DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG_FILE:-${REPO_ROOT}/configs/deepspeed/comparison_ds_config.json}"
-if [[ ! -f "${DEEPSPEED_CONFIG}" ]]; then
-  echo "[ERROR] DeepSpeed config ${DEEPSPEED_CONFIG} not found." >&2
-  exit 1
-fi
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   PORT_SEED="${SLURM_JOB_ID}"
 else
@@ -58,44 +53,31 @@ if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
 fi
 LLAMAFACTORY_MODULE="${LLAMAFACTORY_MODULE:-llamafactory.launcher}"
 TRAIN_SCRIPT="${REPO_ROOT}/LLaMA-Factory/src/train.py"
-USE_ACCELERATE="${USE_ACCELERATE:-0}"
+USE_ACCELERATE="${USE_ACCELERATE:-1}"
 ACCELERATE_CONFIG="${ACCELERATE_CONFIG:-}"
-if [[ "${USE_ACCELERATE}" == "1" ]]; then
-  if [[ -z "${ACCELERATE_CONFIG}" ]]; then
-    echo "[ERROR] ACCELERATE_CONFIG not set for accelerate launch." >&2
-    exit 1
-  fi
+if [[ "${USE_ACCELERATE}" != "1" ]]; then
+  echo "[ERROR] USE_ACCELERATE=0 is no longer supported in comparison jobs." >&2
+  exit 1
+fi
+if ! command -v accelerate >/dev/null 2>&1; then
+  echo "[ERROR] accelerate launcher not found in PATH." >&2
+  exit 1
+fi
+if [[ -n "${ACCELERATE_CONFIG}" ]]; then
   if [[ ! -f "${ACCELERATE_CONFIG}" ]]; then
     echo "[ERROR] Accelerate config ${ACCELERATE_CONFIG} not found." >&2
-    exit 1
-  fi
-  if ! command -v accelerate >/dev/null 2>&1; then
-    echo "[ERROR] accelerate launcher not found in PATH." >&2
     exit 1
   fi
   export ACCELERATE_USE_FSDP="${ACCELERATE_USE_FSDP:-1}"
   LAUNCH_CMD=(accelerate launch --config_file "${ACCELERATE_CONFIG}" "${TRAIN_SCRIPT}")
   echo "[INFO] Using Accelerate config ${ACCELERATE_CONFIG}"
 else
-  DEEPSPEED_BIN="${DEEPSPEED_BIN:-$(command -v deepspeed || true)}"
-  if [[ -z "${DEEPSPEED_BIN}" ]]; then
-    echo "[ERROR] deepspeed launcher not found in PATH." >&2
+  if [[ "${GPUS_PER_NODE}" -ne 1 ]]; then
+    echo "[ERROR] ACCELERATE_CONFIG not set for ${GPUS_PER_NODE} GPU(s)." >&2
     exit 1
   fi
-  LAUNCH_CMD=(
-    "${DEEPSPEED_BIN}"
-    "--num_nodes=${NNODES}"
-    "--num_gpus=${GPUS_PER_NODE}"
-    "--master_port=${MASTER_PORT}"
-    "${PYTHON_BIN}"
-    -m
-    "${LLAMAFACTORY_MODULE}"
-  )
-  echo "[INFO] Using DeepSpeed config ${DEEPSPEED_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node (master_port=${MASTER_PORT})"
-fi
-DEEPSPEED_ARGS=()
-if [[ "${USE_ACCELERATE}" != "1" ]]; then
-  DEEPSPEED_ARGS=(--deepspeed "${DEEPSPEED_CONFIG}")
+  LAUNCH_CMD=(accelerate launch --num_processes 1 "${TRAIN_SCRIPT}")
+  echo "[INFO] Using Accelerate without config on 1 GPU"
 fi
 
 STAGE1_OUT="${MOELPR_STAGE1_OUTPUT:?MOELPR_STAGE1_OUTPUT not set}"
@@ -104,10 +86,10 @@ mkdir -p "${STAGE1_OUT}" "${STAGE2_OUT}"
 
 STAGE1_EPOCHS="${MOELPR_STAGE1_EPOCHS:-1}"
 STAGE1_LR="${MOELPR_STAGE1_LR:-2e-4}"
-STAGE1_BS="${MOELPR_STAGE1_BATCH:-18}"
+STAGE1_BS="${MOELPR_STAGE1_BATCH:-${PER_DEVICE_TRAIN_BATCH_SIZE:-18}}"
 STAGE2_EPOCHS="${MOELPR_STAGE2_EPOCHS:-1}"
 STAGE2_LR="${MOELPR_STAGE2_LR:-1e-4}"
-STAGE2_BS="${MOELPR_STAGE2_BATCH:-18}"
+STAGE2_BS="${MOELPR_STAGE2_BATCH:-${PER_DEVICE_TRAIN_BATCH_SIZE:-18}}"
 GRAD_ACC="${GRADIENT_ACCUMULATION_STEPS:-2}"
 TOP_K="${MOELPR_TOP_K:-1}"
 RANDOM_ID=$(printf "%04d" $((RANDOM % 10000)))
@@ -153,7 +135,6 @@ export WANDB_TAGS="comparison,moelpr,stage1"
   --moelpr_top_k "${MOELPR_TOP_K:-1}" \
   --moelpr_aux_loss_coef "${MOELPR_STAGE1_AUX_LOSS_COEF:-0.05}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
-  "${DEEPSPEED_ARGS[@]}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
@@ -200,7 +181,6 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --moelpr_lpr_loss_coef "${MOELPR_STAGE2_LPR_LOSS_COEF:-0.1}" \
   --moelpr_original_language "${ORIGINAL_LANGUAGE}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
-  "${DEEPSPEED_ARGS[@]}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true

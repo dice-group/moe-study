@@ -10,11 +10,9 @@
     "moelpr_language_column": "language",
     "moelpr_language_map": "./configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",
-    "moelpr_batch_size": 8,
     "eval_steps": 50,
     "gpu_type": "h100",
-    "gpus_per_job": 1,
-    "deepspeed_config": "./configs/deepspeed/comparison_ds_config.json"
+    "gpus_per_job": 1
   },
   "models": [
     {
@@ -35,7 +33,7 @@
         {
           "name": "paper-best",
           "env": {
-            "ADAMOLE_NUM_EXPERTS": 8,
+            "ADAMOLE_NUM_EXPERTS": 4,
             "ADAMOLE_AUX_LOSS_COEF": 0.001,
             "ADAMOLE_MAX_THRESHOLD": 0.125
           }
@@ -50,6 +48,7 @@
         {
           "name": "paper-best",
           "env": {
+            "MOLA_NUM_EXPERTS": 4,
             "MOLA_TOP_K": 3,
             "MOLA_ROUTER_AUX_LOSS_COEF": 0.02,
             "MOLA_NULL_EXPERT_PENALTY": 0,
@@ -100,13 +99,15 @@
       "type": "moelpr",
       "script": "moelpr_job.sh",
       "log_prefix": "moelpr",
+      "batch_size": 8,
       "variants": [
         {
           "name": "paper-best",
           "env": {
             "MOELPR_STAGE1_AUX_LOSS_COEF": 0.01,
             "MOELPR_STAGE2_LPR_LOSS_COEF": 0.1,
-            "MOELPR_TOP_K": 2
+            "MOELPR_TOP_K": 2,
+            "MOELPR_NUM_EXPERTS": 4
           }
         }
       ]

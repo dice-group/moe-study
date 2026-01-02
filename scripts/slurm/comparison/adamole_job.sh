@@ -39,11 +39,6 @@ MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 DATASET_NAME="${GENERIC_DATASET_NAME:-c4}"
 EVAL_DATASET_NAME="${GENERIC_EVAL_DATASET_NAME:-${DATASET_NAME}}"
 GPUS_PER_NODE="${GPUS_PER_NODE:-4}"
-DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG_FILE:-${REPO_ROOT}/configs/deepspeed/comparison_ds_config.json}"
-if [[ ! -f "${DEEPSPEED_CONFIG}" ]]; then
-  echo "[ERROR] DeepSpeed config ${DEEPSPEED_CONFIG} not found." >&2
-  exit 1
-fi
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   PORT_SEED="${SLURM_JOB_ID}"
 else
@@ -58,44 +53,31 @@ if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
 fi
 LLAMAFACTORY_MODULE="${LLAMAFACTORY_MODULE:-llamafactory.launcher}"
 TRAIN_SCRIPT="${REPO_ROOT}/LLaMA-Factory/src/train.py"
-USE_ACCELERATE="${USE_ACCELERATE:-0}"
+USE_ACCELERATE="${USE_ACCELERATE:-1}"
 ACCELERATE_CONFIG="${ACCELERATE_CONFIG:-}"
-if [[ "${USE_ACCELERATE}" == "1" ]]; then
-  if [[ -z "${ACCELERATE_CONFIG}" ]]; then
-    echo "[ERROR] ACCELERATE_CONFIG not set for accelerate launch." >&2
-    exit 1
-  fi
+if [[ "${USE_ACCELERATE}" != "1" ]]; then
+  echo "[ERROR] USE_ACCELERATE=0 is no longer supported in comparison jobs." >&2
+  exit 1
+fi
+if ! command -v accelerate >/dev/null 2>&1; then
+  echo "[ERROR] accelerate launcher not found in PATH." >&2
+  exit 1
+fi
+if [[ -n "${ACCELERATE_CONFIG}" ]]; then
   if [[ ! -f "${ACCELERATE_CONFIG}" ]]; then
     echo "[ERROR] Accelerate config ${ACCELERATE_CONFIG} not found." >&2
-    exit 1
-  fi
-  if ! command -v accelerate >/dev/null 2>&1; then
-    echo "[ERROR] accelerate launcher not found in PATH." >&2
     exit 1
   fi
   export ACCELERATE_USE_FSDP="${ACCELERATE_USE_FSDP:-1}"
   LAUNCH_CMD=(accelerate launch --config_file "${ACCELERATE_CONFIG}" "${TRAIN_SCRIPT}")
   echo "[INFO] Using Accelerate config ${ACCELERATE_CONFIG}"
 else
-  DEEPSPEED_BIN="${DEEPSPEED_BIN:-$(command -v deepspeed || true)}"
-  if [[ -z "${DEEPSPEED_BIN}" ]]; then
-    echo "[ERROR] deepspeed launcher not found in PATH." >&2
+  if [[ "${GPUS_PER_NODE}" -ne 1 ]]; then
+    echo "[ERROR] ACCELERATE_CONFIG not set for ${GPUS_PER_NODE} GPU(s)." >&2
     exit 1
   fi
-  LAUNCH_CMD=(
-    "${DEEPSPEED_BIN}"
-    "--num_nodes=${NNODES}"
-    "--num_gpus=${GPUS_PER_NODE}"
-    "--master_port=${MASTER_PORT}"
-    "${PYTHON_BIN}"
-    -m
-    "${LLAMAFACTORY_MODULE}"
-  )
-  echo "[INFO] Using DeepSpeed config ${DEEPSPEED_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node (master_port=${MASTER_PORT})"
-fi
-DEEPSPEED_ARGS=()
-if [[ "${USE_ACCELERATE}" != "1" ]]; then
-  DEEPSPEED_ARGS=(--deepspeed "${DEEPSPEED_CONFIG}")
+  LAUNCH_CMD=(accelerate launch --num_processes 1 "${TRAIN_SCRIPT}")
+  echo "[INFO] Using Accelerate without config on 1 GPU"
 fi
 
 TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
@@ -134,6 +116,7 @@ echo "[INFO] Running AdaMoLE training into ${OUTPUT_DIR}"
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
   --max_steps "${MAX_STEPS:-0}" \
+  --seed "${SEED:-42}" \
   --disable_gradient_checkpointing "${DISABLE_GRADIENT_CHECKPOINTING:-True}" \
   --bf16 "${BF16:-False}" \
   --fp16 "${FP16:-True}" \
@@ -146,7 +129,6 @@ echo "[INFO] Running AdaMoLE training into ${OUTPUT_DIR}"
   --adamole_max_threshold "${ADAMOLE_MAX_THRESHOLD:-0.2}" \
   --adamole_aux_loss_coef "${ADAMOLE_AUX_LOSS_COEF:-0.01}" \
   --adamole_debug_mode "${ADAMOLE_DEBUG_MODE:-False}" \
-  "${DEEPSPEED_ARGS[@]}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
