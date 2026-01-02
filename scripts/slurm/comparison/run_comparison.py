@@ -69,6 +69,22 @@ def prepare_env(assignments: Dict[str, str]) -> List[str]:
     return [f"{key}={value}" for key, value in assignments.items()]
 
 
+def accelerate_env_for_gpus(gpus_per_job: int, repo_root: Path) -> Dict[str, str]:
+    if gpus_per_job == 2:
+        config_path = repo_root / "LLaMA-Factory" / "examples" / "accelerate" / "fsdp_2gpu_config.yaml"
+    elif gpus_per_job == 4:
+        config_path = repo_root / "LLaMA-Factory" / "examples" / "accelerate" / "fsdp_4gpu_config.yaml"
+    else:
+        return {}
+    if not config_path.exists():
+        sys.exit(f"[ERROR] Accelerate config {config_path} not found.")
+    return {
+        "USE_ACCELERATE": "1",
+        "ACCELERATE_CONFIG": str(config_path),
+        "ACCELERATE_USE_FSDP": "1",
+    }
+
+
 def submit_job(job_name: str, script: Path, log_path: Path, env_assignments: List[str], sbatch_args: str) -> str:
     script = script.resolve()
     if not script.exists():
@@ -131,6 +147,7 @@ def run_simple_variants(
                 "GPU_TYPE": job_gpu_type,
             }
         )
+        env.update(accelerate_env_for_gpus(job_gpus, REPO_ROOT))
         job_key = f"{dataset_label}-{approach_name}-{variant_name}"
         print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
@@ -190,6 +207,7 @@ def run_moelpr_variants(
                 "GPU_TYPE": job_gpu_type,
             }
         )
+        env.update(accelerate_env_for_gpus(job_gpus, REPO_ROOT))
         log_path = log_root / f"{log_prefix}_{variant_name}_{timestamp}.log"
         job_key = f"{dataset_label}-moelpr-{variant_name}"
         print(f"[INFO] Queueing {job_key} (bs={bs})")
@@ -340,6 +358,8 @@ def main() -> None:
         tokenizer_name = model_entry.get("tokenizer_name")
         if not tokenizer_name:
             sys.exit(f"[ERROR] tokenizer_name missing for model {model_name}.")
+        model_gpus = int(model_entry.get("gpus_per_job", default_gpus_per_job))
+        model_gpu_type = model_entry.get("gpu_type", default_gpu_type)
         tokenizer_root = (tokenized_base / tokenizer_name).resolve()
         ensure_dir(tokenizer_root, f"tokenizer_root ({model_name})")
         datasets = discover_datasets(tokenizer_root, model_entry.get("datasets", []))
@@ -383,8 +403,8 @@ def main() -> None:
                         sbatch_args,
                         job_registry,
                         lm_eval_cfg,
-                        default_gpus_per_job,
-                        default_gpu_type,
+                        model_gpus,
+                        model_gpu_type,
                     )
                 else:
                     run_simple_variants(
@@ -398,8 +418,8 @@ def main() -> None:
                         sbatch_args,
                         job_registry,
                         lm_eval_cfg,
-                        default_gpus_per_job,
-                        default_gpu_type,
+                        model_gpus,
+                        model_gpu_type,
                     )
 
     if not job_registry:

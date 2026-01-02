@@ -58,21 +58,46 @@ if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
   exit 1
 fi
 LLAMAFACTORY_MODULE="${LLAMAFACTORY_MODULE:-llamafactory.launcher}"
-DEEPSPEED_BIN="${DEEPSPEED_BIN:-$(command -v deepspeed || true)}"
-if [[ -z "${DEEPSPEED_BIN}" ]]; then
-  echo "[ERROR] deepspeed launcher not found in PATH." >&2
-  exit 1
+TRAIN_SCRIPT="${REPO_ROOT}/LLaMA-Factory/src/train.py"
+USE_ACCELERATE="${USE_ACCELERATE:-0}"
+ACCELERATE_CONFIG="${ACCELERATE_CONFIG:-}"
+if [[ "${USE_ACCELERATE}" == "1" ]]; then
+  if [[ -z "${ACCELERATE_CONFIG}" ]]; then
+    echo "[ERROR] ACCELERATE_CONFIG not set for accelerate launch." >&2
+    exit 1
+  fi
+  if [[ ! -f "${ACCELERATE_CONFIG}" ]]; then
+    echo "[ERROR] Accelerate config ${ACCELERATE_CONFIG} not found." >&2
+    exit 1
+  fi
+  if ! command -v accelerate >/dev/null 2>&1; then
+    echo "[ERROR] accelerate launcher not found in PATH." >&2
+    exit 1
+  fi
+  export ACCELERATE_USE_FSDP="${ACCELERATE_USE_FSDP:-1}"
+  LAUNCH_CMD=(accelerate launch --config_file "${ACCELERATE_CONFIG}" "${TRAIN_SCRIPT}")
+  echo "[INFO] Using Accelerate config ${ACCELERATE_CONFIG}"
+else
+  DEEPSPEED_BIN="${DEEPSPEED_BIN:-$(command -v deepspeed || true)}"
+  if [[ -z "${DEEPSPEED_BIN}" ]]; then
+    echo "[ERROR] deepspeed launcher not found in PATH." >&2
+    exit 1
+  fi
+  LAUNCH_CMD=(
+    "${DEEPSPEED_BIN}"
+    "--num_nodes=${NNODES}"
+    "--num_gpus=${GPUS_PER_NODE}"
+    "--master_port=${MASTER_PORT}"
+    "${PYTHON_BIN}"
+    -m
+    "${LLAMAFACTORY_MODULE}"
+  )
+  echo "[INFO] Using DeepSpeed config ${DEEPSPEED_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node (master_port=${MASTER_PORT})"
 fi
-LAUNCH_CMD=(
-  "${DEEPSPEED_BIN}"
-  "--num_nodes=${NNODES}"
-  "--num_gpus=${GPUS_PER_NODE}"
-  "--master_port=${MASTER_PORT}"
-  "${PYTHON_BIN}"
-  -m
-  "${LLAMAFACTORY_MODULE}"
-)
-echo "[INFO] Using DeepSpeed config ${DEEPSPEED_CONFIG} on ${GPUS_PER_NODE} GPU(s) per node (master_port=${MASTER_PORT})"
+DEEPSPEED_ARGS=()
+if [[ "${USE_ACCELERATE}" != "1" ]]; then
+  DEEPSPEED_ARGS=(--deepspeed "${DEEPSPEED_CONFIG}")
+fi
 
 TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
 TRAIN_LR="${LEARNING_RATE:-2e-4}"
@@ -127,7 +152,7 @@ echo "[INFO] Running CoLA training into ${OUTPUT_DIR}"
   --cola_num_experts "${COLA_NUM_EXPERTS:-4}" \
   --cola_top_k "${COLA_TOP_K:-2}" \
   --cola_debug "${COLA_DEBUG:-False}" \
-  --deepspeed "${DEEPSPEED_CONFIG}" \
+  "${DEEPSPEED_ARGS[@]}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true

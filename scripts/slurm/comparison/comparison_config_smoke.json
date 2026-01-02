@@ -13,7 +13,7 @@
     "moelpr_batch_size": 8,
     "eval_steps": 50,
     "gpu_type": "h100",
-    "gpus_per_job": 4,
+    "gpus_per_job": 1,
     "deepspeed_config": "./configs/deepspeed/comparison_ds_config.json"
   },
   "models": [
@@ -22,7 +22,8 @@
       "tokenizer_name": "llama-3.2-1B_tokenizer",
       "datasets": [
         "5_langs"
-      ]
+      ],
+      "gpus_per_job": 1
     }
   ],
   "approaches": {
