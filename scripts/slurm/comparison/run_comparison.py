@@ -283,12 +283,14 @@ def launch_eval_watcher(
         return
     label = f"{dataset_label}-{approach_name}-{variant_name}"
     watcher_env = dict(dataset_env)
+    eval_log_root = log_root / "eval"
+    eval_log_root.mkdir(parents=True, exist_ok=True)
     watcher_env.update(
         {
             "WATCH_DIR": str(watch_dir),
             "WATCH_LABEL": label,
             "EVAL_SCRIPT": str(eval_script),
-            "EVAL_LOG_DIR": str(log_root),
+            "EVAL_LOG_DIR": str(eval_log_root),
             "WATCH_CHECKPOINTS_PATH": str(COMPARISON_DIR / "watch_checkpoints.py"),
             "LM_EVAL_TASKS": lm_eval_cfg.get("_tasks_resolved", lm_eval_cfg.get("tasks", "belebele")),
             "LM_EVAL_BATCH_SIZE": str(lm_eval_cfg.get("batch_size", "auto")),
@@ -304,7 +306,7 @@ def launch_eval_watcher(
             "EVAL_GPUS": str(lm_eval_cfg.get("eval_sbatch", {}).get("gpus", 1)),
             "EVAL_GPU_TYPE": dataset_env.get("GPU_TYPE", ""),
             "EVAL_EXTRA_SBATCH": lm_eval_cfg.get("eval_sbatch", {}).get("extra_args", ""),
-            "EVAL_CONDA_ENV": lm_eval_cfg.get("conda_env", "moe_study_eval"),
+            "EVAL_CONDA_ENV": lm_eval_cfg.get("conda_env", "lm_eval"),
         }
     )
     env_assignments = prepare_env(watcher_env)
