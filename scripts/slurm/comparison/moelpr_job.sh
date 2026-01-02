@@ -126,8 +126,8 @@ export WANDB_TAGS="comparison,moelpr,stage1"
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
   --max_steps "${MOELPR_STAGE1_MAX_STEPS:-0}" \
-  --bf16 "${BF16:-False}" \
-  --fp16 "${FP16:-True}" \
+  --bf16 "${BF16:-True}" \
+  --fp16 "${FP16:-False}" \
   --seed "${SEED:-42}" \
   --tokenized_path "${TOKENIZED_PATH}" \
   --language_column "${LANGUAGE_COLUMN}" \
@@ -169,8 +169,8 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
   --max_steps "${MOELPR_STAGE2_MAX_STEPS:-0}" \
-  --bf16 "${BF16:-False}" \
-  --fp16 "${FP16:-True}" \
+  --bf16 "${BF16:-True}" \
+  --fp16 "${FP16:-False}" \
   --seed "${SEED:-42}" \
   --tokenized_path "${TOKENIZED_PATH2}" \
   --adapter_name_or_path "${STAGE1_OUT}" \

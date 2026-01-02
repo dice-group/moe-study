@@ -121,8 +121,8 @@ echo "[INFO] Running MoLA training into ${OUTPUT_DIR}"
   --save_steps "${SAVE_STEPS:-200}" \
   --max_steps "${MAX_STEPS:-0}" \
   --seed "${SEED:-42}" \
-  --bf16 "${BF16:-False}" \
-  --fp16 "${FP16:-True}" \
+  --bf16 "${BF16:-True}" \
+  --fp16 "${FP16:-False}" \
   --tokenized_path "${TOKENIZED_PATH}" \
   --lora_rank "${LORA_R:-8}" \
   --lora_alpha "${LORA_ALPHA:-16}" \

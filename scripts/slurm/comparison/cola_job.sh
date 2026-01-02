@@ -123,8 +123,8 @@ echo "[INFO] Running CoLA training into ${OUTPUT_DIR}"
   --max_steps "${MAX_STEPS:-0}" \
   --seed "${SEED:-42}" \
   --disable_gradient_checkpointing "${DISABLE_GRADIENT_CHECKPOINTING:-True}" \
-  --bf16 "${BF16:-False}" \
-  --fp16 "${FP16:-True}" \
+  --bf16 "${BF16:-True}" \
+  --fp16 "${FP16:-False}" \
   --tokenized_path "${TOKENIZED_PATH}" \
   --lora_rank "${LORA_R:-16}" \
   --lora_alpha "${LORA_ALPHA:-32}" \

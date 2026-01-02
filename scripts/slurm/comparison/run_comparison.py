@@ -306,7 +306,9 @@ def launch_eval_watcher(
         }
     )
     env_assignments = prepare_env(watcher_env)
-    log_path = log_root / f"watcher_{approach_name}_{variant_name}_{int(time.time())}.log"
+    watcher_log_root = log_root / "watcher"
+    watcher_log_root.mkdir(parents=True, exist_ok=True)
+    log_path = watcher_log_root / f"watcher_{approach_name}_{variant_name}_{int(time.time())}.log"
     cmd = ["env", *env_assignments, "sbatch", f"--output={log_path}"]
     watcher_sbatch = lm_eval_cfg.get("watcher_sbatch", {})
     if watcher_sbatch.get("partition"):

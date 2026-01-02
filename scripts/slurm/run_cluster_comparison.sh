@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 CONFIG_JSON="${SCRIPT_DIR}/comparison/comparison_config_smoke.json"
 
 export CONDA_BASE="${CONDA_BASE:-/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3}"
