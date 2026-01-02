@@ -125,6 +125,7 @@ echo "[INFO] Running MoLA training into ${OUTPUT_DIR}"
   --eval_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
+  --save_safetensors "${SAVE_SAFETENSORS:-False}" \
   --max_steps "${MAX_STEPS:-0}" \
   --seed "${SEED:-42}" \
   --bf16 "${BF16:-True}" \
