@@ -27,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-partition", default="")
     parser.add_argument("--eval-time", default="")
     parser.add_argument("--eval-gpus", type=int, default=1)
+    parser.add_argument("--eval-gpu-type", default="")
     parser.add_argument("--eval-extra-sbatch", default="")
     return parser.parse_args()
 
@@ -58,7 +59,10 @@ def submit_eval_job(
     if args.eval_time:
         cmd.append(f"--time={args.eval_time}")
     if args.eval_gpus is not None:
-        cmd.append(f"--gres=gpu:{args.eval_gpus}")
+        if args.eval_gpu_type:
+            cmd.append(f"--gres=gpu:{args.eval_gpu_type}:{args.eval_gpus}")
+        else:
+            cmd.append(f"--gres=gpu:{args.eval_gpus}")
     if args.eval_extra_sbatch:
         cmd.extend(shlex.split(args.eval_extra_sbatch))
     cmd.append(args.eval_script)

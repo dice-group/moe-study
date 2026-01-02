@@ -41,4 +41,5 @@ python3 "${WATCH_CHECKPOINTS_PATH}" \
   --eval-partition "${EVAL_PARTITION:-}" \
   --eval-time "${EVAL_TIME:-}" \
   --eval-gpus "${EVAL_GPUS:-1}" \
+  --eval-gpu-type "${EVAL_GPU_TYPE:-h100}" \
   --eval-extra-sbatch "${EVAL_EXTRA_SBATCH:-}"

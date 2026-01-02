@@ -302,6 +302,7 @@ def launch_eval_watcher(
             "EVAL_PARTITION": lm_eval_cfg.get("eval_sbatch", {}).get("partition", ""),
             "EVAL_TIME": lm_eval_cfg.get("eval_sbatch", {}).get("time", ""),
             "EVAL_GPUS": str(lm_eval_cfg.get("eval_sbatch", {}).get("gpus", 1)),
+            "EVAL_GPU_TYPE": dataset_env.get("GPU_TYPE", ""),
             "EVAL_EXTRA_SBATCH": lm_eval_cfg.get("eval_sbatch", {}).get("extra_args", ""),
         }
     )
