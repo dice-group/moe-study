@@ -24,3 +24,5 @@ emissions.csv
 /fw_samples_structured/
 /papers/further
 comparison_runs_smoke
+local_runs
+tokenized_smoke

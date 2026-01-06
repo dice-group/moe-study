@@ -363,6 +363,7 @@ def main() -> None:
     )
     moelpr_original_language = global_cfg.get("moelpr_original_language", "english")
     eval_steps = int(global_cfg.get("eval_steps", 200))
+    save_steps = int(global_cfg.get("save_steps", eval_steps))
     default_gpu_type = global_cfg.get("gpu_type", "h100")
     default_gpus_per_job = int(global_cfg.get("gpus_per_job", 4))
 
@@ -381,6 +382,7 @@ def main() -> None:
         "MOELPR_LANGUAGE_MAP": str(moelpr_language_map),
         "MOELPR_ORIGINAL_LANGUAGE": moelpr_original_language,
         "EVAL_STEPS": str(eval_steps),
+        "SAVE_STEPS": str(save_steps),
     }
     for key in ("CONDA_BASE", "CONDA_ENV", "MODULE_INIT"):
         if os.environ.get(key):

@@ -113,6 +113,7 @@ export WANDB_TAGS="comparison,moelpr,stage1"
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
+  --resize_vocab "${RESIZE_VOCAB:-False}" \
   --dataset "${DATASET_NAME}" \
   --eval_dataset "${EVAL_DATASET_NAME}" \
   --dataset_dir "${DATASET_DIR}" \
@@ -129,6 +130,7 @@ export WANDB_TAGS="comparison,moelpr,stage1"
   --per_device_eval_batch_size "${STAGE1_BS}" \
   --gradient_accumulation_steps "${GRAD_ACC}" \
   --logging_steps "${LOGGING_STEPS:-10}" \
+  --logging_first_step "${LOGGING_FIRST_STEP:-True}" \
   --eval_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
@@ -158,6 +160,7 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
+  --resize_vocab "${RESIZE_VOCAB:-False}" \
   --dataset "${DATASET_NAME}" \
   --eval_dataset "${EVAL_DATASET_NAME}" \
   --dataset_dir "${DATASET_DIR}" \
@@ -174,6 +177,7 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --per_device_eval_batch_size "${STAGE2_BS}" \
   --gradient_accumulation_steps "${GRAD_ACC}" \
   --logging_steps "${LOGGING_STEPS:-10}" \
+  --logging_first_step "${LOGGING_FIRST_STEP:-True}" \
   --eval_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
