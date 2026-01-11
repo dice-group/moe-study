@@ -10,7 +10,8 @@
     "moelpr_language_column": "language",
     "moelpr_language_map": "./configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",
-    "eval_steps": 50,
+    "eval_steps": 2000,
+    "save_steps": 2000,
     "gpu_type": "h100",
     "gpus_per_job": 1
   },

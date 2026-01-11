@@ -1,18 +1,19 @@
 {
   "global": {
     "output_root": "/scratch/hpc-prf-merlin/project_data/moe_study/comparison_runs_kw_48",
-    "log_root": "./scripts/slurm/logs/comparison",
+    "log_root": "./scripts/slurm/logs/comparison_smoke",
     "dataset_dir": "./LLaMA-Factory/data",  
-    "wandb_project": "moe-study-comparison-kw-48-1",
+    "wandb_project": "moe-study-comparison-smoke",
     "wandb_entity": "",
-    "wandb_group_prefix": "refactor-benchmark",
+    "wandb_group_prefix": "refactor-benchmark-smoke",
     "tokenized_base": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison",
     "moelpr_language_column": "language",
     "moelpr_language_map": "./configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",
-    "eval_steps": 5000,
+    "eval_steps": 2000,
+    "save_steps": 2000,
     "gpu_type": "h100",
-    "gpus_per_job": 4
+    "gpus_per_job": 1
   },
   "models": [
     {
@@ -59,7 +60,7 @@
     "adamole": {
       "script": "adamole_job.sh",
       "log_prefix": "adamole",
-      "batch_size": 12,
+      "batch_size": 13,
       "variants": [
         {
           "name": "paper-best",
@@ -80,7 +81,7 @@
           "name": "paper-best",
           "env": {
             "MOLA_NUM_EXPERTS": 4,
-            "MOLA_TOP_K": 3,
+            "MOLA_TOP_K": 1,
             "MOLA_ROUTER_AUX_LOSS_COEF": 0.02,
             "MOLA_NULL_EXPERT_PENALTY": 0,
             "MOLA_AUX_LOSS_ANNEALING": true
@@ -91,7 +92,7 @@
     "hydralora": {
       "script": "hydralora_job.sh",
       "log_prefix": "hydralora",
-      "batch_size": 12,
+      "batch_size": 16,
       "variants": [
         {
           "name": "paper-best",
@@ -109,7 +110,7 @@
     "cola": {
       "script": "cola_job.sh",
       "log_prefix": "cola",
-      "batch_size": 12,
+      "batch_size": 20,
       "variants": [
         {
           "name": "paper-best",
@@ -130,7 +131,7 @@
       "type": "moelpr",
       "script": "moelpr_job.sh",
       "log_prefix": "moelpr",
-      "batch_size": 16,
+      "batch_size": 26,
       "variants": [
         {
           "name": "paper-best",
