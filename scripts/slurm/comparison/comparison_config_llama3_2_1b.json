@@ -1,0 +1,140 @@
+{
+  "global": {
+    "output_root": "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs",
+    "log_root": "/scratch/hpc-prf-merlin/joel/moe-study/scripts/slurm/comparison",
+    "dataset_dir": "./LLaMA-Factory/data",
+    "wandb_project": "moe-study-comparison",
+    "wandb_group_prefix": "llama3.2-1B_benchmark",
+    "tokenized_base": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison",
+    "moelpr_language_column": "language",
+    "moelpr_language_map": "/scratch/hpc-prf-merlin/joel/moe-study/configs/moelpr_lang_map.json",
+    "moelpr_original_language": "english",
+    "eval_steps": 5000,
+    "save_steps": 5000,
+    "gpu_type": "h100"
+  },
+  "models": [
+    {
+      "model_name_or_path": "meta-llama/Llama-3.2-1B",
+      "tokenizer_name": "llama-3.2-1B_tokenizer",
+      "datasets": [
+        "5_langs",
+        "10_langs",
+        "22_langs",
+        "46_langs",
+        "96_langs",
+        "200_langs"
+      ],
+      "gpus_per_job": 1
+    }
+  ],
+  "approaches": {
+    "adamole": {
+      "script": "adamole_job.sh",
+      "log_prefix": "adamole",
+      "batch_size": 13,
+      "variants": [
+        {
+          "name": "paper-best",
+          "env": {
+            "ADAMOLE_NUM_EXPERTS": 4,
+            "ADAMOLE_AUX_LOSS_COEF": 0.001,
+            "ADAMOLE_MAX_THRESHOLD": 0.125
+          }
+        }
+      ]
+    },
+    "mola": {
+      "script": "adamoe_1_mola_job.sh",
+      "log_prefix": "mola",
+      "batch_size": 42,
+      "variants": [
+        {
+          "name": "paper-best",
+          "env": {
+            "MOLA_NUM_EXPERTS": 4,
+            "MOLA_TOP_K": 1,
+            "MOLA_ROUTER_AUX_LOSS_COEF": 0.02,
+            "MOLA_NULL_EXPERT_PENALTY": 0,
+            "MOLA_AUX_LOSS_ANNEALING": true
+          }
+        }
+      ]
+    },
+    "hydralora": {
+      "script": "hydralora_job.sh",
+      "log_prefix": "hydralora",
+      "batch_size": 16,
+      "variants": [
+        {
+          "name": "paper-best",
+          "env": {
+            "USE_HYDRALORA_EXPERTS": true,
+            "HYDRALORA_NUM_EXPERTS": 3,
+            "HYDRALORA_TOP_K": 1,
+            "HYDRALORA_NUM_B": 3,
+            "LORA_R": 8,
+            "LORA_ALPHA": 16
+          }
+        }
+      ]
+    },
+    "cola": {
+      "script": "cola_job.sh",
+      "log_prefix": "cola",
+      "batch_size": 20,
+      "variants": [
+        {
+          "name": "paper-best",
+          "env": {
+            "COLA_NUM_A": 1,
+            "COLA_NUM_B": 3,
+            "COLA_STRATEGY": "fully",
+            "LORA_R": 8,
+            "LORA_ALPHA": 16
+          }
+        }
+      ]
+    },
+    "moelpr": {
+      "type": "moelpr",
+      "script": "moelpr_job.sh",
+      "log_prefix": "moelpr",
+      "batch_size": 26,
+      "variants": [
+        {
+          "name": "paper-best",
+          "env": {
+            "MOELPR_STAGE1_AUX_LOSS_COEF": 0.01,
+            "MOELPR_STAGE2_LPR_LOSS_COEF": 0.1,
+            "MOELPR_TOP_K": 1,
+            "MOELPR_NUM_EXPERTS": 4
+          }
+        }
+      ]
+    }
+  },
+  "lm_eval": {
+    "enabled": false,
+    "tasks_file": "./configs/lm_eval_tasks.txt",
+    "batch_size": "auto",
+    "poll_interval_seconds": 30,
+    "idle_timeout_minutes": 15,
+    "max_duration_minutes": 120,
+    "start_after_checkpoints": 0,
+    "max_evals": 0,
+    "limit": 0,
+    "eval_script": "lm_eval_checkpoint.sh",
+    "watcher_sbatch": {
+      "partition": "",
+      "time": "04:00:00",
+      "cpus_per_task": 1,
+      "mem": "4G"
+    },
+    "eval_sbatch": {
+      "partition": "gpu",
+      "time": "04:00:00",
+      "gpus": 1
+    }
+  }
+}
