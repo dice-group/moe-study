@@ -126,8 +126,8 @@ echo "[INFO] Running MoLA training into ${OUTPUT_DIR}"
   --logging_steps "${LOGGING_STEPS:-10}" \
   --logging_first_step "${LOGGING_FIRST_STEP:-True}" \
   --eval_strategy "${EVAL_STRATEGY:-steps}" \
-  --eval_steps "${EVAL_STEPS:-200}" \
-  --save_steps "${SAVE_STEPS:-200}" \
+  --eval_steps "${EVAL_STEPS:-2000}" \
+  --save_steps "${SAVE_STEPS:-2000}" \
   --save_safetensors "${SAVE_SAFETENSORS:-False}" \
   --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --max_steps "${MAX_STEPS:-0}" \

@@ -132,8 +132,8 @@ export WANDB_TAGS="comparison,moelpr,stage1"
   --logging_steps "${LOGGING_STEPS:-10}" \
   --logging_first_step "${LOGGING_FIRST_STEP:-True}" \
   --eval_strategy "${EVAL_STRATEGY:-steps}" \
-  --eval_steps "${EVAL_STEPS:-200}" \
-  --save_steps "${SAVE_STEPS:-200}" \
+  --eval_steps "${EVAL_STEPS:-2000}" \
+  --save_steps "${SAVE_STEPS:-2000}" \
   --save_safetensors "${SAVE_SAFETENSORS:-False}" \
   --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --max_steps "${MOELPR_STAGE1_MAX_STEPS:-0}" \
