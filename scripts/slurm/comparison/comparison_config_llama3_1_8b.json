@@ -1,7 +1,7 @@
 {
   "global": {
     "output_root": "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs",
-    "log_root": "/scratch/hpc-prf-merlin/joel/moe-study/scripts/slurm/comparison",
+    "log_root": "/scratch/hpc-prf-merlin/joel/moe-study/scripts/slurm/comparison/logs",
     "dataset_dir": "./LLaMA-Factory/data",
     "wandb_project": "moe-study-comparison",
     "wandb_group_prefix": "llama3.1-8B_benchmark",
@@ -27,7 +27,7 @@
     "adamole": {
       "script": "adamole_job.sh",
       "log_prefix": "adamole",
-      "batch_size": 13,
+      "batch_size": 4,
       "variants": [
         {
           "name": "paper-best",
@@ -42,7 +42,7 @@
     "mola": {
       "script": "adamoe_1_mola_job.sh",
       "log_prefix": "mola",
-      "batch_size": 42,
+      "batch_size": 12,
       "variants": [
         {
           "name": "paper-best",
@@ -59,7 +59,7 @@
     "hydralora": {
       "script": "hydralora_job.sh",
       "log_prefix": "hydralora",
-      "batch_size": 16,
+      "batch_size": 2,
       "variants": [
         {
           "name": "paper-best",
@@ -77,7 +77,7 @@
     "cola": {
       "script": "cola_job.sh",
       "log_prefix": "cola",
-      "batch_size": 20,
+      "batch_size": 5,
       "variants": [
         {
           "name": "paper-best",
@@ -95,7 +95,7 @@
       "type": "moelpr",
       "script": "moelpr_job.sh",
       "log_prefix": "moelpr",
-      "batch_size": 26,
+      "batch_size": 4,
       "variants": [
         {
           "name": "paper-best",

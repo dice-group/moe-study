@@ -130,7 +130,6 @@ echo "[INFO] Running MoLA training into ${OUTPUT_DIR}"
   --save_steps "${SAVE_STEPS:-2000}" \
   --save_safetensors "${SAVE_SAFETENSORS:-False}" \
   --save_only_model "${SAVE_ONLY_MODEL:-True}" \
-  --max_steps "${MAX_STEPS:-0}" \
   --seed "${SEED:-42}" \
   --bf16 "${BF16:-True}" \
   --fp16 "${FP16:-False}" \
