@@ -42,7 +42,7 @@
     "adamole": {
       "script": "adamole_job.sh",
       "log_prefix": "adamole",
-      "batch_size": 4,
+      "batch_size": 3,
       "variants": [
         {
           "name": "paper-best",
@@ -57,7 +57,7 @@
     "mola": {
       "script": "adamoe_1_mola_job.sh",
       "log_prefix": "mola",
-      "batch_size": 12,
+      "batch_size": 3,
       "variants": [
         {
           "name": "paper-best",
@@ -74,7 +74,7 @@
     "hydralora": {
       "script": "hydralora_job.sh",
       "log_prefix": "hydralora",
-      "batch_size": 2,
+      "batch_size": 3,
       "variants": [
         {
           "name": "paper-best",
@@ -102,23 +102,6 @@
             "COLA_STRATEGY": "fully",
             "LORA_R": 8,
             "LORA_ALPHA": 16
-          }
-        }
-      ]
-    },
-    "moelpr": {
-      "type": "moelpr",
-      "script": "moelpr_job.sh",
-      "log_prefix": "moelpr",
-      "batch_size": 4,
-      "variants": [
-        {
-          "name": "paper-best",
-          "env": {
-            "MOELPR_STAGE1_AUX_LOSS_COEF": 0.01,
-            "MOELPR_STAGE2_LPR_LOSS_COEF": 0.1,
-            "MOELPR_TOP_K": 1,
-            "MOELPR_NUM_EXPERTS": 4
           }
         }
       ]
