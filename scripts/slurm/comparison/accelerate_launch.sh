@@ -64,7 +64,7 @@ build_accelerate_launch() {
     export ACCELERATE_USE_FSDP="${ACCELERATE_USE_FSDP:-1}"
 
     if [[ "${nnodes}" -gt 1 ]]; then
-      local wait_script="${WAIT_FOR_MASTER_SCRIPT:-${repo_root}/scripts/comparison_scripts_htyllm/wait_for_master.sh}"
+      local wait_script="${WAIT_FOR_MASTER_SCRIPT:-${repo_root}/scripts/slurm/comparison/wait_for_master.sh}"
       local wait_body=":"
       if [[ -x "${wait_script}" ]]; then
         wait_body="bash ${wait_script} ${MASTER_ADDR} ${MASTER_PORT} ${MASTER_CONNECT_TIMEOUT:-90}"

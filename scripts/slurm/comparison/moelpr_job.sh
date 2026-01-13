@@ -38,6 +38,13 @@ export WANDB_PROJECT="${WANDB_PROJECT:-moe-study-comparison}"
 export WANDB_ENTITY="${WANDB_ENTITY:-}"
 export WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-moe-study}"
 
+# Avoid NFS-backed caches (may cause slowdowns/hangs on cluster)
+CACHE_ROOT="${CACHE_ROOT:-${TMPDIR:-/tmp}/${USER}}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${CACHE_ROOT}/.cache}"
+export TRITON_CACHE_DIR="${TRITON_CACHE_DIR:-${CACHE_ROOT}/.triton/autotune}"
+export TORCH_EXTENSIONS_DIR="${TORCH_EXTENSIONS_DIR:-${XDG_CACHE_HOME}/torch_extensions}"
+mkdir -p "${XDG_CACHE_HOME}" "${TRITON_CACHE_DIR}" "${TORCH_EXTENSIONS_DIR}"
+
 DATASET_DIR="${DATASET_DIR:-./LLaMA-Factory/data}"
 TOKENIZED_PATH="${MOELPR_TOKENIZED_PATH:?MOELPR_TOKENIZED_PATH not set}"
 TOKENIZED_PATH2="${MOELPR_TOKENIZED_PATH_STAGE2:-${MOELPR_TOKENIZED_PATH2:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.2-1B_tokenizer/moelpr_stage2_eng}}"
