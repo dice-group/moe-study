@@ -11,7 +11,13 @@
     "moelpr_original_language": "english",
     "eval_steps": 5000,
     "save_steps": 5000,
-    "gpu_type": "h100"
+    "gpu_type": "h100",
+    "dataset_resources": {
+      "10_langs": {
+        "nodes": 1,
+        "gpus_per_node": 2
+      }
+    }
   },
   "models": [
     {

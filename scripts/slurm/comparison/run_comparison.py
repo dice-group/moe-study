@@ -141,7 +141,7 @@ def _build_sbatch_args(
     resources: dict,
     gpus_per_node: int,
     gpu_type: str,
-    time_limit: str | None,
+    gpu_hours: float | None,
     sbatch_args: str,
 ) -> str:
     args: List[str] = []
@@ -168,7 +168,9 @@ def _build_sbatch_args(
     if "mem" in resources:
         args.append(f"--mem={resources['mem']}")
 
-    time_arg = resources.get("time") or time_limit
+    total_gpus = max(1, nodes * gpus_per_node)
+    computed_time = _format_sbatch_time((gpu_hours / total_gpus) if gpu_hours else None)
+    time_arg = resources.get("time") or computed_time
     if time_arg and "--time" not in sbatch_args:
         args.append(f"--time={time_arg}")
     if resources.get("extra_sbatch_args"):
@@ -178,7 +180,7 @@ def _build_sbatch_args(
     return " ".join(args)
 
 
-def _tier_hours(dataset_name: str) -> float | None:
+def _tier_gpu_hours(dataset_name: str) -> float | None:
     head = dataset_name.split("_", 1)[0]
     if not head.isdigit():
         return None
@@ -240,7 +242,7 @@ def run_simple_variants(
     output_root: Path,
     log_root: Path,
     sbatch_args: str,
-    time_limit: str | None,
+    gpu_hours: float | None,
     registry: Dict[str, str],
     lm_eval_cfg: dict,
     default_gpus: int,
@@ -284,7 +286,7 @@ def run_simple_variants(
         job_key = f"{dataset_label}-{approach_name}-{variant_name}"
         print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
-        job_specific_args = _build_sbatch_args(resources, job_gpus, job_gpu_type, time_limit, sbatch_args)
+        job_specific_args = _build_sbatch_args(resources, job_gpus, job_gpu_type, gpu_hours, sbatch_args)
         job_id = submit_job(job_key, script, log_path, env_assignments, job_specific_args)
         registry[job_key] = job_id
         launch_eval_watcher(
@@ -307,7 +309,7 @@ def run_moelpr_variants(
     output_root: Path,
     log_root: Path,
     sbatch_args: str,
-    time_limit: str | None,
+    gpu_hours: float | None,
     registry: Dict[str, str],
     lm_eval_cfg: dict,
     default_gpus: int,
@@ -354,7 +356,7 @@ def run_moelpr_variants(
         job_key = f"{dataset_label}-moelpr-{variant_name}"
         print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
-        job_specific_args = _build_sbatch_args(resources, job_gpus, job_gpu_type, time_limit, sbatch_args)
+        job_specific_args = _build_sbatch_args(resources, job_gpus, job_gpu_type, gpu_hours, sbatch_args)
         job_id = submit_job(job_key, script, log_path, env_assignments, job_specific_args)
         registry[job_key] = job_id
         launch_eval_watcher(
@@ -544,7 +546,7 @@ def main() -> None:
                 dataset_resources_map.get(dataset_name, {}),
             )
             base_resources = merge_resources(global_resources, model_resources, dataset_resources)
-            time_limit = _format_sbatch_time(_tier_hours(dataset_name))
+            gpu_hours = _tier_gpu_hours(dataset_name)
             dataset_output_root = output_root / dataset_label
             dataset_log_root = log_root / dataset_label
             dataset_output_root.mkdir(parents=True, exist_ok=True)
@@ -582,7 +584,7 @@ def main() -> None:
                         dataset_output_root,
                         dataset_log_root,
                         sbatch_args,
-                        time_limit,
+                        gpu_hours,
                         job_registry,
                         lm_eval_cfg,
                         model_gpus,
@@ -599,7 +601,7 @@ def main() -> None:
                         dataset_output_root,
                         dataset_log_root,
                         sbatch_args,
-                        time_limit,
+                        gpu_hours,
                         job_registry,
                         lm_eval_cfg,
                         model_gpus,
