@@ -47,6 +47,10 @@ TOKENIZED_PATH="${GENERIC_TOKENIZED_PATH:?GENERIC_TOKENIZED_PATH not set}"
 MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 DATASET_NAME="${GENERIC_DATASET_NAME:-c4}"
 EVAL_DATASET_NAME="${GENERIC_EVAL_DATASET_NAME:-${DATASET_NAME}}"
+FLASH_ATTN="${FLASH_ATTN:-fa2}"
+AUTO_FIND_BATCH_SIZE="${AUTO_FIND_BATCH_SIZE:-false}"
+PREPROCESSING_NUM_WORKERS="${PREPROCESSING_NUM_WORKERS:-${SLURM_CPUS_PER_TASK:-8}}"
+PREPROCESSING_BATCH_SIZE="${PREPROCESSING_BATCH_SIZE:-100000}"
 GPUS_PER_NODE="${GPUS_PER_NODE:-4}"
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   PORT_SEED="${SLURM_JOB_ID}"
@@ -100,12 +104,18 @@ RANDOM_ID=$(printf "%04d" $((RANDOM % 10000)))
 RUN_NAME="${WANDB_NAME:-hydralora}_ep${TRAIN_EPOCHS}_bs${TRAIN_BS}x${GRAD_ACC}_lr${TRAIN_LR}_nexp${NUM_EXPERTS}_k${TOP_K}_${RANDOM_ID}"
 export WANDB_NAME="${RUN_NAME}"
 
+AUTO_FIND_BATCH_SIZE_FLAG=()
+if [[ "${AUTO_FIND_BATCH_SIZE}" == "true" || "${AUTO_FIND_BATCH_SIZE}" == "True" || "${AUTO_FIND_BATCH_SIZE}" == "1" ]]; then
+  AUTO_FIND_BATCH_SIZE_FLAG=(--auto_find_batch_size)
+fi
+
 echo "[INFO] Running HydraLoRA training into ${OUTPUT_DIR}"
 
 "${LAUNCH_CMD[@]}" \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
+  --flash_attn "${FLASH_ATTN}" \
   --resize_vocab "${RESIZE_VOCAB:-False}" \
   --dataset "${DATASET_NAME}" \
   --eval_dataset "${EVAL_DATASET_NAME}" \
@@ -143,6 +153,9 @@ echo "[INFO] Running HydraLoRA training into ${OUTPUT_DIR}"
   --hydralora_num_experts "${HYDRALORA_NUM_EXPERTS:-4}" \
   --hydralora_top_k "${HYDRALORA_TOP_K:-2}" \
   --hydralora_debug "${HYDRALORA_DEBUG:-False}" \
+  "${AUTO_FIND_BATCH_SIZE_FLAG[@]}" \
+  --preprocessing_num_workers "${PREPROCESSING_NUM_WORKERS}" \
+  --preprocessing_batch_size "${PREPROCESSING_BATCH_SIZE}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true

@@ -9,9 +9,25 @@
     "moelpr_language_column": "language",
     "moelpr_language_map": "/scratch/hpc-prf-merlin/joel/moe-study/configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",
+    "flash_attn": "fa2",
+    "auto_find_batch_size": "false",
+    "preprocessing_num_workers": 32,
+    "preprocessing_batch_size": 100000,
     "eval_steps": 5000,
     "save_steps": 5000,
-    "gpu_type": "h100"
+    "gpu_type": "h100",
+    "resources": {
+      "gpus_per_node": 4,
+      "gpu_type": "h100",
+      "partition": "gpu"
+    },
+    "dataset_resources": {
+      "200_langs": {
+        "nodes": 1,
+        "gpus_per_node": 4,
+        "time": "168:00:00"
+      }
+    }
   },
   "models": [
     {

@@ -70,11 +70,22 @@ def prepare_env(assignments: Dict[str, str]) -> List[str]:
     return [f"{key}={value}" for key, value in assignments.items()]
 
 
-def accelerate_env_for_gpus(gpus_per_job: int, repo_root: Path) -> Dict[str, str]:
-    if gpus_per_job == 2:
-        config_path = repo_root / "LLaMA-Factory" / "examples" / "accelerate" / "fsdp_2gpu_config.yaml"
-    elif gpus_per_job == 4:
+def accelerate_env_for_gpus(
+    gpus_per_node: int,
+    nodes: int,
+    repo_root: Path,
+    override: str | None = None,
+) -> Dict[str, str]:
+    if override:
+        config_path = resolve_path(override)
+    elif nodes > 1:
+        config_path = repo_root / "LLaMA-Factory" / "examples" / "accelerate" / "fsdp_config_multiple_nodes.yaml"
+    elif gpus_per_node >= 8:
+        config_path = repo_root / "LLaMA-Factory" / "examples" / "accelerate" / "fsdp_8gpu_config.yaml"
+    elif gpus_per_node == 4:
         config_path = repo_root / "LLaMA-Factory" / "examples" / "accelerate" / "fsdp_4gpu_config.yaml"
+    elif gpus_per_node == 2:
+        config_path = repo_root / "LLaMA-Factory" / "examples" / "accelerate" / "fsdp_2gpu_config.yaml"
     else:
         return {}
     if not config_path.exists():
@@ -84,6 +95,87 @@ def accelerate_env_for_gpus(gpus_per_job: int, repo_root: Path) -> Dict[str, str
         "ACCELERATE_CONFIG": str(config_path),
         "ACCELERATE_USE_FSDP": "1",
     }
+
+
+def merge_resources(*configs: dict | None) -> dict:
+    merged: dict = {}
+    for cfg in configs:
+        if cfg:
+            merged.update(cfg)
+    return merged
+
+
+def _resolve_dataset_entry(entry) -> tuple[str, dict]:
+    if isinstance(entry, dict):
+        name = entry.get("name")
+        if not name:
+            sys.exit("[ERROR] Dataset entry missing 'name'.")
+        return name, entry.get("resources", {}) or {}
+    return str(entry), {}
+
+
+def _resolve_gpus_per_node(resources: dict, variant: dict, cfg: dict, default_gpus: int) -> int:
+    for key in ("gpus_per_node", "gpus_per_job"):
+        if key in resources:
+            return int(resources[key])
+    for key in ("gpus_per_job", "gpus_per_node"):
+        if key in variant:
+            return int(variant[key])
+    for key in ("gpus_per_job", "gpus_per_node"):
+        if key in cfg:
+            return int(cfg[key])
+    return int(default_gpus)
+
+
+def _resolve_gpu_type(resources: dict, variant: dict, cfg: dict, default_gpu_type: str) -> str:
+    if "gpu_type" in resources:
+        return str(resources["gpu_type"])
+    if "gpu_type" in variant:
+        return str(variant["gpu_type"])
+    if "gpu_type" in cfg:
+        return str(cfg["gpu_type"])
+    return default_gpu_type
+
+
+def _build_sbatch_args(
+    resources: dict,
+    gpus_per_node: int,
+    gpu_type: str,
+    time_limit: str | None,
+    sbatch_args: str,
+) -> str:
+    args: List[str] = []
+    partition = resources.get("partition")
+    if partition:
+        args.append(f"--partition={partition}")
+    if gpus_per_node > 0:
+        args.append(f"--gres=gpu:{gpu_type}:{gpus_per_node}")
+    nodes = int(resources.get("nodes", 1))
+    if nodes > 1:
+        args.append(f"--nodes={nodes}")
+        if "ntasks" in resources:
+            args.append(f"--ntasks={resources['ntasks']}")
+        else:
+            args.append(f"--ntasks={nodes}")
+        if "ntasks_per_node" in resources:
+            args.append(f"--ntasks-per-node={resources['ntasks_per_node']}")
+        else:
+            args.append("--ntasks-per-node=1")
+    elif "ntasks" in resources:
+        args.append(f"--ntasks={resources['ntasks']}")
+    if "cpus_per_task" in resources:
+        args.append(f"--cpus-per-task={resources['cpus_per_task']}")
+    if "mem" in resources:
+        args.append(f"--mem={resources['mem']}")
+
+    time_arg = resources.get("time") or time_limit
+    if time_arg and "--time" not in sbatch_args:
+        args.append(f"--time={time_arg}")
+    if resources.get("extra_sbatch_args"):
+        args.append(str(resources["extra_sbatch_args"]))
+    if sbatch_args:
+        args.append(sbatch_args)
+    return " ".join(args)
 
 
 def _tier_hours(dataset_name: str) -> float | None:
@@ -143,6 +235,7 @@ def run_simple_variants(
     dataset_env: Dict[str, str],
     approach_name: str,
     cfg: dict,
+    base_resources: dict,
     timestamp: str,
     output_root: Path,
     log_root: Path,
@@ -160,9 +253,11 @@ def run_simple_variants(
     for variant in variants:
         variant_name = variant["name"]
         variant_env = {k: to_env_value(v) for k, v in variant.get("env", {}).items()}
+        resources = merge_resources(base_resources, cfg.get("resources"), variant.get("resources"))
         bs = int(variant.get("batch_size", batch_size))
-        job_gpus = int(variant.get("gpus_per_job", cfg.get("gpus_per_job", default_gpus)))
-        job_gpu_type = variant.get("gpu_type", cfg.get("gpu_type", default_gpu_type))
+        job_gpus = _resolve_gpus_per_node(resources, variant, cfg, default_gpus)
+        job_gpu_type = _resolve_gpu_type(resources, variant, cfg, default_gpu_type)
+        nodes = int(resources.get("nodes", 1))
         run_dir = output_root / approach_name / f"{variant_name}_{timestamp}"
         run_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_root / f"{log_prefix}_{variant_name}_{timestamp}.log"
@@ -178,16 +273,18 @@ def run_simple_variants(
                 "GPU_TYPE": job_gpu_type,
             }
         )
-        env.update(accelerate_env_for_gpus(job_gpus, REPO_ROOT))
+        env.update(
+            accelerate_env_for_gpus(
+                job_gpus,
+                nodes,
+                REPO_ROOT,
+                resources.get("accelerate_config"),
+            )
+        )
         job_key = f"{dataset_label}-{approach_name}-{variant_name}"
         print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
-        time_arg = ""
-        if time_limit and "--time" not in sbatch_args:
-            time_arg = f"--time={time_limit}"
-        job_specific_args = " ".join(
-            arg for arg in [sbatch_args, f"--gres=gpu:{job_gpu_type}:{job_gpus}", time_arg] if arg
-        )
+        job_specific_args = _build_sbatch_args(resources, job_gpus, job_gpu_type, time_limit, sbatch_args)
         job_id = submit_job(job_key, script, log_path, env_assignments, job_specific_args)
         registry[job_key] = job_id
         launch_eval_watcher(
@@ -205,6 +302,7 @@ def run_moelpr_variants(
     dataset_label: str,
     dataset_env: Dict[str, str],
     cfg: dict,
+    base_resources: dict,
     timestamp: str,
     output_root: Path,
     log_root: Path,
@@ -221,9 +319,11 @@ def run_moelpr_variants(
     for variant in cfg.get("variants", []):
         variant_name = variant["name"]
         variant_env = {k: to_env_value(v) for k, v in variant.get("env", {}).items()}
+        resources = merge_resources(base_resources, cfg.get("resources"), variant.get("resources"))
         bs = int(variant.get("batch_size", batch_size))
-        job_gpus = int(variant.get("gpus_per_job", cfg.get("gpus_per_job", default_gpus)))
-        job_gpu_type = variant.get("gpu_type", cfg.get("gpu_type", default_gpu_type))
+        job_gpus = _resolve_gpus_per_node(resources, variant, cfg, default_gpus)
+        job_gpu_type = _resolve_gpu_type(resources, variant, cfg, default_gpu_type)
+        nodes = int(resources.get("nodes", 1))
         stage1_dir = output_root / "moelpr" / f"{variant_name}_stage1_{timestamp}"
         stage2_dir = output_root / "moelpr" / f"{variant_name}_stage2_{timestamp}"
         stage1_dir.mkdir(parents=True, exist_ok=True)
@@ -242,17 +342,19 @@ def run_moelpr_variants(
                 "GPU_TYPE": job_gpu_type,
             }
         )
-        env.update(accelerate_env_for_gpus(job_gpus, REPO_ROOT))
+        env.update(
+            accelerate_env_for_gpus(
+                job_gpus,
+                nodes,
+                REPO_ROOT,
+                resources.get("accelerate_config"),
+            )
+        )
         log_path = log_root / f"{log_prefix}_{variant_name}_{timestamp}.log"
         job_key = f"{dataset_label}-moelpr-{variant_name}"
         print(f"[INFO] Queueing {job_key} (bs={bs})")
         env_assignments = prepare_env(env)
-        time_arg = ""
-        if time_limit and "--time" not in sbatch_args:
-            time_arg = f"--time={time_limit}"
-        job_specific_args = " ".join(
-            arg for arg in [sbatch_args, f"--gres=gpu:{job_gpu_type}:{job_gpus}", time_arg] if arg
-        )
+        job_specific_args = _build_sbatch_args(resources, job_gpus, job_gpu_type, time_limit, sbatch_args)
         job_id = submit_job(job_key, script, log_path, env_assignments, job_specific_args)
         registry[job_key] = job_id
         launch_eval_watcher(
@@ -362,10 +464,27 @@ def main() -> None:
         global_cfg.get("moelpr_language_map", "./configs/moelpr_lang_map.json")
     )
     moelpr_original_language = global_cfg.get("moelpr_original_language", "english")
+    flash_attn = global_cfg.get("flash_attn", os.environ.get("FLASH_ATTN", "fa2"))
+    auto_find_batch_size = global_cfg.get(
+        "auto_find_batch_size", os.environ.get("AUTO_FIND_BATCH_SIZE", "false")
+    )
+    preprocessing_num_workers = global_cfg.get(
+        "preprocessing_num_workers", os.environ.get("PREPROCESSING_NUM_WORKERS")
+    )
+    preprocessing_batch_size = global_cfg.get(
+        "preprocessing_batch_size", os.environ.get("PREPROCESSING_BATCH_SIZE")
+    )
     eval_steps = int(global_cfg.get("eval_steps", 200))
     save_steps = int(global_cfg.get("save_steps", eval_steps))
-    default_gpu_type = global_cfg.get("gpu_type", "h100")
-    default_gpus_per_job = int(global_cfg.get("gpus_per_job", 4))
+    global_resources = global_cfg.get("resources", {}) or {}
+    dataset_resources_map = global_cfg.get("dataset_resources", {}) or {}
+    default_gpu_type = global_resources.get("gpu_type", global_cfg.get("gpu_type", "h100"))
+    default_gpus_per_job = int(
+        global_resources.get(
+            "gpus_per_node",
+            global_resources.get("gpus_per_job", global_cfg.get("gpus_per_job", 4)),
+        )
+    )
 
     ensure_dir(dataset_dir, "DATASET_DIR")
     ensure_dir(moelpr_language_map, "MOELPR_LANGUAGE_MAP")
@@ -383,7 +502,13 @@ def main() -> None:
         "MOELPR_ORIGINAL_LANGUAGE": moelpr_original_language,
         "EVAL_STEPS": str(eval_steps),
         "SAVE_STEPS": str(save_steps),
+        "FLASH_ATTN": str(flash_attn),
+        "AUTO_FIND_BATCH_SIZE": str(auto_find_batch_size),
     }
+    if preprocessing_num_workers is not None:
+        base_env["PREPROCESSING_NUM_WORKERS"] = str(preprocessing_num_workers)
+    if preprocessing_batch_size is not None:
+        base_env["PREPROCESSING_BATCH_SIZE"] = str(preprocessing_batch_size)
     for key in ("CONDA_BASE", "CONDA_ENV", "MODULE_INIT"):
         if os.environ.get(key):
             base_env[key] = os.environ[key]
@@ -398,13 +523,27 @@ def main() -> None:
         tokenizer_name = model_entry.get("tokenizer_name")
         if not tokenizer_name:
             sys.exit(f"[ERROR] tokenizer_name missing for model {model_name}.")
+        model_resources = model_entry.get("resources", {}) or {}
         model_gpus = int(model_entry.get("gpus_per_job", default_gpus_per_job))
         model_gpu_type = model_entry.get("gpu_type", default_gpu_type)
         tokenizer_root = (tokenized_base / tokenizer_name).resolve()
         ensure_dir(tokenizer_root, f"tokenizer_root ({model_name})")
-        datasets = discover_datasets(tokenizer_root, model_entry.get("datasets", []))
+        dataset_entries = model_entry.get("datasets", [])
+        specified_names: List[str] = []
+        dataset_entry_resources: Dict[str, dict] = {}
+        for entry in dataset_entries:
+            name, resources = _resolve_dataset_entry(entry)
+            specified_names.append(name)
+            merged_resources = merge_resources(dataset_resources_map.get(name, {}), resources)
+            dataset_entry_resources[name] = merged_resources
+        datasets = discover_datasets(tokenizer_root, specified_names)
         for dataset_name, dataset_path in datasets:
             dataset_label = f"{tokenizer_root.name}-{dataset_name}"
+            dataset_resources = dataset_entry_resources.get(
+                dataset_name,
+                dataset_resources_map.get(dataset_name, {}),
+            )
+            base_resources = merge_resources(global_resources, model_resources, dataset_resources)
             time_limit = _format_sbatch_time(_tier_hours(dataset_name))
             dataset_output_root = output_root / dataset_label
             dataset_log_root = log_root / dataset_label
@@ -438,6 +577,7 @@ def main() -> None:
                         dataset_label,
                         dataset_env,
                         approach_cfg,
+                        base_resources,
                         timestamp,
                         dataset_output_root,
                         dataset_log_root,
@@ -454,6 +594,7 @@ def main() -> None:
                         dataset_env,
                         approach_name,
                         approach_cfg,
+                        base_resources,
                         timestamp,
                         dataset_output_root,
                         dataset_log_root,

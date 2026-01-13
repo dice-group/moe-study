@@ -47,6 +47,10 @@ LANGUAGE_MAP="${MOELPR_LANGUAGE_MAP:?MOELPR_LANGUAGE_MAP not set}"
 ORIGINAL_LANGUAGE="${MOELPR_ORIGINAL_LANGUAGE:?MOELPR_ORIGINAL_LANGUAGE not set}"
 DATASET_NAME="${MOELPR_DATASET_NAME:-moelpr_5_langs}"
 EVAL_DATASET_NAME="${MOELPR_EVAL_DATASET_NAME:-${DATASET_NAME}}"
+FLASH_ATTN="${FLASH_ATTN:-fa2}"
+AUTO_FIND_BATCH_SIZE="${AUTO_FIND_BATCH_SIZE:-false}"
+PREPROCESSING_NUM_WORKERS="${PREPROCESSING_NUM_WORKERS:-${SLURM_CPUS_PER_TASK:-8}}"
+PREPROCESSING_BATCH_SIZE="${PREPROCESSING_BATCH_SIZE:-100000}"
 GPUS_PER_NODE="${GPUS_PER_NODE:-4}"
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   PORT_SEED="${SLURM_JOB_ID}"
@@ -109,10 +113,16 @@ echo "[INFO] Starting MoE-LPR Stage 1 into ${STAGE1_OUT}"
 export WANDB_NAME="${RUN_NAME_STAGE1}"
 export WANDB_TAGS="comparison,moelpr,stage1"
 
+AUTO_FIND_BATCH_SIZE_FLAG=()
+if [[ "${AUTO_FIND_BATCH_SIZE}" == "true" || "${AUTO_FIND_BATCH_SIZE}" == "True" || "${AUTO_FIND_BATCH_SIZE}" == "1" ]]; then
+  AUTO_FIND_BATCH_SIZE_FLAG=(--auto_find_batch_size)
+fi
+
 "${LAUNCH_CMD[@]}" \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
+  --flash_attn "${FLASH_ATTN}" \
   --resize_vocab "${RESIZE_VOCAB:-False}" \
   --dataset "${DATASET_NAME}" \
   --eval_dataset "${EVAL_DATASET_NAME}" \
@@ -147,6 +157,9 @@ export WANDB_TAGS="comparison,moelpr,stage1"
   --moelpr_top_k "${MOELPR_TOP_K:-1}" \
   --moelpr_aux_loss_coef "${MOELPR_STAGE1_AUX_LOSS_COEF:-0.05}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
+  "${AUTO_FIND_BATCH_SIZE_FLAG[@]}" \
+  --preprocessing_num_workers "${PREPROCESSING_NUM_WORKERS}" \
+  --preprocessing_batch_size "${PREPROCESSING_BATCH_SIZE}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
@@ -159,6 +172,7 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
+  --flash_attn "${FLASH_ATTN}" \
   --resize_vocab "${RESIZE_VOCAB:-False}" \
   --dataset "${DATASET_NAME}" \
   --eval_dataset "${EVAL_DATASET_NAME}" \
@@ -196,6 +210,9 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --moelpr_lpr_loss_coef "${MOELPR_STAGE2_LPR_LOSS_COEF:-0.1}" \
   --moelpr_original_language "${ORIGINAL_LANGUAGE}" \
   --moelpr_debug_mode "${MOELPR_DEBUG_MODE:-False}" \
+  "${AUTO_FIND_BATCH_SIZE_FLAG[@]}" \
+  --preprocessing_num_workers "${PREPROCESSING_NUM_WORKERS}" \
+  --preprocessing_batch_size "${PREPROCESSING_BATCH_SIZE}" \
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
