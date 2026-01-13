@@ -141,6 +141,7 @@ fi
   --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --bf16 "${BF16:-True}" \
   --fp16 "${FP16:-False}" \
+  --disable_gradient_checkpointing "${DISABLE_GRADIENT_CHECKPOINTING:-True}" \
   --seed "${SEED:-42}" \
   --tokenized_path "${TOKENIZED_PATH}" \
   --language_column "${LANGUAGE_COLUMN}" \
@@ -191,6 +192,7 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --bf16 "${BF16:-True}" \
   --fp16 "${FP16:-False}" \
+  --disable_gradient_checkpointing "${DISABLE_GRADIENT_CHECKPOINTING:-True}" \
   --seed "${SEED:-42}" \
   --tokenized_path "${TOKENIZED_PATH2}" \
   --adapter_name_or_path "${STAGE1_OUT}" \

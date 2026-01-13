@@ -134,6 +134,7 @@ echo "[INFO] Running MoLA training into ${OUTPUT_DIR}"
   --save_safetensors "${SAVE_SAFETENSORS:-False}" \
   --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --seed "${SEED:-42}" \
+  --disable_gradient_checkpointing "${DISABLE_GRADIENT_CHECKPOINTING:-True}" \
   --bf16 "${BF16:-True}" \
   --fp16 "${FP16:-False}" \
   --tokenized_path "${TOKENIZED_PATH}" \
