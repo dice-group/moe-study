@@ -70,6 +70,22 @@ def prepare_env(assignments: Dict[str, str]) -> List[str]:
     return [f"{key}={value}" for key, value in assignments.items()]
 
 
+def _short_model_label(model_name: str) -> str:
+    lower = model_name.lower()
+    if "llama" in lower:
+        if "3.1" in lower and "8b" in lower:
+            return "l3-8b"
+        if "3.2" in lower and "1b" in lower:
+            return "l3-1b"
+        if "3.2" in lower and "3b" in lower:
+            return "l3-3b"
+    return model_name.split("/")[-1]
+
+
+def _tokenizer_tag(tokenizer_name: str) -> str:
+    return "ext" if "ext" in tokenizer_name.lower() else "base"
+
+
 def accelerate_env_for_gpus(
     gpus_per_node: int,
     nodes: int,
@@ -265,10 +281,13 @@ def run_simple_variants(
         log_path = log_root / f"{log_prefix}_{variant_name}_{timestamp}.log"
         env = dict(dataset_env)
         env.update(variant_env)
+        model_short = dataset_env.get("MODEL_SHORT", "model")
+        tok_tag = dataset_env.get("TOKENIZER_TAG", "base")
+        dataset_name = dataset_env.get("DATASET_NAME", dataset_label)
         env.update(
             {
                 "OUTPUT_DIR": str(run_dir),
-                "WANDB_NAME": f"{dataset_env.get('MODEL_LABEL', 'model')}-{dataset_label}-{approach_name}-{variant_name}-{timestamp}",
+                "WANDB_NAME": f"{model_short}-{tok_tag}-{dataset_name}-{approach_name}-{variant_name}-{timestamp}",
                 "PER_DEVICE_TRAIN_BATCH_SIZE": str(bs),
                 "PER_DEVICE_EVAL_BATCH_SIZE": str(bs),
                 "GPUS_PER_NODE": str(job_gpus),
@@ -332,12 +351,15 @@ def run_moelpr_variants(
         stage2_dir.mkdir(parents=True, exist_ok=True)
         env = dict(dataset_env)
         env.update(variant_env)
+        model_short = dataset_env.get("MODEL_SHORT", "model")
+        tok_tag = dataset_env.get("TOKENIZER_TAG", "base")
+        dataset_name = dataset_env.get("DATASET_NAME", dataset_label)
         env.update(
             {
                 "MOELPR_STAGE1_OUTPUT": str(stage1_dir),
                 "MOELPR_STAGE2_OUTPUT": str(stage2_dir),
-                "WANDB_STAGE1_NAME": f"moelpr-stage1-{dataset_env.get('MODEL_LABEL', 'model')}-{dataset_label}-{variant_name}-{timestamp}",
-                "WANDB_STAGE2_NAME": f"moelpr-stage2-{dataset_env.get('MODEL_LABEL', 'model')}-{dataset_label}-{variant_name}-{timestamp}",
+                "WANDB_STAGE1_NAME": f"{model_short}-{tok_tag}-{dataset_name}-moelpr-{variant_name}-{timestamp}-stage1",
+                "WANDB_STAGE2_NAME": f"{model_short}-{tok_tag}-{dataset_name}-moelpr-{variant_name}-{timestamp}-stage2",
                 "PER_DEVICE_TRAIN_BATCH_SIZE": str(bs),
                 "PER_DEVICE_EVAL_BATCH_SIZE": str(bs),
                 "GPUS_PER_NODE": str(job_gpus),
@@ -522,9 +544,11 @@ def main() -> None:
     for model_entry in models:
         model_name = model_entry["model_name_or_path"]
         model_label = model_name.replace("/", "-")
+        model_short = _short_model_label(model_name)
         tokenizer_name = model_entry.get("tokenizer_name")
         if not tokenizer_name:
             sys.exit(f"[ERROR] tokenizer_name missing for model {model_name}.")
+        tokenizer_tag = _tokenizer_tag(tokenizer_name)
         model_resources = model_entry.get("resources", {}) or {}
         model_gpus = int(model_entry.get("gpus_per_job", default_gpus_per_job))
         model_gpu_type = model_entry.get("gpu_type", default_gpu_type)
@@ -564,6 +588,9 @@ def main() -> None:
                 {
                     "MODEL_NAME_OR_PATH": model_name,
                     "MODEL_LABEL": model_label,
+                    "MODEL_SHORT": model_short,
+                    "TOKENIZER_TAG": tokenizer_tag,
+                    "DATASET_NAME": dataset_name,
                     "GENERIC_TOKENIZED_PATH": str(dataset_path),
                     "GENERIC_DATASET_NAME": dataset_name,
                     "MOELPR_TOKENIZED_PATH": str(moelpr_stage1),
