@@ -76,22 +76,8 @@ if ! command -v accelerate >/dev/null 2>&1; then
   echo "[ERROR] accelerate launcher not found in PATH." >&2
   exit 1
 fi
-if [[ -n "${ACCELERATE_CONFIG}" ]]; then
-  if [[ ! -f "${ACCELERATE_CONFIG}" ]]; then
-    echo "[ERROR] Accelerate config ${ACCELERATE_CONFIG} not found." >&2
-    exit 1
-  fi
-  export ACCELERATE_USE_FSDP="${ACCELERATE_USE_FSDP:-1}"
-  LAUNCH_CMD=(accelerate launch --config_file "${ACCELERATE_CONFIG}" "${TRAIN_SCRIPT}")
-  echo "[INFO] Using Accelerate config ${ACCELERATE_CONFIG}"
-else
-  if [[ "${GPUS_PER_NODE}" -ne 1 ]]; then
-    echo "[ERROR] ACCELERATE_CONFIG not set for ${GPUS_PER_NODE} GPU(s)." >&2
-    exit 1
-  fi
-  LAUNCH_CMD=(accelerate launch --num_processes 1 "${TRAIN_SCRIPT}")
-  echo "[INFO] Using Accelerate without config on 1 GPU"
-fi
+source "${REPO_ROOT}/scripts/slurm/comparison/accelerate_launch.sh"
+build_accelerate_launch "${TRAIN_SCRIPT}" "${ACCELERATE_CONFIG}" "${REPO_ROOT}"
 
 STAGE1_OUT="${MOELPR_STAGE1_OUTPUT:?MOELPR_STAGE1_OUTPUT not set}"
 STAGE2_OUT="${MOELPR_STAGE2_OUTPUT:?MOELPR_STAGE2_OUTPUT not set}"
@@ -118,7 +104,7 @@ if [[ "${AUTO_FIND_BATCH_SIZE}" == "true" || "${AUTO_FIND_BATCH_SIZE}" == "True"
   AUTO_FIND_BATCH_SIZE_FLAG=(--auto_find_batch_size)
 fi
 
-"${LAUNCH_CMD[@]}" \
+"${LAUNCH_PREFIX[@]}" "${LAUNCH_CMD[@]}" "${ENTRYPOINT[@]}" \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
@@ -168,7 +154,7 @@ echo "[INFO] Stage 1 finished, starting Stage 2 using ${STAGE1_OUT}"
 export WANDB_NAME="${RUN_NAME_STAGE2}"
 export WANDB_TAGS="comparison,moelpr,stage2"
 
-"${LAUNCH_CMD[@]}" \
+"${LAUNCH_PREFIX[@]}" "${LAUNCH_CMD[@]}" "${ENTRYPOINT[@]}" \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
