@@ -13,8 +13,8 @@
     "auto_find_batch_size": "false",
     "preprocessing_num_workers": 32,
     "preprocessing_batch_size": 100000,
-    "eval_steps": 10000,
-    "save_steps": 10000,
+    "eval_steps": 1000,
+    "save_steps": 1000,
     "gpu_type": "h100",
     "resources": {
       "gpus_per_node": 4,
@@ -25,6 +25,14 @@
       "200_langs": {
         "nodes": 1,
         "gpus_per_node": 4
+      },
+      "96_langs": {
+        "nodes": 1,
+        "gpus_per_node": 4
+      },
+      "10_langs": {
+        "nodes": 1,
+        "gpus_per_node": 1
       }
     }
   },
@@ -33,9 +41,9 @@
       "model_name_or_path": "meta-llama/Llama-3.1-8B",
       "tokenizer_name": "llama-3.1-8B_tokenizer",
       "datasets": [
-        "200_langs"
+        "10_langs"
       ],
-      "gpus_per_job": 4
+      "gpus_per_job": 1
     }
   ],
   "approaches": {
