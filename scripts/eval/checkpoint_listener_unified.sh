@@ -37,7 +37,12 @@ SUMMARY_PROJECT_SUFFIX="${LM_EVAL_SUMMARY_SUFFIX:-_summary}"
 SYNC_SCRIPT=""
 SYNC_PYTHON="python3"
 ROOTS_FILE=""
-WATCH_ROOTS=()
+WATCH_ROOTS=(
+  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/adamole/paper-best_20260114_003639/"
+  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/cola/paper-best_20260114_003639/"
+  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/hydralora/paper-best_20260114_003639/"
+  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/mola/paper-best_20260114_003639/"
+)
 MARK_TAG=""
 
 while [[ $# -gt 0 ]]; do
