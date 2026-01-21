@@ -7,7 +7,7 @@ from pathlib import Path
 
 try:
     from lm_eval.utils import simple_parse_args_string
-except Exception:
+except Exception:  # pragma: no cover - fallback when lm_eval is unavailable
     def simple_parse_args_string(arg: str) -> dict:
         parsed: dict[str, str] = {}
         for item in arg.split(","):
@@ -34,7 +34,7 @@ def _load_entries(path: Path) -> list[dict]:
     return entries
 
 
-def _init_run(run_id_dir: Path, suffix: str, wandb_args_dict: dict):
+def _init_run(run_id_dir: Path, suffix: str, wandb_args_dict: dict) -> "wandb.sdk.wandb_run.Run":
     run_id_path = run_id_dir / f".wandb_summary_id_{suffix}"
     if run_id_path.exists():
         run_id = run_id_path.read_text().strip()

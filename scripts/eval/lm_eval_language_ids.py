@@ -4,12 +4,15 @@ import logging
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Iterable, Optional
+from lm_eval.tasks import TaskManager
 
 import torch
 
 logger = logging.getLogger(__name__)
+
 
 _MODEL_CACHE: dict[tuple[str, str, str, str, str], object] = {}
 
@@ -107,6 +110,15 @@ def _normalize_device_map(value: Optional[str]) -> Optional[str]:
     return val
 
 
+def _normalize_attn_impl(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    val = str(value).strip()
+    if not val or val.lower() in ("none", "null"):
+        return None
+    return val
+
+
 def _resolve_adapter_dir(path: Path) -> Path:
     if (path / "adapter_config.json").exists():
         return path
@@ -144,8 +156,16 @@ def _infer_checkpoint_step(checkpoint_path: Path) -> Optional[int]:
 
 
 def _task_to_lang_code(task: str) -> Optional[str]:
+    # take suffix after first underscore, e.g. belebele_eng_Latn -> eng_Latn
     if "_" not in task:
         return None
+    if task.startswith("flores"):  # expected format: "flores_src-tgt" 
+        rest = task.replace("flores_", "")
+        if "-" in rest:
+            # translation usually requires the TARGET language ID
+            _, target = rest.split("-", 1)
+            return target
+        return rest # Fallback if no hyphen
     return task.split("_", 1)[1]
 
 
@@ -154,6 +174,8 @@ def _build_lang_id_map(lang_list: Iterable[str]) -> dict[str, int]:
 
 
 def _build_hflm_with_lang_class(HFLM):
+    """Create a subclass of HFLM that injects language_ids."""
+
     class HFLMWithLang(HFLM):
         def __init__(self, language_id: Optional[int] = None, **kwargs):
             self._language_id = language_id
@@ -170,6 +192,7 @@ def _build_hflm_with_lang_class(HFLM):
             )
 
         def _model_call(self, inps, attn_mask=None, labels=None):
+            # Mirror lm_eval.models.huggingface.HFLM._model_call, injecting language_ids.
             import transformers
 
             lang_ids = self._inject_lang_ids(inps)
@@ -226,12 +249,19 @@ def _run_eval(
     torch_dtype,
     device_map: Optional[str],
     run_suffix: Optional[str] = None,
+    include_path: Optional[str] = None,
+    random_seed: int = 42,
+    numpy_random_seed: int = 42,
+    torch_random_seed: int = 42,
+    fewshot_random_seed: int = 42,
 ):
     force_move = os.environ.get("LM_EVAL_FORCE_DEVICE", "true").strip().lower() in {
         "1",
         "true",
         "yes",
     }
+    attn_impl = _normalize_attn_impl(os.environ.get("LM_EVAL_ATTN_IMPL"))
+    task_manager = TaskManager(include_path=include_path)
     if device_map is not None:
         force_move = False
         logger.info("Device map set (%s); skipping manual .to()", device_map)
@@ -248,7 +278,10 @@ def _run_eval(
         os.environ.get("CUDA_VISIBLE_DEVICES"),
         torch.cuda.device_count(),
     )
-    repo_root = Path(__file__).resolve().parents[2]
+    if attn_impl:
+        logger.info("Attention implementation override: %s", attn_impl)
+    # Ensure repo-local PEFT (with CoLA/Hydra) is used inside lm_eval.
+    repo_root = Path(__file__).resolve().parents[1]
     peft_path = repo_root / "LLaMA-Factory" / "src"
     if str(peft_path) not in sys.path:
         sys.path.insert(0, str(peft_path))
@@ -256,6 +289,7 @@ def _run_eval(
         if name == "peft" or name.startswith("peft."):
             del sys.modules[name]
 
+    # Force-load repo-local peft before lm_eval so HFLM uses it.
     import importlib.util
 
     peft_pkg = peft_path / "peft"
@@ -277,8 +311,23 @@ def _run_eval(
         from transformers import AutoModelForCausalLM
     except Exception as exc:
         raise RuntimeError("lm_eval/transformers is not installed in this environment") from exc
+    try:
+        import lm_eval.tasks as _tasks
+        _ppt = _tasks.pretty_print_task
+        def _ppt_safe(*a, **k):
+            try: return _ppt(*a, **k)
+            except ValueError as exc:
+                msg = str(exc)
+                if "is not in the subpath of" in msg or "one path is relative and the other is absolute" in msg:
+                    logger.info("Task: %s", a[0] if a else "<unknown>")
+                    return None
+                raise
+        _tasks.pretty_print_task = _ppt_safe
+    except Exception:
+        pass
 
-    from peft import PeftModel
+    # Load PEFT locally to support CoLA/Hydra even if site-packages peft lacks them.
+    from peft import PeftModel  # repo-local due to sys.path override above
 
     pop_tracked_metrics = None
     if log_router_metrics:
@@ -301,6 +350,8 @@ def _run_eval(
         load_kwargs = {"low_cpu_mem_usage": True}
         if torch_dtype is not None:
             load_kwargs["torch_dtype"] = torch_dtype
+        if attn_impl is not None:
+            load_kwargs["attn_implementation"] = attn_impl
         if device_map is not None:
             load_kwargs["device_map"] = device_map
         base_model = AutoModelForCausalLM.from_pretrained(pretrained, **load_kwargs)
@@ -331,18 +382,18 @@ def _run_eval(
         if device.startswith("cuda") and torch.cuda.is_available() and force_move:
             try:
                 current_device = next(peft_model.parameters()).device
-            except Exception:
+            except Exception:  # noqa: BLE001
                 current_device = None
             if current_device is not None and current_device.type != "cuda":
                 try:
                     peft_model = peft_model.to(device)
                     _MODEL_CACHE[model_key] = peft_model
                     logger.info("Moved cached PEFT model to device: %s", device)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     logger.warning("Failed to move cached PEFT model to %s: %s", device, exc)
         try:
             logger.info("Cached PEFT model device: %s", next(peft_model.parameters()).device)
-        except Exception:
+        except Exception:  # noqa: BLE001
             logger.info("Cached PEFT model device: <unknown>")
 
     HFLMWithLang = _build_hflm_with_lang_class(HFLM)
@@ -354,14 +405,31 @@ def _run_eval(
         batch_size=batch_size,
     )
 
-    results = evaluator.simple_evaluate(
-        model=model,
-        tasks=tasks,
-        batch_size=batch_size,
-        device=device,
-        limit=limit,
-        log_samples=log_samples,
-    )
+    _rel = Path.relative_to
+    def _rel_safe(self, *other):
+        try: return _rel(self, *other)
+        except ValueError as exc:
+            msg = str(exc)
+            if "is not in the subpath of" in msg or "one path is relative and the other is absolute" in msg:
+                return self
+            raise
+    Path.relative_to = _rel_safe
+    try:
+        results = evaluator.simple_evaluate(
+            model=model,
+            tasks=tasks,
+            batch_size=batch_size,
+            device=device,
+            limit=limit,
+            log_samples=log_samples,
+            task_manager=task_manager,
+            random_seed=random_seed,
+            numpy_random_seed=numpy_random_seed,
+            torch_random_seed=torch_random_seed,
+            fewshot_random_seed=fewshot_random_seed,
+        )
+    finally:
+        Path.relative_to = _rel
 
     if results is None:
         return
@@ -396,11 +464,12 @@ def _run_eval(
             if log_samples and samples:
                 wandb_logger.log_eval_samples(samples)
             wandb_logger.run.finish()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print(f"[WARN] W&B logging failed: {exc}", file=sys.stderr)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(results, indent=2, sort_keys=True, default=str))
+
 
 
 
@@ -414,26 +483,20 @@ def main() -> int:
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--limit", type=float, default=None, help="lm_eval limit per task")
     parser.add_argument("--mode", choices=["with_ids", "no_ids", "both"], default="both")
-    parser.add_argument(
-        "--torch-dtype",
-        default=os.environ.get("LM_EVAL_TORCH_DTYPE"),
-        help="Torch dtype for model load (auto|bf16|fp16|fp32).",
-    )
-    parser.add_argument(
-        "--device-map",
-        default=os.environ.get("LM_EVAL_DEVICE_MAP"),
-        help="Optional device_map for model load (e.g. auto).",
-    )
+    parser.add_argument("--torch-dtype", default=os.environ.get("LM_EVAL_TORCH_DTYPE"), help="Torch dtype for model load (auto|bf16|fp16|fp32).")
+    parser.add_argument("--device-map", default=os.environ.get("LM_EVAL_DEVICE_MAP"), help="Optional device_map for model load (e.g. auto).")
     parser.add_argument("--wandb-args", default=None, help="Comma args for wandb.init, e.g. project=lm-eval,job_type=eval")
     parser.add_argument("--wandb-config-args", default=None, help="Comma args for wandb.config.update")
     parser.add_argument("--log-samples", action="store_true", help="Log lm_eval samples in results/W&B")
     parser.add_argument("--log-router-metrics", action="store_true", help="Log CoLA/Hydra router metrics from PEFT")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--include-path", type=str, default=None, help="Additional path to include if there are external tasks")
+    parser.add_argument("--seed", type=int, default=int(os.environ.get("LM_EVAL_RANDOM_SEED", 42)), help="Random seed for lm_eval (python random).")
+    parser.add_argument("--numpy-seed", type=int, default=int(os.environ.get("LM_EVAL_NUMPY_SEED", 42)), help="Numpy random seed for lm_eval.")
+    parser.add_argument("--torch-seed", type=int, default=int(os.environ.get("LM_EVAL_TORCH_SEED", 42)), help="Torch random seed for lm_eval.")
+    parser.add_argument("--fewshot-seed", type=int, default=int(os.environ.get("LM_EVAL_FEWSHOT_SEED", 42)), help="Fewshot sampling seed for lm_eval.")
     args = parser.parse_args()
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(levelname)s|%(asctime)s|%(name)s:%(lineno)d >> %(message)s",
-    )
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s|%(asctime)s|%(name)s:%(lineno)d >> %(message)s")
 
     ckpt = _resolve_adapter_dir(Path(args.checkpoint))
     if not ckpt.exists():
@@ -461,6 +524,7 @@ def main() -> int:
         device_map = "auto"
         logger.info("Defaulting device_map=auto for cuda eval")
 
+    # Build HF model_args for lm_eval
     base_model = args.tokenizer
 
     if args.dry_run:
@@ -488,9 +552,15 @@ def main() -> int:
             torch_dtype=torch_dtype,
             device_map=device_map,
             run_suffix="no_ids",
+            include_path=args.include_path,
+            random_seed=args.seed,
+            numpy_random_seed=args.numpy_seed,
+            torch_random_seed=args.torch_seed,
+            fewshot_random_seed=args.fewshot_seed,
         )
 
     if args.mode in ("with_ids", "both"):
+        # Run per-task so each task gets a fixed language ID
         for task in tasks:
             code = _task_to_lang_code(task)
             if code is None:
@@ -515,6 +585,11 @@ def main() -> int:
                 torch_dtype=torch_dtype,
                 device_map=device_map,
                 run_suffix=f"with_ids_{task}",
+                include_path=args.include_path,
+                random_seed=args.seed,
+                numpy_random_seed=args.numpy_seed,
+                torch_random_seed=args.torch_seed,
+                fewshot_random_seed=args.fewshot_seed,
             )
 
     print("[INFO] Eval run completed", file=sys.stderr)

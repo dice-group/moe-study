@@ -12,6 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 LLAMAFACTORY_SRC="${REPO_ROOT}/LLaMA-Factory/src"
+EXTRA=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

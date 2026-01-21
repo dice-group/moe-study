@@ -11,11 +11,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+if [[ -n "${REPO_ROOT:-}" ]]; then
+  REPO_ROOT="${REPO_ROOT}"
+elif [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+  REPO_ROOT="${SLURM_SUBMIT_DIR}"
+else
+  REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+fi
 
 TASKS_DEFAULT="belebele"
 if [[ -f "${REPO_ROOT}/configs/lm_eval_tasks.txt" ]]; then
-  TASKS_DEFAULT="${REPO_ROOT}/configs/lm_eval_tasks.txt"
+  TASKS_DEFAULT="$(grep -v '^[[:space:]]*#' "${REPO_ROOT}/configs/lm_eval_tasks.txt" | awk 'NF' | paste -sd, -)"
+  if [[ -z "$TASKS_DEFAULT" ]]; then
+    TASKS_DEFAULT="belebele"
+  fi
 fi
 
 TASKS="${TASKS_DEFAULT}"
@@ -25,23 +34,36 @@ POLL=120
 MIN_AGE=300
 OUT_SUBDIR="lm_eval"
 IGNORE_EXISTING=false
-FORCE=false
-FORCE_ONCE=false
-LIMIT="500"
+FORCE=true
+FORCE_ONCE=true
+LIMIT="300"
 LOG_ROOT="${REPO_ROOT}/scripts/eval/logs"
 SCRIPT=""
-SYNC_INTERVAL=120
-SYNC_PROJECT="${LM_EVAL_WANDB_PROJECT:-lm-eval}"
+SYNC_INTERVAL=300
+EVAL_PROJECT="${LM_EVAL_WANDB_PROJECT:-moe-study-comparison_eval}"
+SYNC_PROJECT="${SYNC_PROJECT:-${EVAL_PROJECT}}"
 SYNC_SUFFIX=""
 SUMMARY_PROJECT_SUFFIX="${LM_EVAL_SUMMARY_SUFFIX:-_summary}"
 SYNC_SCRIPT=""
 SYNC_PYTHON="python3"
 ROOTS_FILE=""
 WATCH_ROOTS=(
-  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/adamole/paper-best_20260114_003639/"
-  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/cola/paper-best_20260114_003639/"
-  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/hydralora/paper-best_20260114_003639/"
-  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/mola/paper-best_20260114_003639/"
+  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/adamole/paper-best_20260120_222802"
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/adamole/paper-best_20260120_222802"
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/adamole/paper-best_20260120_222802"
+
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/mola/paper-best_20260120_222802"
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/mola/paper-best_20260120_222802"
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/mola/paper-best_20260120_222802"
+
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/cola/paper-best_20260114_012804/"
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/cola/paper-best_20260114_012128/"
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/cola/paper-best_20260114_003639/"
+  
+
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/hydralora/paper-best_20260114_012804"
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/hydralora/paper-best_20260114_012128/"
+  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/hydralora/paper-best_20260114_003639/"
 )
 MARK_TAG=""
 
@@ -162,9 +184,12 @@ sync_summaries() {
         continue
       fi
       seen_runs["$run_dir"]=1
-      local run_label
+      local run_label dataset_label approach_label
       run_label=$(basename "$(dirname "$run_dir")")
-      local args="project=${SYNC_PROJECT},name=${run_label}"
+      approach_label=$(basename "$(dirname "$(dirname "$run_dir")")")
+      dataset_label=$(basename "$(dirname "$(dirname "$(dirname "$run_dir")")")")
+      local combined_label="${dataset_label}-${approach_label}-${run_label}"
+      local args="project=${SYNC_PROJECT},name=${combined_label}"
       echo "[INFO] summary sync run_dir=${run_dir} wandb_args=${args}"
       if [[ -n "$SYNC_SUFFIX" ]]; then
         WANDB_SUMMARY_SUFFIX="${SUMMARY_PROJECT_SUFFIX}" "$SYNC_PYTHON" "$SYNC_SCRIPT" --run-dir "$run_dir" --wandb-args "$args" --suffix "$SYNC_SUFFIX" || true
@@ -233,8 +258,11 @@ submit_eval() {
   local target=$1
   local run_dir
   run_dir=$(dirname "$target")
-  local run_label
+  local run_label dataset_label approach_label combined_label
   run_label=$(basename "$run_dir")
+  approach_label=$(basename "$(dirname "$run_dir")")
+  dataset_label=$(basename "$(dirname "$(dirname "$run_dir")")")
+  combined_label="${dataset_label}-${approach_label}-${run_label}"
   local ckpt_label
   ckpt_label=$(basename "$target")
   local eval_out_dir="${run_dir}/${OUT_SUBDIR}/${ckpt_label}"
@@ -259,8 +287,23 @@ submit_eval() {
   fi
   echo "[INFO] submit eval ckpt=${target} out=${eval_out_dir} tasks=${TASKS} limit=${LIMIT:-none} script=${SCRIPT}"
   local -a sbatch_cmd=(sbatch)
+  local export_vars=(
+    "LM_EVAL_WANDB_PROJECT=${EVAL_PROJECT}"
+    "LM_EVAL_SUMMARY_SUFFIX=${SUMMARY_PROJECT_SUFFIX}"
+  )
+  if [[ -n "${REPO_ROOT:-}" ]]; then
+    export_vars+=("REPO_ROOT=${REPO_ROOT}")
+  fi
   if [[ -n "$LIMIT" ]]; then
-    sbatch_cmd+=(--export=ALL,LM_EVAL_LIMIT="${LIMIT}")
+    export_vars+=("LM_EVAL_LIMIT=${LIMIT}")
+  fi
+  if [[ ${#export_vars[@]} -gt 0 ]]; then
+    local export_csv
+    export_csv="ALL"
+    for kv in "${export_vars[@]}"; do
+      export_csv="${export_csv},${kv}"
+    done
+    sbatch_cmd+=(--export="${export_csv}")
   fi
   if [[ -n "$repo_root" ]]; then
     sbatch_cmd+=(--chdir="${repo_root}")
@@ -273,8 +316,8 @@ submit_eval() {
     --output-dir "$eval_out_dir" \
     --tasks "$TASKS" \
     --batch-size "$BS" \
-    --wandb-prefix "$run_label" \
-    --wandb-group "$run_label" \
+    --wandb-prefix "$combined_label" \
+    --wandb-group "$combined_label" \
     ${TOK:+--tokenizer "$TOK"} \
   )
   local job_out=""
