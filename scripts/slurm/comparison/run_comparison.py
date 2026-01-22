@@ -374,13 +374,26 @@ def run_moelpr_variants(
                 resources.get("accelerate_config"),
             )
         )
-        log_path = log_root / f"{log_prefix}_{variant_name}_{timestamp}.log"
-        job_key = f"{dataset_label}-moelpr-{variant_name}"
-        print(f"[INFO] Queueing {job_key} (bs={bs})")
-        env_assignments = prepare_env(env)
         job_specific_args = _build_sbatch_args(resources, job_gpus, job_gpu_type, gpu_hours, sbatch_args)
-        job_id = submit_job(job_key, script, log_path, env_assignments, job_specific_args)
-        registry[job_key] = job_id
+
+        stage1_key = f"{dataset_label}-moelpr-{variant_name}-stage1"
+        stage1_log = log_root / f"{log_prefix}_{variant_name}_{timestamp}_stage1.log"
+        env_stage1 = dict(env)
+        env_stage1["MOELPR_STAGE_ONLY"] = "1"
+        print(f"[INFO] Queueing {stage1_key} (bs={bs})")
+        stage1_id = submit_job(stage1_key, script, stage1_log, prepare_env(env_stage1), job_specific_args)
+        registry[stage1_key] = stage1_id
+
+        stage2_key = f"{dataset_label}-moelpr-{variant_name}-stage2"
+        stage2_log = log_root / f"{log_prefix}_{variant_name}_{timestamp}_stage2.log"
+        env_stage2 = dict(env)
+        env_stage2["MOELPR_STAGE_ONLY"] = "2"
+        dep_args = f"--dependency=afterok:{stage1_id}"
+        stage2_args = f"{job_specific_args} {dep_args}".strip()
+        print(f"[INFO] Queueing {stage2_key} (bs={bs})")
+        stage2_id = submit_job(stage2_key, script, stage2_log, prepare_env(env_stage2), stage2_args)
+        registry[stage2_key] = stage2_id
+
         launch_eval_watcher(
             stage2_dir,
             dataset_label,

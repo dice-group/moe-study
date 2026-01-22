@@ -88,6 +88,7 @@ build_accelerate_launch "${TRAIN_SCRIPT}" "${ACCELERATE_CONFIG}" "${REPO_ROOT}"
 
 STAGE1_OUT="${MOELPR_STAGE1_OUTPUT:?MOELPR_STAGE1_OUTPUT not set}"
 STAGE2_OUT="${MOELPR_STAGE2_OUTPUT:?MOELPR_STAGE2_OUTPUT not set}"
+STAGE_ONLY="${MOELPR_STAGE_ONLY:-}"
 mkdir -p "${STAGE1_OUT}" "${STAGE2_OUT}"
 
 STAGE1_EPOCHS="${MOELPR_STAGE1_EPOCHS:-1}"
@@ -101,16 +102,17 @@ TOP_K="${MOELPR_TOP_K:-1}"
 RUN_NAME_STAGE1="${WANDB_STAGE1_NAME:-moelpr-stage1}_nexp${MOELPR_NUM_EXPERTS:-4}_k${TOP_K}"
 RUN_NAME_STAGE2="${WANDB_STAGE2_NAME:-moelpr-stage2}_nexp${MOELPR_NUM_EXPERTS:-4}_k${TOP_K}"
 
-echo "[INFO] Starting MoE-LPR Stage 1 into ${STAGE1_OUT}"
-export WANDB_NAME="${RUN_NAME_STAGE1}"
-export WANDB_TAGS="comparison,moelpr,stage1"
+if [[ -z "${STAGE_ONLY}" || "${STAGE_ONLY}" == "1" || "${STAGE_ONLY}" == "stage1" ]]; then
+  echo "[INFO] Starting MoE-LPR Stage 1 into ${STAGE1_OUT}"
+  export WANDB_NAME="${RUN_NAME_STAGE1}"
+  export WANDB_TAGS="comparison,moelpr,stage1"
 
 AUTO_FIND_BATCH_SIZE_FLAG=()
 if [[ "${AUTO_FIND_BATCH_SIZE}" == "true" || "${AUTO_FIND_BATCH_SIZE}" == "True" || "${AUTO_FIND_BATCH_SIZE}" == "1" ]]; then
   AUTO_FIND_BATCH_SIZE_FLAG=(--auto_find_batch_size)
 fi
 
-"${LAUNCH_PREFIX[@]}" "${LAUNCH_CMD[@]}" "${ENTRYPOINT[@]}" \
+  "${LAUNCH_PREFIX[@]}" "${LAUNCH_CMD[@]}" "${ENTRYPOINT[@]}" \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
@@ -156,12 +158,14 @@ fi
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
+fi
 
-echo "[INFO] Stage 1 finished, starting Stage 2 using ${STAGE1_OUT}"
-export WANDB_NAME="${RUN_NAME_STAGE2}"
-export WANDB_TAGS="comparison,moelpr,stage2"
+if [[ -z "${STAGE_ONLY}" || "${STAGE_ONLY}" == "2" || "${STAGE_ONLY}" == "stage2" ]]; then
+  echo "[INFO] Starting MoE-LPR Stage 2 using ${STAGE1_OUT}"
+  export WANDB_NAME="${RUN_NAME_STAGE2}"
+  export WANDB_TAGS="comparison,moelpr,stage2"
 
-"${LAUNCH_PREFIX[@]}" "${LAUNCH_CMD[@]}" "${ENTRYPOINT[@]}" \
+  "${LAUNCH_PREFIX[@]}" "${LAUNCH_CMD[@]}" "${ENTRYPOINT[@]}" \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
@@ -210,5 +214,6 @@ export WANDB_TAGS="comparison,moelpr,stage2"
   --report_to wandb \
   --include_effective_tokens_per_second true \
   --include_num_input_tokens_seen true
+fi
 
-echo "[INFO] MoE-LPR Stage 2 completed"
+echo "[INFO] MoE-LPR job completed"
