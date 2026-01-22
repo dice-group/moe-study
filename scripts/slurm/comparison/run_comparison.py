@@ -189,6 +189,18 @@ def _build_sbatch_args(
     time_arg = resources.get("time") or computed_time
     if time_arg and "--time" not in sbatch_args:
         args.append(f"--time={time_arg}")
+    signal_arg = resources.get("signal")
+    if not signal_arg:
+        signal_minutes = resources.get("signal_before_timeout_minutes")
+        if signal_minutes is not None:
+            try:
+                seconds = int(float(signal_minutes) * 60)
+                if seconds > 0:
+                    signal_arg = f"B:USR1@{seconds}"
+            except (TypeError, ValueError):
+                signal_arg = None
+    if signal_arg and "--signal" not in sbatch_args:
+        args.append(f"--signal={signal_arg}")
     if resources.get("extra_sbatch_args"):
         args.append(str(resources["extra_sbatch_args"]))
     if sbatch_args:
