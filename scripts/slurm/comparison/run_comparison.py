@@ -196,11 +196,19 @@ def _build_sbatch_args(
             try:
                 seconds = int(float(signal_minutes) * 60)
                 if seconds > 0:
-                    signal_arg = f"B:USR1@{seconds}"
+                    signal_arg = f"USR1@{seconds}"
             except (TypeError, ValueError):
                 signal_arg = None
     if signal_arg and "--signal" not in sbatch_args:
         args.append(f"--signal={signal_arg}")
+    kill_wait = resources.get("kill_wait_seconds")
+    if kill_wait is not None and "--kill-wait" not in sbatch_args:
+        try:
+            kill_wait_val = int(kill_wait)
+            if kill_wait_val > 0:
+                args.append(f"--kill-wait={kill_wait_val}")
+        except (TypeError, ValueError):
+            pass
     if resources.get("extra_sbatch_args"):
         args.append(str(resources["extra_sbatch_args"]))
     if sbatch_args:

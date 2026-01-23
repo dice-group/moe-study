@@ -87,6 +87,36 @@ fi
 source "${REPO_ROOT}/scripts/slurm/comparison/accelerate_launch.sh"
 build_accelerate_launch "${TRAIN_SCRIPT}" "${ACCELERATE_CONFIG}" "${REPO_ROOT}"
 
+run_train() {
+  # Start training in a new process group so signal forwarding doesn't loop back.
+  setsid "${LAUNCH_PREFIX[@]}" "${LAUNCH_CMD[@]}" "${ENTRYPOINT[@]}" "$@" &
+  local child_pid=$!
+  local child_pgid="${child_pid}"
+  local forwarded_usr1=0
+  collect_children() {
+    local parent=$1
+    local kids
+    kids=$(pgrep -P "${parent}" || true)
+    for k in ${kids}; do
+      echo "${k}"
+      collect_children "${k}"
+    done
+  }
+  signal_tree() {
+    local sig=$1
+    local targets
+    targets=$(collect_children "${child_pid}")
+    for p in ${targets}; do
+      kill -"${sig}" "${p}" 2>/dev/null || true
+    done
+    kill -"${sig}" "${child_pid}" 2>/dev/null || true
+  }
+  trap 'if [[ ${forwarded_usr1} -eq 0 ]]; then forwarded_usr1=1; echo "[INFO] Forwarding SIGUSR1 to training process tree"; signal_tree USR1; fi' SIGUSR1
+  trap 'echo "[INFO] Forwarding SIGTERM to training process tree"; signal_tree TERM' SIGTERM
+  wait "${child_pid}"
+  trap - SIGUSR1 SIGTERM
+}
+
 TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
 TRAIN_LR="${LEARNING_RATE:-2e-4}"
 TRAIN_BS="${PER_DEVICE_TRAIN_BATCH_SIZE:-12}"
@@ -105,7 +135,7 @@ fi
 
 echo "[INFO] Running CoLA training into ${OUTPUT_DIR}"
 
-"${LAUNCH_PREFIX[@]}" "${LAUNCH_CMD[@]}" "${ENTRYPOINT[@]}" \
+run_train \
   --stage sft \
   --do_train \
   --model_name_or_path "${MODEL_NAME_OR_PATH}" \
