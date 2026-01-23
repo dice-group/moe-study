@@ -129,6 +129,7 @@ echo "[INFO] Running HydraLoRA training into ${OUTPUT_DIR}"
   --eval_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-2000}" \
   --save_steps "${SAVE_STEPS:-2000}" \
+  --save_total_limit "${SAVE_TOTAL_LIMIT:-3}" \
   --save_safetensors "${SAVE_SAFETENSORS:-False}" \
   --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --seed "${SEED:-42}" \

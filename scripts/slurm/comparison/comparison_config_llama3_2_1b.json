@@ -50,14 +50,18 @@
     "adamole": {
       "script": "adamole_job.sh",
       "log_prefix": "adamole",
-      "batch_size": 3,
+      "batch_size": 15,
       "variants": [
         {
           "name": "paper-best",
           "env": {
             "ADAMOLE_NUM_EXPERTS": 4,
             "ADAMOLE_AUX_LOSS_COEF": 0.001,
-            "ADAMOLE_MAX_THRESHOLD": 0.25
+            "ADAMOLE_MAX_THRESHOLD": 0.25,
+            "EVAL_STEPS": 7000,
+            "SAVE_STEPS": 2000,
+            "SAVE_TOTAL_LIMIT": 3,
+            "LLAMAFACTORY_ADAPTER_MILESTONE_STEPS": 15000
           }
         }
       ]
@@ -65,7 +69,7 @@
     "mola": {
       "script": "adamoe_1_mola_job.sh",
       "log_prefix": "mola",
-      "batch_size": 4,
+      "batch_size": 15,
       "variants": [
         {
           "name": "paper-best",
@@ -76,7 +80,11 @@
             "MOLA_OUTPUT_ROUTER_LOGITS": true,
             "MOLA_ROUTER_AUX_LOSS_COEF": 0.001,
             "MOLA_NULL_EXPERT_PENALTY": 0,
-            "MOLA_AUX_LOSS_ANNEALING": false
+            "MOLA_AUX_LOSS_ANNEALING": false,
+            "EVAL_STEPS": 8000,
+            "SAVE_STEPS": 2000,
+            "SAVE_TOTAL_LIMIT": 3,
+            "LLAMAFACTORY_ADAPTER_MILESTONE_STEPS": 15000
           }
         }
       ]
@@ -84,7 +92,7 @@
     "hydralora": {
       "script": "hydralora_job.sh",
       "log_prefix": "hydralora",
-      "batch_size": 3,
+      "batch_size": 17,
       "variants": [
         {
           "name": "paper-best",
@@ -94,7 +102,11 @@
             "HYDRALORA_TOP_K": 1,
             "HYDRALORA_NUM_B": 3,
             "LORA_R": 8,
-            "LORA_ALPHA": 16
+            "LORA_ALPHA": 16,
+            "EVAL_STEPS": 8000,
+            "SAVE_STEPS": 2000,
+            "SAVE_TOTAL_LIMIT": 3,
+            "LLAMAFACTORY_ADAPTER_MILESTONE_STEPS": 20000
           }
         }
       ]
@@ -102,7 +114,7 @@
     "cola": {
       "script": "cola_job.sh",
       "log_prefix": "cola",
-      "batch_size": 5,
+      "batch_size": 21,
       "variants": [
         {
           "name": "paper-best",
@@ -111,7 +123,11 @@
             "COLA_NUM_B": 3,
             "COLA_STRATEGY": "fully",
             "LORA_R": 8,
-            "LORA_ALPHA": 16
+            "LORA_ALPHA": 16,
+            "EVAL_STEPS": 10000,
+            "SAVE_STEPS": 2000,
+            "SAVE_TOTAL_LIMIT": 3,
+            "LLAMAFACTORY_ADAPTER_MILESTONE_STEPS": 25000
           }
         }
       ]
@@ -120,7 +136,7 @@
       "type": "moelpr",
       "script": "moelpr_job.sh",
       "log_prefix": "moelpr",
-      "batch_size": 26,
+      "batch_size": 20,
       "variants": [
         {
           "name": "paper-best",
@@ -130,7 +146,10 @@
             "MOELPR_TOP_K": 2,
             "MOELPR_NUM_EXPERTS": 4,
             "GRADIENT_ACCUMULATION_STEPS": 1,
-            "DISABLE_GRADIENT_CHECKPOINTING": "False"
+            "DISABLE_GRADIENT_CHECKPOINTING": "False",
+            "SAVE_STEPS": 2000,
+            "SAVE_TOTAL_LIMIT": 3,
+            "LLAMAFACTORY_ADAPTER_MILESTONE_STEPS": 20000
           }
         }
       ]

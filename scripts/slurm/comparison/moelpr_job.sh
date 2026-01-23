@@ -138,6 +138,7 @@ fi
   --eval_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-2000}" \
   --save_steps "${SAVE_STEPS:-2000}" \
+  --save_total_limit "${SAVE_TOTAL_LIMIT:-3}" \
   --save_safetensors "${SAVE_SAFETENSORS:-False}" \
   --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --bf16 "${BF16:-True}" \
@@ -191,6 +192,7 @@ if [[ -z "${STAGE_ONLY}" || "${STAGE_ONLY}" == "2" || "${STAGE_ONLY}" == "stage2
   --eval_strategy "${EVAL_STRATEGY:-steps}" \
   --eval_steps "${EVAL_STEPS:-200}" \
   --save_steps "${SAVE_STEPS:-200}" \
+  --save_total_limit "${SAVE_TOTAL_LIMIT:-3}" \
   --save_safetensors "${SAVE_SAFETENSORS:-False}" \
   --save_only_model "${SAVE_ONLY_MODEL:-True}" \
   --bf16 "${BF16:-True}" \
