@@ -4,42 +4,64 @@
     "log_root": "/scratch/hpc-prf-merlin/joel/moe-study/scripts/slurm/comparison/logs",
     "dataset_dir": "./LLaMA-Factory/data",
     "wandb_project": "moe-study-comparison",
-    "wandb_group_prefix": "llama3.2-3B_benchmark",
+    "wandb_group_prefix": "llama3.2-1B_benchmark",
     "tokenized_base": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison",
     "moelpr_language_column": "language",
     "moelpr_language_map": "/scratch/hpc-prf-merlin/joel/moe-study/configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",
+    "flash_attn": "fa2",
+    "auto_find_batch_size": "false",
+    "preprocessing_num_workers": 32,
+    "preprocessing_batch_size": 100000,
     "eval_steps": 5000,
-    "save_steps": 5000,
-    "gpu_type": "h100"
+    "save_steps": 7000,
+    "gpu_type": "h100",
+    "resources": {
+      "gpus_per_node": 4,
+      "gpu_type": "h100",
+      "partition": "gpu"
+    },
+    "dataset_resources": {
+      "200_langs": {
+        "nodes": 1,
+        "gpus_per_node": 4
+      },
+      "96_langs": {
+        "nodes": 1,
+        "gpus_per_node": 4
+      },
+      "10_langs": {
+        "nodes": 1,
+        "gpus_per_node": 1
+      }
+    }
   },
   "models": [
     {
       "model_name_or_path": "meta-llama/Llama-3.2-3B",
       "tokenizer_name": "llama-3.2-3B_tokenizer",
       "datasets": [
-        "5_langs",
-        "10_langs",
-        "22_langs",
-        "46_langs",
-        "96_langs",
         "200_langs"
       ],
-      "gpus_per_job": 2
+      "gpus_per_job": 1
     }
   ],
   "approaches": {
     "adamole": {
       "script": "adamole_job.sh",
       "log_prefix": "adamole",
-      "batch_size": 13,
+      "batch_size": 6,
       "variants": [
         {
           "name": "paper-best",
           "env": {
             "ADAMOLE_NUM_EXPERTS": 4,
             "ADAMOLE_AUX_LOSS_COEF": 0.001,
-            "ADAMOLE_MAX_THRESHOLD": 0.125
+            "ADAMOLE_MAX_THRESHOLD": 0.25,
+            "EVAL_STEPS": 5000,
+            "SAVE_STEPS": 1000,
+            "SAVE_TOTAL_LIMIT": 3,
+            "LLAMAFACTORY_ADAPTER_MILESTONE_STEPS": 25000
           }
         }
       ]
@@ -47,16 +69,22 @@
     "mola": {
       "script": "adamoe_1_mola_job.sh",
       "log_prefix": "mola",
-      "batch_size": 42,
+      "batch_size": 7,
       "variants": [
         {
           "name": "paper-best",
           "env": {
             "MOLA_NUM_EXPERTS": 4,
-            "MOLA_TOP_K": 1,
-            "MOLA_ROUTER_AUX_LOSS_COEF": 0.02,
+            "MOLA_NUM_NULL_EXPERTS": 7,
+            "MOLA_TOP_K": 4,
+            "MOLA_OUTPUT_ROUTER_LOGITS": true,
+            "MOLA_ROUTER_AUX_LOSS_COEF": 0.001,
             "MOLA_NULL_EXPERT_PENALTY": 0,
-            "MOLA_AUX_LOSS_ANNEALING": true
+            "MOLA_AUX_LOSS_ANNEALING": false,
+            "EVAL_STEPS": 5000,
+            "SAVE_STEPS": 1000,
+            "SAVE_TOTAL_LIMIT": 3,
+            "LLAMAFACTORY_ADAPTER_MILESTONE_STEPS": 25000
           }
         }
       ]
@@ -64,7 +92,7 @@
     "hydralora": {
       "script": "hydralora_job.sh",
       "log_prefix": "hydralora",
-      "batch_size": 16,
+      "batch_size": 8,
       "variants": [
         {
           "name": "paper-best",
@@ -74,7 +102,11 @@
             "HYDRALORA_TOP_K": 1,
             "HYDRALORA_NUM_B": 3,
             "LORA_R": 8,
-            "LORA_ALPHA": 16
+            "LORA_ALPHA": 16,
+            "EVAL_STEPS": 5000,
+            "SAVE_STEPS": 1000,
+            "SAVE_TOTAL_LIMIT": 3,
+            "LLAMAFACTORY_ADAPTER_MILESTONE_STEPS": 25000
           }
         }
       ]
@@ -82,7 +114,7 @@
     "cola": {
       "script": "cola_job.sh",
       "log_prefix": "cola",
-      "batch_size": 20,
+      "batch_size": 11,
       "variants": [
         {
           "name": "paper-best",
@@ -91,24 +123,11 @@
             "COLA_NUM_B": 3,
             "COLA_STRATEGY": "fully",
             "LORA_R": 8,
-            "LORA_ALPHA": 16
-          }
-        }
-      ]
-    },
-    "moelpr": {
-      "type": "moelpr",
-      "script": "moelpr_job.sh",
-      "log_prefix": "moelpr",
-      "batch_size": 26,
-      "variants": [
-        {
-          "name": "paper-best",
-          "env": {
-            "MOELPR_STAGE1_AUX_LOSS_COEF": 0.01,
-            "MOELPR_STAGE2_LPR_LOSS_COEF": 0.1,
-            "MOELPR_TOP_K": 1,
-            "MOELPR_NUM_EXPERTS": 4
+            "LORA_ALPHA": 16,
+            "EVAL_STEPS": 5000,
+            "SAVE_STEPS": 1000,
+            "SAVE_TOTAL_LIMIT": 3,
+            "LLAMAFACTORY_ADAPTER_MILESTONE_STEPS": 25000
           }
         }
       ]
