@@ -245,7 +245,15 @@ def _format_sbatch_time(hours: float | None) -> str | None:
     return f"{hours_part:02d}:{minutes_part:02d}:00"
 
 
-def submit_job(job_name: str, script: Path, log_path: Path, env_assignments: List[str], sbatch_args: str) -> str:
+def submit_job(
+    job_name: str,
+    script: Path,
+    log_path: Path,
+    env_assignments: List[str],
+    sbatch_args: str,
+    dependency: str | None = None,
+    dependency_type: str = "afterok",
+) -> str:
     script = script.resolve()
     if not script.exists():
         sys.exit(f"[ERROR] Job script {script} not found.")
@@ -253,6 +261,9 @@ def submit_job(job_name: str, script: Path, log_path: Path, env_assignments: Lis
     cmd = ["env", *env_assignments, "sbatch", f"--output={log_path}"]
     if sbatch_args:
         cmd.extend(shlex.split(sbatch_args))
+    if dependency:
+        dep_kind = dependency_type or "afterok"
+        cmd.append(f"--dependency={dep_kind}:{dependency}")
     cmd.append(str(script))
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
@@ -399,19 +410,31 @@ def run_moelpr_variants(
         stage1_key = f"{dataset_label}-moelpr-{variant_name}-stage1"
         stage1_log = log_root / f"{log_prefix}_{variant_name}_{timestamp}_stage1.log"
         env_stage1 = dict(env)
-        env_stage1["MOELPR_STAGE_ONLY"] = "1"
+        env_stage1["STAGE_ONLY"] = "1"
         print(f"[INFO] Queueing {stage1_key} (bs={bs})")
-        stage1_id = submit_job(stage1_key, script, stage1_log, prepare_env(env_stage1), job_specific_args)
+        stage1_id = submit_job(
+            stage1_key,
+            script,
+            stage1_log,
+            prepare_env(env_stage1),
+            job_specific_args,
+        )
         registry[stage1_key] = stage1_id
 
         stage2_key = f"{dataset_label}-moelpr-{variant_name}-stage2"
         stage2_log = log_root / f"{log_prefix}_{variant_name}_{timestamp}_stage2.log"
         env_stage2 = dict(env)
-        env_stage2["MOELPR_STAGE_ONLY"] = "2"
-        dep_args = f"--dependency=afterok:{stage1_id}"
-        stage2_args = f"{job_specific_args} {dep_args}".strip()
+        env_stage2["STAGE_ONLY"] = "2"
         print(f"[INFO] Queueing {stage2_key} (bs={bs})")
-        stage2_id = submit_job(stage2_key, script, stage2_log, prepare_env(env_stage2), stage2_args)
+        stage2_id = submit_job(
+            stage2_key,
+            script,
+            stage2_log,
+            prepare_env(env_stage2),
+            job_specific_args,
+            dependency=stage1_id,
+            dependency_type="afterany",
+        )
         registry[stage2_key] = stage2_id
 
         launch_eval_watcher(

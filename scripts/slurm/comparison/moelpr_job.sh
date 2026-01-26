@@ -88,7 +88,7 @@ build_accelerate_launch "${TRAIN_SCRIPT}" "${ACCELERATE_CONFIG}" "${REPO_ROOT}"
 
 STAGE1_OUT="${MOELPR_STAGE1_OUTPUT:?MOELPR_STAGE1_OUTPUT not set}"
 STAGE2_OUT="${MOELPR_STAGE2_OUTPUT:?MOELPR_STAGE2_OUTPUT not set}"
-STAGE_ONLY="${MOELPR_STAGE_ONLY:-}"
+STAGE_ONLY="${STAGE_ONLY:-${MOELPR_STAGE_ONLY:-}}"
 mkdir -p "${STAGE1_OUT}" "${STAGE2_OUT}"
 
 STAGE1_EPOCHS="${MOELPR_STAGE1_EPOCHS:-1}"
@@ -101,6 +101,37 @@ GRAD_ACC="${GRADIENT_ACCUMULATION_STEPS:-2}"
 TOP_K="${MOELPR_TOP_K:-1}"
 RUN_NAME_STAGE1="${WANDB_STAGE1_NAME:-moelpr-stage1}_nexp${MOELPR_NUM_EXPERTS:-4}_k${TOP_K}"
 RUN_NAME_STAGE2="${WANDB_STAGE2_NAME:-moelpr-stage2}_nexp${MOELPR_NUM_EXPERTS:-4}_k${TOP_K}"
+
+latest_checkpoint_path() {
+  local base_dir=$1
+  if [[ -d "${base_dir}" ]]; then
+    local latest
+    latest=$(ls -1d "${base_dir}"/checkpoint-* 2>/dev/null | sort -V | tail -n 1 || true)
+    if [[ -n "${latest}" ]]; then
+      echo "${latest}"
+      return 0
+    fi
+  fi
+  echo "${base_dir}"
+}
+
+has_adapter_checkpoint() {
+  local base_dir=$1
+  local latest
+  latest=$(ls -1d "${base_dir}"/checkpoint-* 2>/dev/null | sort -V | tail -n 1 || true)
+  if [[ -n "${latest}" && -d "${latest}_adapter" ]]; then
+    return 0
+  fi
+  if [[ -d "${base_dir}" ]]; then
+    shopt -s nullglob
+    local adapter_dirs=("${base_dir}"/checkpoint-*_adapter)
+    shopt -u nullglob
+    if [[ ${#adapter_dirs[@]} -gt 0 ]]; then
+      return 0
+    fi
+  fi
+  return 1
+}
 
 if [[ -z "${STAGE_ONLY}" || "${STAGE_ONLY}" == "1" || "${STAGE_ONLY}" == "stage1" ]]; then
   echo "[INFO] Starting MoE-LPR Stage 1 into ${STAGE1_OUT}"
@@ -162,7 +193,15 @@ fi
 fi
 
 if [[ -z "${STAGE_ONLY}" || "${STAGE_ONLY}" == "2" || "${STAGE_ONLY}" == "stage2" ]]; then
-  echo "[INFO] Starting MoE-LPR Stage 2 using ${STAGE1_OUT}"
+  if ! has_adapter_checkpoint "${STAGE1_OUT}"; then
+    echo "[WARN] Stage 2 skipped; no adapter checkpoint found under ${STAGE1_OUT}."
+    exit 0
+  fi
+  STAGE1_ADAPTER_PATH="$(latest_checkpoint_path "${STAGE1_OUT}")"
+  if [[ -d "${STAGE1_ADAPTER_PATH}_adapter" ]]; then
+    STAGE1_ADAPTER_PATH="${STAGE1_ADAPTER_PATH}_adapter"
+  fi
+  echo "[INFO] Starting MoE-LPR Stage 2 using ${STAGE1_ADAPTER_PATH}"
   export WANDB_NAME="${RUN_NAME_STAGE2}"
   export WANDB_TAGS="comparison,moelpr,stage2"
 
@@ -200,7 +239,7 @@ if [[ -z "${STAGE_ONLY}" || "${STAGE_ONLY}" == "2" || "${STAGE_ONLY}" == "stage2
   --disable_gradient_checkpointing "${DISABLE_GRADIENT_CHECKPOINTING:-True}" \
   --seed "${SEED:-42}" \
   --tokenized_path "${TOKENIZED_PATH2}" \
-  --adapter_name_or_path "${STAGE1_OUT}" \
+  --adapter_name_or_path "${STAGE1_ADAPTER_PATH}" \
   --language_column "${LANGUAGE_COLUMN}" \
   --language_map "${LANGUAGE_MAP}" \
   --moelpr_stage 2 \
