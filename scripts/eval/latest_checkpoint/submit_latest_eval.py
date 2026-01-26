@@ -138,7 +138,7 @@ def main() -> None:
     parser.add_argument("--eval-gpus", type=int, default=1, help="GPUs for eval job.")
     parser.add_argument("--eval-gpu-type", default="h100", help="GPU type for eval job.")
     parser.add_argument("--eval-extra-sbatch", default="", help="Extra sbatch args.")
-    parser.add_argument("--log-root", default="scripts/eval/logs/kiss", help="Directory for eval logs.")
+    parser.add_argument("--log-root", default="scripts/eval/latest_checkpoint/logs", help="Directory for eval logs.")
     parser.add_argument("--output-subdir", default="lm_eval_latest", help="Subdir for eval outputs within run dir.")
     parser.add_argument("--skip-existing", action="store_true", help="Skip if output dir already has results.")
     parser.add_argument("--dry-run", action="store_true", help="Print commands without submitting.")

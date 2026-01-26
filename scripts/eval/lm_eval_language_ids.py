@@ -23,13 +23,22 @@ def _log_adapter_stats(model: torch.nn.Module) -> None:
     except Exception:
         return
     router_count = sum(".router." in name for name in names)
+    mola_router_count = sum("lora_gating" in name for name in names)
     expert_count = sum(".expert_" in name for name in names)
+    mola_expert_ids = set()
+    for name in names:
+        # Match both lora_A.0.weight and lora_A.<adapter>.0.weight styles.
+        match = re.search(r"\.lora_[AB](?:\.[^.]+)?\.(\d+)\.", name)
+        if match:
+            mola_expert_ids.add(int(match.group(1)))
     lora_count = sum(".lora_" in name for name in names)
     logger.info(
-        "Adapter params: lora=%d router=%d expert=%d",
+        "Adapter params: lora=%d router=%d expert=%d mola_router=%d mola_experts=%d",
         lora_count,
         router_count,
         expert_count,
+        mola_router_count,
+        len(mola_expert_ids),
     )
     cfg = getattr(model, "peft_config", None)
     if cfg:
@@ -128,14 +137,14 @@ def _resolve_adapter_dir(path: Path) -> Path:
     return path
 
 
-def _load_language_list(adapter_dir: Path) -> list[str]:
+def _load_language_list(adapter_dir: Path) -> Optional[list[str]]:
     cfg_path = adapter_dir / "adapter_config.json"
     if not cfg_path.exists():
         raise FileNotFoundError(f"adapter_config.json not found in {adapter_dir}")
     cfg = json.loads(cfg_path.read_text())
     lang_list = cfg.get("language_list")
     if not lang_list:
-        raise ValueError("adapter_config.json missing language_list")
+        return None
     return list(lang_list)
 
 
@@ -281,7 +290,13 @@ def _run_eval(
     if attn_impl:
         logger.info("Attention implementation override: %s", attn_impl)
     # Ensure repo-local PEFT (with CoLA/Hydra) is used inside lm_eval.
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = None
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "LLaMA-Factory" / "src" / "peft").exists():
+            repo_root = parent
+            break
+    if repo_root is None:
+        repo_root = Path(__file__).resolve().parents[2]
     peft_path = repo_root / "LLaMA-Factory" / "src"
     if str(peft_path) not in sys.path:
         sys.path.insert(0, str(peft_path))
@@ -509,7 +524,14 @@ def main() -> int:
     print(f"[INFO] Eval run: output_dir={outdir}", file=sys.stderr)
 
     lang_list = _load_language_list(ckpt)
-    lang_map = _build_lang_id_map(lang_list)
+    if not lang_list:
+        if args.mode in ("with_ids", "both"):
+            print("[WARN] adapter_config.json missing language_list; falling back to no_ids eval only.", file=sys.stderr)
+        effective_mode = "no_ids"
+        lang_map: dict[str, int] = {}
+    else:
+        effective_mode = args.mode
+        lang_map = _build_lang_id_map(lang_list)
     torch_dtype = _parse_torch_dtype(args.torch_dtype)
     if torch_dtype is None and args.device.startswith("cuda"):
         torch_dtype = "auto"
@@ -534,7 +556,7 @@ def main() -> int:
             print(f"{task}: lang_code={code} lang_id={lang_id}")
         return 0
 
-    if args.mode in ("no_ids", "both"):
+    if effective_mode in ("no_ids", "both"):
         _run_eval(
             pretrained=base_model,
             peft=str(ckpt),
@@ -559,7 +581,7 @@ def main() -> int:
             fewshot_random_seed=args.fewshot_seed,
         )
 
-    if args.mode in ("with_ids", "both"):
+    if effective_mode in ("with_ids", "both"):
         # Run per-task so each task gets a fixed language ID
         for task in tasks:
             code = _task_to_lang_code(task)

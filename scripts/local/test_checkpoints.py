@@ -7,10 +7,7 @@ import torch.distributed.checkpoint as dist_cp
 import torch.distributed as dist
 
 WATCH_ROOTS = [
-    "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/adamole/paper-best_20260114_003639/",
-    "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/cola/paper-best_20260114_003639/",
-    "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/hydralora/paper-best_20260114_003639/",
-    "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/mola/paper-best_20260114_003639/",
+    "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-3B_tokenizer-200_langs/mola/paper-best_20260124_223511"
 ]
 
 APPROACHES = ("adamole", "mola", "cola", "hydralora")
@@ -265,7 +262,9 @@ def find_adapter_checkpoints(root, limit=2):
         step = parse_checkpoint_step(dirpath)
         candidates.append((step, dirpath))
     candidates.sort(key=lambda item: (item[0], item[1]))
-    return [path for _, path in candidates[:limit]]
+    if limit is None or limit <= 0:
+        return [path for _, path in candidates]
+    return [path for _, path in candidates[-limit:]]
 
 
 def parse_checkpoint_step(path):
@@ -291,7 +290,17 @@ def report_expected_keys(tensors, approach, label):
         print(f"{label}: missing_patterns={missing}")
 
 
+def verify_required_keys(tensors, patterns, label):
+    missing = [p for p in patterns if not any(p in key for key in tensors)]
+    if missing:
+        print(f"{label}: [ERROR] missing required patterns={missing}")
+        return False
+    print(f"{label}: required patterns present={patterns}")
+    return True
+
+
 def main():
+    exit_code = 0
     runs = build_runs()
     for name, spec in runs.items():
         root = spec["root"]
@@ -341,6 +350,19 @@ def main():
         report_expected_keys(tensors_a, approach, "A expected keys")
         report_expected_keys(tensors_b, approach, "B expected keys")
 
+        if approach == "mola":
+            required = ["lora_A", "lora_B", "lora_gating"]
+            ok_a = verify_required_keys(tensors_a, required, "A required keys")
+            ok_b = verify_required_keys(tensors_b, required, "B required keys")
+            # Ensure weights changed between latest two checkpoints for MoLA
+            diff_keys = collect_keys(tensors_a, required) & collect_keys(tensors_b, required)
+            diff_norm = 0.0
+            for key in diff_keys:
+                diff_norm += float((tensors_a[key].float() - tensors_b[key].float()).norm().item())
+            print(f"MoLA diff_norm on required keys: {diff_norm:.6f}")
+            if not (ok_a and ok_b) or diff_norm <= 1e-6:
+                exit_code = 1
+
         summarize_group_diffs(tensors_a, tensors_b, "LoRA A diff", ["lora_A", "lora_a"])
         summarize_group_diffs(tensors_a, tensors_b, "LoRA B diff", ["lora_B", "lora_b"])
         if approach in ("cola", "hydralora"):
@@ -373,7 +395,7 @@ def main():
     if dist.is_available() and dist.is_initialized():
         dist.destroy_process_group()
 
-    return 0
+    return exit_code
 
 
 if __name__ == "__main__":

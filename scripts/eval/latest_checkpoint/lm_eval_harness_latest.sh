@@ -12,7 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
-HARNESS_ROOT="${LM_EVAL_HARNESS_PATH:-${REPO_ROOT}/scripts/eval/lm-evaluation-harness}"
+HARNESS_ROOT="${LM_EVAL_HARNESS_PATH:-${REPO_ROOT}/scripts/eval/latest_checkpoint/lm-evaluation-harness}"
 LLAMAFACTORY_SRC="${REPO_ROOT}/LLaMA-Factory/src"
 
 CHECKPOINT_PATH="${CHECKPOINT_PATH:?CHECKPOINT_PATH not set}"
@@ -23,6 +23,10 @@ LANG_MODE="${LM_EVAL_LANG_MODE:-both}"
 LIMIT="${LM_EVAL_LIMIT:-}"
 LOG_ROUTER_METRICS="${LM_EVAL_LOG_ROUTER_METRICS:-true}"
 FORCE_DEVICE="${LM_EVAL_FORCE_DEVICE:-true}"
+FLORES_CONFIGS="${HARNESS_ROOT}/lm_eval/tasks/flores_en_perplexity/configs"
+if [[ -z "${LM_EVAL_INCLUDE_PATH:-}" && -d "${FLORES_CONFIGS}" ]]; then
+  LM_EVAL_INCLUDE_PATH="${FLORES_CONFIGS}"
+fi
 INCLUDE_PATH="${LM_EVAL_INCLUDE_PATH:-}"
 DEVICE="${LM_EVAL_DEVICE:-cuda}"
 
@@ -79,6 +83,17 @@ set -u
 # Ensure local harness + local PEFT are used
 export PYTHONPATH="${HARNESS_ROOT}:${LLAMAFACTORY_SRC}:${PYTHONPATH:-}"
 export PYTHONUNBUFFERED=1
+
+cd "${HARNESS_ROOT}"
+
+echo "[DEBUG] HARNESS_ROOT=${HARNESS_ROOT}"
+echo "[DEBUG] LLAMAFACTORY_SRC=${LLAMAFACTORY_SRC}"
+echo "[DEBUG] PYTHONPATH=${PYTHONPATH}"
+echo "[DEBUG] LM_EVAL_INCLUDE_PATH=${INCLUDE_PATH}"
+python3 - <<'PY'
+import lm_eval
+print("[DEBUG] lm_eval.__file__=", lm_eval.__file__)
+PY
 
 WANDB_PROJECT="${WANDB_PROJECT:-lm-eval}"
 WANDB_ENTITY="${WANDB_ENTITY:-}"
