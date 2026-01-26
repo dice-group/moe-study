@@ -131,6 +131,29 @@
           }
         }
       ]
+    },
+    "moelpr": {
+      "type": "moelpr",
+      "script": "moelpr_job.sh",
+      "log_prefix": "moelpr",
+      "batch_size": 10,
+      "variants": [
+        {
+          "name": "paper-best",
+          "env": {
+            "MOELPR_STAGE1_AUX_LOSS_COEF": 0.01,
+            "MOELPR_STAGE2_LPR_LOSS_COEF": 0.1,
+            "MOELPR_TOP_K": 2,
+            "MOELPR_NUM_EXPERTS": 4,
+            "GRADIENT_ACCUMULATION_STEPS": 2,
+            "DISABLE_GRADIENT_CHECKPOINTING": "False",
+            "EVAL_STEPS": 3000,
+            "SAVE_STEPS": 1000,
+            "SAVE_TOTAL_LIMIT": 4,
+            "LLAMAFACTORY_ADAPTER_MILESTONE_STEPS": 10000
+          }
+        }
+      ]
     }
   },
   "lm_eval": {
