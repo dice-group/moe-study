@@ -1,0 +1,13 @@
+code,subset,split,script,name,family,words,documents,utf8_bytes,utf8_bytes_human,parquet_bytes,parquet_bytes_human,bible_ratio,wiki_ratio,resource_category
+azj,azj_Latn,train,Latn,North Azerbaijani,Turkic,3894255826,7291231,28882728457,26.90GB,11261369599,10.49GB,-,-,medium
+azj,azj_Cyrl,train,Cyrl,North Azerbaijani,Turkic,3785133,5748,40426372,38.55MB,11991063,11.44MB,0.574,0.000,low
+rus,rus_Cyrl,train,Cyrl,Russian,Indo-European,588579493780,699083579,6400108560340,5.82TB,1987554520397,1.81TB,-,-,high
+cmn,cmn_Hani,train,Hani,Mandarin Chinese,Sino-Tibetan,543543038750,636058984,2665362545414,2.42TB,1621984299196,1.48TB,-,-,high
+jpn,jpn_Jpan,train,Jpan,Japanese,Japonic,331144301801,400138563,1650248456871,1.50TB,716653211753,667.44GB,-,-,high
+ind,ind_Latn,train,Latn,Indonesian,Austronesian,60264322142,100238529,374364271538,348.65GB,152153987480,141.70GB,-,-,high
+arb,arb_Arab,train,Arab,Standard Arabic,Afro-Asiatic,32812858120,61977525,315241517028,293.59GB,105963830058,98.69GB,-,-,high
+arb,arb_Latn,train,Latn,Standard Arabic,Afro-Asiatic,1717224,1965,10755618,10.26MB,4558351,4.35MB,0.001,0.001,low
+vie,vie_Latn,train,Latn,Vietnamese,Austro-Asiatic,50886874358,61064248,343416915256,319.83GB,130131724878,121.19GB,-,-,high
+kor,kor_Hang,train,Hang,Korean,Koreanic,48613120582,60874355,229164863492,213.43GB,105767105257,98.50GB,-,-,high
+fas,fas_Arab,train,Arab,Persian,Indo-European,39705799658,58843652,327079306116,304.62GB,102358723163,95.33GB,-,-,high
+hun,hun_Latn,train,Latn,Hungarian,Uralic,30919839164,49935986,214420647030,199.69GB,98497079849,91.73GB,-,-,high
