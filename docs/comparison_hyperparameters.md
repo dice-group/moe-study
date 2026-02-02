@@ -68,6 +68,19 @@ I use flash attention 2 (`fa2` in configs) for all training for efficiency.
 | lora_dropout | 0.05 / 0.05 / 0.05 | 0.05 / 0.05 / 0.05 | 0.05 / 0.05 / 0.05 | 0.05 / 0.05 / 0.05 | Yes |
 | lora_target | q_proj,k_proj,v_proj,o_proj | q_proj,k_proj,v_proj,o_proj | q_proj,k_proj,v_proj,o_proj | q_proj,k_proj,v_proj,o_proj | Yes |
 
+Reasoning: 
+-  rank = 8: Used by AdaMoe / CoLA / HydraLoRA paper, AdaMOLE uses r=32
+-  alpha = 16: Used by AdaMoLE / CoLA paper not specified in others
+   - specifically there is this common rule: aplha = rank * 2 some use, e.g CoLA
+- lora_target: q, k, v, o - these are all attention modules
+  - the original LoRA paper says: "In the Transformer architecture, there are four weight matrices in
+the self-attention module (Wq, Wk, Wv, Wo) and two in the MLP module. We treat Wq (or Wk, Wv)
+as a single matrix of dimension dmodel ×dmodel, even though the output dimension is usually sliced
+into attention heads. We limit our study to only adapting the attention weights for downstream
+tasks and freeze the MLP modules (so they are not trained in downstream tasks) both for simplicity
+and parameter-efficiency"
+  - Otherwise AdaMoE /CoLA also applied lora to W_gate, W_down, W_up (MLP modules), AdaMoLE also only focussed on attention weights
+
 Notes:
 - Job-script defaults differ for CoLA and HydraLoRA (`lora_rank=16`, `lora_alpha=32`), but all configs
   explicitly set `LORA_R=8` and `LORA_ALPHA=16` for those approaches, so the effective values
@@ -84,8 +97,8 @@ Values are shown as `8B / 1B / 3B`.
 
 | Parameter | 8B / 1B / 3B | Notes |
 | --- | --- | --- |
-| adamole_num_experts | 4 / 4 / 4 | config |
-| adamole_max_threshold | 0.25 / 0.25 / 0.25 | config |
+| adamole_num_experts | 4 / 4 / 4 | !!! This goes agains original PAPER, they use 8 EXPERTS !!! |
+| adamole_max_threshold | 0.25 / 0.25 / 0.25 | in paper they say 0,1/2N meaning 0.25 bc 4 experts |
 | adamole_aux_loss_coef | 0.001 / 0.001 / 0.001 | config |
 | adamole_debug_mode | False / False / False | job script default |
 
@@ -93,7 +106,8 @@ Values are shown as `8B / 1B / 3B`.
 
 | Parameter | 8B / 1B / 3B | Notes |
 | --- | --- | --- |
-| mola_num_experts | 4 / 4 / 4 | config |
+| mola_num_experts | 4 / 4 / 4 | same as in Paper |
+| mola_num_null_experts | 1 / 1 / 1 | in paper best setup uses m7k4 (appendix). I set this in config, but seems like this was not proeprly injected into the runs scripts |
 | mola_top_k | 4 / 4 / 4 | config |
 | mola_use_null_expert | True / True / True | job script default |
 | mola_router_aux_loss_coef | 0.001 / 0.001 / 0.001 | config |
