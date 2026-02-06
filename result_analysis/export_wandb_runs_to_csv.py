@@ -74,9 +74,32 @@ def _run_to_row(run, project: str, include_config: bool) -> Dict[str, Any]:
     return row
 
 
-def export_project(api: wandb.Api, entity: str, project: str, out_dir: Path, include_config: bool) -> Path:
-    runs = api.runs(f"{entity}/{project}")
-    rows = [_run_to_row(run, project, include_config) for run in runs]
+def export_project(
+    api: wandb.Api,
+    entity: str,
+    project: str,
+    out_dir: Path,
+    include_config: bool,
+    run_names: Iterable[str] | None = None,
+    run_ids: Iterable[str] | None = None,
+) -> Path:
+    rows = []
+    if run_ids:
+        for run_id in run_ids:
+            try:
+                run = api.run(f"{entity}/{project}/{run_id}")
+            except Exception:
+                continue
+            rows.append(_run_to_row(run, project, include_config))
+    else:
+        filters = None
+        if run_names:
+            filters = {"name": {"$in": list(run_names)}}
+        runs = api.runs(f"{entity}/{project}", filters=filters)
+        rows = [_run_to_row(run, project, include_config) for run in runs]
+        if run_names:
+            names = set(run_names)
+            rows = [row for row in rows if row.get("name") in names]
     df = pd.DataFrame(rows)
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{project}_runs.csv"
@@ -90,12 +113,24 @@ def main() -> None:
     parser.add_argument("--projects", nargs="*", default=DEFAULT_PROJECTS)
     parser.add_argument("--no-config", action="store_true", help="Exclude run.config from export.")
     parser.add_argument("--out-dir", default="result_analysis/wandb_exports")
+    parser.add_argument("--run-names", help="Comma-separated run names to export (filters server-side when possible).")
+    parser.add_argument("--run-ids", help="Comma-separated run IDs to export (fetched directly by ID).")
     args = parser.parse_args()
 
     api = wandb.Api()
     out_dir = Path(args.out_dir)
+    run_names = args.run_names.split(",") if args.run_names else None
+    run_ids = args.run_ids.split(",") if args.run_ids else None
     for project in args.projects:
-        out_path = export_project(api, args.entity, project, out_dir, include_config=not args.no_config)
+        out_path = export_project(
+            api,
+            args.entity,
+            project,
+            out_dir,
+            include_config=not args.no_config,
+            run_names=run_names,
+            run_ids=run_ids,
+        )
         print(f"Wrote {out_path}")
 
 

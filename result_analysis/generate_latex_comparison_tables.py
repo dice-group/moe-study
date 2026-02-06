@@ -18,7 +18,14 @@ import pandas as pd
 
 REPO = Path("/home/dontspamtomuch/repos/moe-study")
 EVAL_CSV = REPO / "result_analysis" / "wandb_exports" / "moe-study-comparison_eval_runs.csv"
+BASELINE_CSV = (
+    REPO
+    / "result_analysis"
+    / "wandb_exports"
+    / "htyllm-adapter-lpr-200_lang_cola_eval_runs.csv"
+)
 OUT_TEX = REPO / "result_analysis" / "approach_comparison_tables.tex"
+OUT_CSV = REPO / "result_analysis" / "approach_comparison_tables.csv"
 
 TASK_FILES = {
     10: REPO / "configs" / "lm_eval_tasks_10_langs.txt",
@@ -26,7 +33,7 @@ TASK_FILES = {
     200: REPO / "configs" / "lm_eval_tasks_200_langs.txt",
 }
 
-APPROACHES = ["adamole", "mola", "cola", "hydralora"]
+APPROACHES = ["adamole", "mola", "cola", "hydralora", "baseline"]
 MODEL_SIZES = ["1B", "3B", "8B"]
 TIERS = [10, 96, 200]
 
@@ -76,6 +83,20 @@ def avg_for_tasks(row: pd.Series, tasks: List[str], metric: str) -> float | None
     for c in cols:
         if c in row and pd.notna(row[c]):
             vals.append(row[c])
+    if not vals:
+        return None
+    return float(sum(vals) / len(vals))
+
+
+def avg_for_tasks_from_runs(runs: pd.DataFrame, tasks: List[str], metric: str) -> float | None:
+    if runs.empty:
+        return None
+    cols = [f"summary.{t}/{metric}" for t in tasks]
+    vals = []
+    for _, row in runs.iterrows():
+        for c in cols:
+            if c in row and pd.notna(row[c]):
+                vals.append(row[c])
     if not vals:
         return None
     return float(sum(vals) / len(vals))
@@ -268,6 +289,54 @@ def main() -> None:
             "_ts": ts,
         })
 
+    # Add baseline (from separate project), if available
+    baseline_run_ids = {
+        "razk494k",
+        "yebet51e",
+        "ol4o87kg",
+        "3gt3bkrt",
+        "92o8v53w",
+    }
+    if BASELINE_CSV.exists():
+        try:
+            baseline_df = pd.read_csv(BASELINE_CSV)
+        except pd.errors.EmptyDataError:
+            baseline_df = pd.DataFrame()
+        baseline_df = (
+            baseline_df[baseline_df["run_id"].isin(baseline_run_ids)]
+            if not baseline_df.empty and "run_id" in baseline_df.columns
+            else baseline_df
+        )
+        if not baseline_df.empty:
+            bele_runs = baseline_df[baseline_df["name"].str.contains("belebele", na=False)]
+            flo_runs = baseline_df[baseline_df["name"].str.contains("flores", na=False)]
+
+            for tier in TIERS:
+                meta = task_meta.get(tier)
+                if meta is None or meta.empty:
+                    continue
+                bele_tasks = meta[meta["metric"] == "acc_norm"]["task"].tolist()
+                flo_tasks = meta[meta["metric"] == "byte_perplexity"]["task"].tolist()
+
+                def tasks_for(resource: str, metric: str) -> List[str]:
+                    return meta[(meta["metric"] == metric) & (meta["resource"] == resource)][
+                        "task"
+                    ].tolist()
+
+                records.append({
+                    "model_size": "8B",
+                    "langs": tier,
+                    "approach": "baseline",
+                    "bele_all": avg_for_tasks_from_runs(bele_runs, bele_tasks, "acc_norm"),
+                    "flo_all": avg_for_tasks_from_runs(flo_runs, flo_tasks, "byte_perplexity"),
+                    "bele_high": avg_for_tasks_from_runs(bele_runs, tasks_for("high", "acc_norm"), "acc_norm"),
+                    "flo_high": avg_for_tasks_from_runs(flo_runs, tasks_for("high", "byte_perplexity"), "byte_perplexity"),
+                    "bele_mid": avg_for_tasks_from_runs(bele_runs, tasks_for("mid", "acc_norm"), "acc_norm"),
+                    "flo_mid": avg_for_tasks_from_runs(flo_runs, tasks_for("mid", "byte_perplexity"), "byte_perplexity"),
+                    "bele_low": avg_for_tasks_from_runs(bele_runs, tasks_for("low", "acc_norm"), "acc_norm"),
+                    "flo_low": avg_for_tasks_from_runs(flo_runs, tasks_for("low", "byte_perplexity"), "byte_perplexity"),
+                })
+
     df = pd.DataFrame(records)
     df = df[df["approach"].isin(APPROACHES)]
 
@@ -276,7 +345,9 @@ def main() -> None:
         df = df.sort_values(["model_size", "langs", "approach", "_ts"]).drop_duplicates(
             subset=["model_size", "langs", "approach"], keep="last"
         )
+    df["approach"] = pd.Categorical(df["approach"], categories=APPROACHES, ordered=True)
     df = df.sort_values(["model_size", "langs", "approach"]).drop(columns=["_ts"], errors="ignore")
+    df.to_csv(OUT_CSV, index=False)
 
     metric_cols: List[Tuple[str, bool]] = [
         ("bele_all", True),
@@ -346,6 +417,7 @@ def main() -> None:
 
     OUT_TEX.write_text("\n".join(lines))
     print("Wrote", OUT_TEX)
+    print("Wrote", OUT_CSV)
 
 
 if __name__ == "__main__":
