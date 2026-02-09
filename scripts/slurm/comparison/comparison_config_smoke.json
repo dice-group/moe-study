@@ -76,6 +76,28 @@
         }
       ]
     },
+    "movlora": {
+      "script": "movlora_job.sh",
+      "log_prefix": "movlora",
+      "batch_size": 16,
+      "variants": [
+        {
+          "name": "paper-best",
+          "env": {
+            "MOVLORA_NUM_EXPERTS": 8,
+            "MOVLORA_TOP_K": 0,
+            "MOVLORA_ROUTER_TEMPERATURE": 1.0,
+            "MOVLORA_ROUTER_JITTER_NOISE": 0.0,
+            "MOVLORA_ROUTER_BIAS": false,
+            "MOVLORA_ROUTER_INIT_STD": 0.02,
+            "MOVLORA_ROUTER_IGNORE_PADDING_TOKENS": false,
+            "USE_RSLORA": false,
+            "LORA_R": 8,
+            "LORA_ALPHA": 16
+          }
+        }
+      ]
+    },
     "cola": {
       "script": "cola_job.sh",
       "log_prefix": "cola",
