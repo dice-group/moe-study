@@ -5,9 +5,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 COMPARISON_DIR="${SCRIPT_DIR}"
 
-# Execution mode:
+# Modes:
 # - slurm (default): submit via sbatch
-# - local: run job scripts directly on this machine
+# - local: run scripts directly
 RUN_MODE="${RUN_MODE:-slurm}"
 DRY_RUN="${DRY_RUN:-0}"
 LOCAL_PARALLEL="${LOCAL_PARALLEL:-0}"
@@ -29,8 +29,6 @@ FLASH_ATTN="${FLASH_ATTN:-fa2}"
 AUTO_FIND_BATCH_SIZE="${AUTO_FIND_BATCH_SIZE:-false}"
 NUM_TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
 LEARNING_RATE="${LEARNING_RATE:-2e-4}"
-EVAL_STEPS="${EVAL_STEPS:-3000}"
-SAVE_STEPS="${SAVE_STEPS:-1000}"
 SAVE_TOTAL_LIMIT="${SAVE_TOTAL_LIMIT:-4}"
 PREPROCESSING_NUM_WORKERS="${PREPROCESSING_NUM_WORKERS:-32}"
 PREPROCESSING_BATCH_SIZE="${PREPROCESSING_BATCH_SIZE:-100000}"
@@ -40,37 +38,40 @@ USE_ACCELERATE="${USE_ACCELERATE:-1}"
 DEFAULT_GPU_TYPE="${DEFAULT_GPU_TYPE:-h100}"
 DEFAULT_GPU_COUNT="${DEFAULT_GPU_COUNT:-1}"
 DEFAULT_PARTITION="${DEFAULT_PARTITION:-gpu}"
-DEFAULT_WALLTIME="${DEFAULT_WALLTIME:-24:00:00}"
+DEFAULT_WALLTIME="${DEFAULT_WALLTIME:-27:00:00}"
 DEFAULT_CPUS_PER_TASK="${DEFAULT_CPUS_PER_TASK:-32}"
 DEFAULT_MEM="${DEFAULT_MEM:-128G}"
 SBATCH_EXTRA_ARGS="${SBATCH_EXTRA_ARGS:-}"
 
+# Optional: limit to subset, e.g. RUN_APPROACHES="cola hydralora"
+RUN_APPROACHES="${RUN_APPROACHES:-cola hydralora adamole lora}"
+
 # -----------------------------------------------------------------------------
-# Edit these arrays for quick experiments
+# Edit these arrays only
 # -----------------------------------------------------------------------------
 
 # <tier_id>|<dataset_name>|<tokenizer_name>|<model_name_or_path>
 LANGUAGE_TIERS=(
   "tier10|10_langs|llama-3.2-1B_tokenizer|meta-llama/Llama-3.2-1B"
-  # "tier10_200langs_sample|200_langs|llama-3.2-1B_tokenizer|meta-llama/Llama-3.2-1B"
 )
 
-# <variant_label>|<train_bs>|<extra_env_pairs>
-# NOTE: extra env pairs are space-separated KEY=VALUE assignments.
+# Variant format:
+# <label>|<train_bs>|<grad_acc>|<eval_steps>|<save_steps>|<extra_env_pairs>
+# 10-lang 1B values set for ~27h budget and ~8 eval points (approach-specific throughput).
 COLA_VARIANTS=(
-  "paper-best|21|COLA_NUM_A=1 COLA_NUM_B=3 COLA_STRATEGY=fully LORA_R=8 LORA_ALPHA=16"
+  "paper-best|21|2|7300|7300|COLA_NUM_A=1 COLA_NUM_B=3 COLA_STRATEGY=fully LORA_R=8 LORA_ALPHA=16"
 )
 
 HYDRALORA_VARIANTS=(
-  "paper-best|17|USE_HYDRALORA_EXPERTS=True HYDRALORA_NUM_EXPERTS=3 HYDRALORA_TOP_K=1 HYDRALORA_NUM_B=3 LORA_R=8 LORA_ALPHA=16"
+  "paper-best|17|2|6700|6700|USE_HYDRALORA_EXPERTS=True HYDRALORA_NUM_EXPERTS=3 HYDRALORA_TOP_K=1 HYDRALORA_NUM_B=3 LORA_R=8 LORA_ALPHA=16"
 )
 
 ADAMOLE_VARIANTS=(
-  "paper-best|15|ADAMOLE_NUM_EXPERTS=4 ADAMOLE_AUX_LOSS_COEF=0.001 ADAMOLE_MAX_THRESHOLD=0.25 LORA_R=8 LORA_ALPHA=16"
+  "paper-best|15|2|5100|5100|ADAMOLE_NUM_EXPERTS=4 ADAMOLE_AUX_LOSS_COEF=0.001 ADAMOLE_MAX_THRESHOLD=0.25 LORA_R=8 LORA_ALPHA=16"
 )
 
 LORA_VARIANTS=(
-  "paper-best|21|LORA_R=8 LORA_ALPHA=16 LORA_DROPOUT=0.05"
+  "paper-best|23|2|8200|8200|LORA_R=8 LORA_ALPHA=16 LORA_DROPOUT=0.05"
 )
 
 # Resource overrides per tier id.
@@ -107,6 +108,8 @@ declare -A APPROACH_VARIANTS_REF=(
   ["lora"]="LORA_VARIANTS"
 )
 
+declare -a LOCAL_JOB_PIDS=()
+
 sanitize() {
   echo "$1" | tr '/ :|' '_'
 }
@@ -127,16 +130,25 @@ require_path() {
 }
 
 ensure_tools() {
-  if [[ "${RUN_MODE}" == "slurm" ]]; then
-    if ! command -v sbatch >/dev/null 2>&1; then
-      if [[ "${DRY_RUN}" == "1" ]]; then
-        echo "[WARN] sbatch not found; continuing because DRY_RUN=1."
-      else
-        echo "[ERROR] RUN_MODE=slurm but sbatch is not available in PATH." >&2
-        exit 1
-      fi
+  if [[ "${RUN_MODE}" == "slurm" ]] && ! command -v sbatch >/dev/null 2>&1; then
+    if [[ "${DRY_RUN}" == "1" ]]; then
+      echo "[WARN] sbatch not found; continuing because DRY_RUN=1."
+    else
+      echo "[ERROR] RUN_MODE=slurm but sbatch is not available in PATH." >&2
+      exit 1
     fi
   fi
+}
+
+is_enabled_approach() {
+  local target="$1"
+  local a
+  for a in ${RUN_APPROACHES}; do
+    if [[ "${a}" == "${target}" ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 submit_or_run_job() {
@@ -147,8 +159,11 @@ submit_or_run_job() {
   local approach="$5"
   local variant_label="$6"
   local train_bs="$7"
-  local extra_env_pairs="$8"
-  local timestamp="$9"
+  local grad_acc="$8"
+  local eval_steps="$9"
+  local save_steps="${10}"
+  local extra_env_pairs="${11}"
+  local timestamp="${12}"
 
   local script_name="${APPROACH_SCRIPT[${approach}]}"
   local script_path="${COMPARISON_DIR}/${script_name}"
@@ -161,6 +176,7 @@ submit_or_run_job() {
   local variant_slug
   tier_slug="$(sanitize "${tier_id}")"
   variant_slug="$(sanitize "${variant_label}")"
+
   local run_name="l3-1b-${dataset_name}-${approach}-${variant_slug}-${timestamp}"
   local output_dir="${OUTPUT_ROOT}/${tokenizer_name}-${dataset_name}/${approach}/${variant_slug}_${timestamp}"
   local log_path="${LOG_ROOT}/${tier_slug}_${approach}_${variant_slug}_${timestamp}.log"
@@ -184,8 +200,9 @@ submit_or_run_job() {
     "LEARNING_RATE=${LEARNING_RATE}"
     "PER_DEVICE_TRAIN_BATCH_SIZE=${train_bs}"
     "PER_DEVICE_EVAL_BATCH_SIZE=${train_bs}"
-    "EVAL_STEPS=${EVAL_STEPS}"
-    "SAVE_STEPS=${SAVE_STEPS}"
+    "GRADIENT_ACCUMULATION_STEPS=${grad_acc}"
+    "EVAL_STEPS=${eval_steps}"
+    "SAVE_STEPS=${save_steps}"
     "SAVE_TOTAL_LIMIT=${SAVE_TOTAL_LIMIT}"
     "PREPROCESSING_NUM_WORKERS=${PREPROCESSING_NUM_WORKERS}"
     "PREPROCESSING_BATCH_SIZE=${PREPROCESSING_BATCH_SIZE}"
@@ -208,6 +225,8 @@ submit_or_run_job() {
     local extra_arr=( ${extra_env_pairs} )
     env_assignments+=("${extra_arr[@]}")
   fi
+
+  echo "[INFO] ${approach}/${variant_label}/${tier_id}: bs=${train_bs} grad_acc=${grad_acc} eval_steps=${eval_steps} save_steps=${save_steps}"
 
   if [[ "${RUN_MODE}" == "slurm" ]]; then
     local gpu_type="${TIER_GPU_TYPE_MAP[${tier_id}]:-${DEFAULT_GPU_TYPE}}"
@@ -279,25 +298,52 @@ main() {
   echo "  output root:    ${OUTPUT_ROOT}"
   echo "  wandb project:  ${WANDB_PROJECT}"
   echo "  wandb group:    ${WANDB_RUN_GROUP}"
+  echo "  approaches:     ${RUN_APPROACHES}"
 
+  local tier_spec
   for tier_spec in "${LANGUAGE_TIERS[@]}"; do
+    local tier_id
+    local dataset_name
+    local tokenizer_name
+    local model_name
     IFS='|' read -r tier_id dataset_name tokenizer_name model_name <<<"${tier_spec}"
     echo "[INFO] Tier ${tier_id}: dataset=${dataset_name} tokenizer=${tokenizer_name} model=${model_name}"
 
+    local approach
     for approach in cola hydralora adamole lora; do
+      if ! is_enabled_approach "${approach}"; then
+        continue
+      fi
+
       local variants_ref_name="${APPROACH_VARIANTS_REF[${approach}]}"
       declare -n variants_ref="${variants_ref_name}"
+      local variant_spec
       for variant_spec in "${variants_ref[@]}"; do
-        IFS='|' read -r variant_label train_bs extra_env_pairs <<<"${variant_spec}"
+        local variant_label
+        local train_bs
+        local grad_acc
+        local eval_steps
+        local save_steps
+        local extra_env_pairs
+
+        IFS='|' read -r variant_label train_bs grad_acc eval_steps save_steps extra_env_pairs <<<"${variant_spec}"
+
+        if [[ -z "${variant_label}" || -z "${train_bs}" || -z "${grad_acc}" || -z "${eval_steps}" || -z "${save_steps}" ]]; then
+          echo "[ERROR] Invalid variant spec for ${approach}: ${variant_spec}" >&2
+          exit 1
+        fi
+
         submit_or_run_job \
           "${tier_id}" "${dataset_name}" "${tokenizer_name}" "${model_name}" \
-          "${approach}" "${variant_label}" "${train_bs}" "${extra_env_pairs}" "${timestamp}"
+          "${approach}" "${variant_label}" "${train_bs}" "${grad_acc}" \
+          "${eval_steps}" "${save_steps}" "${extra_env_pairs:-}" "${timestamp}"
       done
     done
   done
 
   if [[ "${RUN_MODE}" == "local" && "${LOCAL_PARALLEL}" == "1" && "${DRY_RUN}" != "1" ]]; then
     local rc=0
+    local pid
     for pid in "${LOCAL_JOB_PIDS[@]:-}"; do
       wait "${pid}" || rc=$?
     done
