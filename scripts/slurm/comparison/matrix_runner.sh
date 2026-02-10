@@ -307,7 +307,10 @@ matrix_submit_or_run_job() {
 run_matrix() {
   matrix_ensure_tools
 
-  matrix_require_path "${MATRIX_DATASET_DIR}" "DATASET_DIR"
+  if [[ ! -d "${MATRIX_DATASET_DIR}" ]]; then
+    echo "[WARN] DATASET_DIR not found, creating empty dir: ${MATRIX_DATASET_DIR}"
+    mkdir -p "${MATRIX_DATASET_DIR}"
+  fi
   matrix_require_path "${MATRIX_TOKENIZED_BASE_DIR}" "TOKENIZED_BASE_DIR"
   mkdir -p "${MATRIX_LOG_ROOT}" "${MATRIX_OUTPUT_ROOT}"
 
