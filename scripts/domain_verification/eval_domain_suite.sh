@@ -68,25 +68,38 @@ if [[ -n "$MODEL" && -n "$CHECKPOINT" ]]; then
   exit 1
 fi
 
-if [[ -z "$TASKS_FILE" ]]; then
+if [[ -n "$TASKS_FILE" ]]; then
+  if [[ ! -f "$TASKS_FILE" ]]; then
+    echo "Tasks file not found: $TASKS_FILE"
+    exit 1
+  fi
+  TASKS=$(grep -v '^[[:space:]]*#' "$TASKS_FILE" | awk 'NF' | paste -sd, -)
+  if [[ -z "$TASKS" ]]; then
+    echo "No tasks resolved from $TASKS_FILE"
+    exit 1
+  fi
+else
   case "$SUITE" in
-    gsm8k) TASKS_FILE="configs/domain_verification/tasks_gsm8k.txt" ;;
-    mmlu) TASKS_FILE="configs/domain_verification/tasks_mmlu.txt" ;;
-    mmlu_stem) TASKS_FILE="configs/domain_verification/tasks_mmlu_stem.txt" ;;
-    humaneval) TASKS_FILE="configs/domain_verification/tasks_humaneval.txt" ;;
-    multilingual10) TASKS_FILE="configs/domain_verification/tasks_multilingual_10.txt" ;;
-    *) echo "Unsupported suite: $SUITE"; exit 1 ;;
+    gsm8k)
+      TASKS="gsm8k"
+      ;;
+    mmlu)
+      TASKS="mmlu"
+      ;;
+    mmlu_stem)
+      TASKS="mmlu_stem"
+      ;;
+    humaneval)
+      TASKS="humaneval"
+      ;;
+    multilingual10)
+      TASKS="belebele_arb_Arab,belebele_arb_Latn,belebele_azj_Latn,belebele_eng_Latn,belebele_hun_Latn,belebele_ind_Latn,belebele_jpn_Jpan,belebele_kor_Hang,belebele_rus_Cyrl,belebele_vie_Latn"
+      ;;
+    *)
+      echo "Unsupported suite: $SUITE"
+      exit 1
+      ;;
   esac
-fi
-if [[ ! -f "$TASKS_FILE" ]]; then
-  echo "Tasks file not found: $TASKS_FILE"
-  exit 1
-fi
-
-TASKS=$(grep -v '^[[:space:]]*#' "$TASKS_FILE" | awk 'NF' | paste -sd, -)
-if [[ -z "$TASKS" ]]; then
-  echo "No tasks resolved from $TASKS_FILE"
-  exit 1
 fi
 
 MERLIN_BIN="/upb/users/j/joeldag/profiles/unix/cs/.conda/envs/merlin/bin"
