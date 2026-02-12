@@ -11,9 +11,8 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
-HARNESS_ROOT="${LM_EVAL_HARNESS_PATH:-${REPO_ROOT}/scripts/eval/latest_checkpoint/lm-evaluation-harness}"
+REPO_ROOT="${REPO_ROOT:-/scratch/hpc-prf-merlin/joel/moe-study}"
+HARNESS_ROOT="${LM_EVAL_HARNESS_PATH:-/scratch/hpc-prf-merlin/joel/moe-study/scripts/eval/latest_checkpoint/lm-evaluation-harness}"
 
 MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:-meta-llama/Llama-3.2-1B}"
 TASKS_FILE="${TASKS_FILE:-${REPO_ROOT}/configs/lm_eval_tasks_10_langs.txt}"

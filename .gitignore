@@ -27,3 +27,6 @@ comparison_runs_smoke
 local_runs
 tokenized_smoke
 scripts/comparison_scripts_htyllm
+sampled_data/*
+tokenized_data/*
+logs/*
