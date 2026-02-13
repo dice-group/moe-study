@@ -71,21 +71,33 @@ Idea is, you only have to restart 'run_nightly_queue_2gpu.sh' and will get the r
 - comparison workbook:
 - `outputs/domain_verification_night_20260210/domain_verification_comparison.xlsx`
 
-## Results (Overnight Run)
+## Results (With Base, Final)
 
-| Track | Metric | full | lora | adamole | mola | best |
-|---|---|---:|---:|---:|---:|---|
-| gsm8k | exact_match,strict-match | 0.0190 | 0.1145 | 0.1190 | 0.1236 | mola |
-| dolly->mmlu | acc,none | 0.2291 | 0.3638 | 0.3566 | 0.3655 | mola |
-| code->humaneval | pass@1,create_test | 0.0305 | 0.2134 | 0.2012 | 0.1890 | lora |
+Metric direction:
+- `gsm8k exact_match,strict-match`: higher is better
+- `mmlu acc,none`: higher is better
+- `humaneval pass@1,create_test`: higher is better
 
-Interpretation:
-- `full` finetuning underperformed strongly in this setup.
-- `lora` and MoE adapters (`adamole`/`mola`) are close; MoE wins 2/3 tracks, lora wins code.
+Training budget (important context):
+- this was a short sanity run, not a long convergence sweep
+- training used `1 epoch` (`--num_train_epochs 1.0`), with no `--max_steps` and no `--max_samples` override
+- queue settings used in this run: `nproc_per_node=1`, `train_batch_size=8`, `grad_accum=2`
+- observed train wall-time from `train_status.tsv`: `2.2` to `25.5` minutes per run (avg `12.4` min, 12 runs total)
+- observed optimization steps by track were roughly: `gsm8k ~444`, `dolly ~892`, `code ~1189`
+
+| Track | Metric | base | full | lora | adamole | mola | winner |
+|---|---|---:|---:|---:|---:|---:|---|
+| gsm8k | exact_match,strict-match | 0.0637 | 0.0190 | 0.1145 | 0.1190 | 0.1236 | mola |
+| dolly->mmlu | acc,none | 0.3774 | 0.2291 | 0.3638 | 0.3566 | 0.3655 | base |
+| code->humaneval | pass@1,create_test | 0.1951 | 0.0305 | 0.2134 | 0.2012 | 0.1890 | lora |
+
+Hard truth:
+- Fine-tuning is not a universal win vs base in this setup.
+- `full` is worst on all 3 suites.
+- `lora` is most reliable; MoE variants are mixed.
 
 ## Not Included Yet
 
-- Base-model eval rows were not part of this overnight run (`kind=base` missing in `eval_status.tsv`).
 - Multilingual benchmark track is not included in this specific overnight folder.
 
 See `docs/domain_verification_runbook.md` for full procedure details.

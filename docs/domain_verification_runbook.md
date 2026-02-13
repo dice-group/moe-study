@@ -21,6 +21,25 @@ Tracks:
 - `dolly`: train `dolly_15k_en` -> eval `mmlu`
 - `multilingual10`: pre-tokenized multilingual 10-language data -> eval `belebele_10`
 
+## 1.1 Current 1B Outcome (Final Domain Verification)
+
+Metric direction:
+- all three reported metrics are `higher is better`.
+
+Training budget:
+- short sanity budget, not long-horizon convergence
+- training setup for this run: `1 epoch`, no `--max_steps`, no `--max_samples`, `nproc_per_node=1`, `train_batch_size=8`, `grad_accum=2`
+- observed train wall-time from `train_status.tsv`: `2.2` to `25.5` minutes per run (avg `12.4` min over 12 runs)
+
+Winners:
+- `gsm8k`: `mola` (0.1236)
+- `mmlu`: `base` (0.3774)
+- `humaneval`: `lora` (0.2134)
+
+Hard truth:
+- Fine-tuning did not consistently beat base across all suites.
+- `full` fine-tuning regressed strongly on all 3 suites.
+
 ## 2. Asset Validation
 
 ```bash

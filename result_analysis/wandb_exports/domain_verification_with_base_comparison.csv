@@ -1,0 +1,16 @@
+track,suite,method,score,delta_vs_base,path
+gsm8k,gsm8k,adamole,0.11902957,0.05534496,outputs/domain_verification_night_20260210/eval/gsm8k/adamole/gsm8k_20260210_053443_2026-02-10T07-52-19.846626.json
+gsm8k,gsm8k,base,0.06368461,0.00000000,outputs/domain_verification_night_20260210/eval/gsm8k/base/gsm8k_20260213_042430_2026-02-13T04-47-30.794399.json
+gsm8k,gsm8k,full,0.01895375,-0.04473086,outputs/domain_verification_night_20260210/eval/gsm8k/full/gsm8k_20260210_052115_2026-02-10T05-34-43.041605.json
+gsm8k,gsm8k,lora,0.11448067,0.05079606,outputs/domain_verification_night_20260210/eval/gsm8k/lora/gsm8k_20260210_052115_2026-02-10T05-48-43.371959.json
+gsm8k,gsm8k,mola,0.12357847,0.05989386,outputs/domain_verification_night_20260210/eval/gsm8k/mola/gsm8k_20260210_054844_2026-02-10T08-49-06.821362.json
+code,humaneval,adamole,0.20121951,0.00609756,outputs/domain_verification_night_20260210/eval/code/adamole/humaneval_20260210_082028_2026-02-10T08-44-10.378584.json
+code,humaneval,base,0.19512195,0.00000000,outputs/domain_verification_night_20260210/eval/code/base/humaneval_20260213_042641_2026-02-13T04-32-40.890955.json
+code,humaneval,full,0.03048780,-0.16463415,outputs/domain_verification_night_20260210/eval/code/full/humaneval_20260210_081203_2026-02-10T08-20-27.606965.json
+code,humaneval,lora,0.21341463,0.01829268,outputs/domain_verification_night_20260210/eval/code/lora/humaneval_20260210_080554_2026-02-10T08-12-02.652174.json
+code,humaneval,mola,0.18902439,-0.00609756,outputs/domain_verification_night_20260210/eval/code/mola/humaneval_20260210_084411_2026-02-10T09-13-59.593464.json
+dolly,mmlu,adamole,0.35657314,-0.02086597,outputs/domain_verification_night_20260210/eval/dolly/adamole/mmlu_20260210_080255_2026-02-10T08-05-53.706033.json
+dolly,mmlu,base,0.37743911,0.00000000,outputs/domain_verification_night_20260210/eval/dolly/base/mmlu_20260213_042430_2026-02-13T04-26-40.056832.json
+dolly,mmlu,full,0.22909842,-0.14834069,outputs/domain_verification_night_20260210/eval/dolly/full/mmlu_20260210_075436_2026-02-10T08-00-06.372647.json
+dolly,mmlu,lora,0.36383706,-0.01360205,outputs/domain_verification_night_20260210/eval/dolly/lora/mmlu_20260210_075220_2026-02-10T07-54-35.288066.json
+dolly,mmlu,mola,0.36547500,-0.01196411,outputs/domain_verification_night_20260210/eval/dolly/mola/mmlu_20260210_080007_2026-02-10T08-02-54.624968.json
