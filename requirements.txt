@@ -10,3 +10,4 @@ llama-factory
 lm-eval
 wandb
 pandas
+openpyxl
