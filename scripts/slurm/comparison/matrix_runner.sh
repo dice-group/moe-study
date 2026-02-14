@@ -191,10 +191,23 @@ matrix_submit_or_run_job() {
 
   local tier_slug
   local variant_slug
+  local model_size_tag
   tier_slug="$(matrix_sanitize "${tier_id}")"
   variant_slug="$(matrix_sanitize "${variant_label}")"
+  model_size_tag="$(
+    echo "${model_name}" | sed -nE 's/.*([^0-9]|^)(8|3|1)[Bb]([^0-9]|$).*/\2b/p' | head -n1
+  )"
+  if [[ -z "${model_size_tag}" ]]; then
+    model_size_tag="$(
+      echo "${tokenizer_name}" | sed -nE 's/.*([^0-9]|^)(8|3|1)[Bb]([^0-9]|$).*/\2b/p' | head -n1
+    )"
+  fi
+  if [[ -z "${model_size_tag}" ]]; then
+    model_size_tag="unk"
+    echo "[WARN] Could not infer model size for run naming from model='${model_name}' tokenizer='${tokenizer_name}'." >&2
+  fi
 
-  local run_name="l3-1b-${dataset_name}-${approach}-${variant_slug}-${timestamp}"
+  local run_name="l3-${model_size_tag}-${dataset_name}-${approach}-${variant_slug}-${timestamp}"
   local output_dir="${MATRIX_OUTPUT_ROOT}/${tokenizer_name}-${dataset_name}/${approach}/${variant_slug}_${timestamp}"
   local log_path="${MATRIX_LOG_ROOT}/${tier_slug}_${approach}_${variant_slug}_${timestamp}.log"
   mkdir -p "${output_dir}" "$(dirname "${log_path}")"
