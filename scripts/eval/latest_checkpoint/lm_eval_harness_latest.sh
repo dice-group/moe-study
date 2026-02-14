@@ -29,6 +29,19 @@ if [[ -z "${LM_EVAL_INCLUDE_PATH:-}" && -d "${FLORES_CONFIGS}" ]]; then
 fi
 INCLUDE_PATH="${LM_EVAL_INCLUDE_PATH:-}"
 DEVICE="${LM_EVAL_DEVICE:-cuda}"
+PYTHON_BIN="${LM_EVAL_PYTHON_BIN:-python3}"
+
+if [[ "${PYTHON_BIN}" == */* ]]; then
+  if [[ ! -x "${PYTHON_BIN}" ]]; then
+    echo "[ERROR] LM_EVAL_PYTHON_BIN not executable: ${PYTHON_BIN}" >&2
+    exit 1
+  fi
+else
+  if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+    echo "[ERROR] LM_EVAL_PYTHON_BIN not found in PATH: ${PYTHON_BIN}" >&2
+    exit 1
+  fi
+fi
 
 if [[ ! -d "${CHECKPOINT_PATH}" ]]; then
   echo "[ERROR] Checkpoint dir not found: ${CHECKPOINT_PATH}" >&2
@@ -47,7 +60,7 @@ if [[ ! -f "${TASKS_FILE}" ]]; then
 fi
 
 # Resolve base model from adapter_config.json
-BASE_MODEL=$(python3 - <<'PY' "${CHECKPOINT_PATH}/adapter_config.json"
+BASE_MODEL=$("${PYTHON_BIN}" - <<'PY' "${CHECKPOINT_PATH}/adapter_config.json"
 import json, sys
 cfg = json.load(open(sys.argv[1]))
 print(cfg.get("base_model_name_or_path", ""))
@@ -90,7 +103,7 @@ echo "[DEBUG] HARNESS_ROOT=${HARNESS_ROOT}"
 echo "[DEBUG] LLAMAFACTORY_SRC=${LLAMAFACTORY_SRC}"
 echo "[DEBUG] PYTHONPATH=${PYTHONPATH}"
 echo "[DEBUG] LM_EVAL_INCLUDE_PATH=${INCLUDE_PATH}"
-python3 - <<'PY'
+"${PYTHON_BIN}" - <<'PY'
 import lm_eval
 print("[DEBUG] lm_eval.__file__=", lm_eval.__file__)
 PY
@@ -99,18 +112,22 @@ WANDB_PROJECT="${WANDB_PROJECT:-lm-eval}"
 WANDB_ENTITY="${WANDB_ENTITY:-}"
 WANDB_GROUP="${WANDB_GROUP:-}"
 WANDB_NAME="${WANDB_NAME:-}"
-WANDB_ARGS="project=${WANDB_PROJECT}"
-if [[ -n "${WANDB_ENTITY}" ]]; then
-  WANDB_ARGS+=" ,entity=${WANDB_ENTITY}"
+LM_EVAL_ENABLE_WANDB="${LM_EVAL_ENABLE_WANDB:-1}"
+WANDB_ARGS=""
+if [[ "${LM_EVAL_ENABLE_WANDB}" == "1" ]]; then
+  WANDB_ARGS="project=${WANDB_PROJECT}"
+  if [[ -n "${WANDB_ENTITY}" ]]; then
+    WANDB_ARGS+=" ,entity=${WANDB_ENTITY}"
+  fi
+  if [[ -n "${WANDB_GROUP}" ]]; then
+    WANDB_ARGS+=" ,group=${WANDB_GROUP}"
+  fi
+  if [[ -n "${WANDB_NAME}" ]]; then
+    WANDB_ARGS+=" ,name=${WANDB_NAME}"
+  fi
+  WANDB_ARGS+=" ,job_type=lm-eval"
+  WANDB_ARGS=$(echo "${WANDB_ARGS}" | tr -d ' ')
 fi
-if [[ -n "${WANDB_GROUP}" ]]; then
-  WANDB_ARGS+=" ,group=${WANDB_GROUP}"
-fi
-if [[ -n "${WANDB_NAME}" ]]; then
-  WANDB_ARGS+=" ,name=${WANDB_NAME}"
-fi
-WANDB_ARGS+=" ,job_type=lm-eval"
-WANDB_ARGS=$(echo "${WANDB_ARGS}" | tr -d ' ')
 
 EXTRA_ARGS=()
 if [[ -n "${INCLUDE_PATH}" ]]; then
@@ -123,14 +140,21 @@ if [[ "${LOG_ROUTER_METRICS}" == "true" ]]; then
   EXTRA_ARGS+=("--log-router-metrics")
 fi
 
-LM_EVAL_FORCE_DEVICE="${FORCE_DEVICE}" \
-python3 "${REPO_ROOT}/scripts/eval/lm_eval_language_ids.py" \
-  --checkpoint "${CHECKPOINT_PATH}" \
-  --tokenizer "${BASE_MODEL}" \
-  --tasks "${TASKS}" \
-  --output-dir "${OUTPUT_DIR}" \
-  --batch-size "${BATCH_SIZE}" \
-  --mode "${LANG_MODE}" \
-  --device "${DEVICE}" \
-  --wandb-args "${WANDB_ARGS}" \
+CMD=(
+  "${PYTHON_BIN}" "${REPO_ROOT}/scripts/eval/lm_eval_language_ids.py"
+  --checkpoint "${CHECKPOINT_PATH}"
+  --tokenizer "${BASE_MODEL}"
+  --tasks "${TASKS}"
+  --output-dir "${OUTPUT_DIR}"
+  --batch-size "${BATCH_SIZE}"
+  --mode "${LANG_MODE}"
+  --device "${DEVICE}"
   "${EXTRA_ARGS[@]}"
+)
+if [[ "${LM_EVAL_ENABLE_WANDB}" == "1" ]]; then
+  CMD+=(--wandb-args "${WANDB_ARGS}")
+else
+  echo "[INFO] W&B logging disabled (LM_EVAL_ENABLE_WANDB=0)"
+fi
+
+LM_EVAL_FORCE_DEVICE="${FORCE_DEVICE}" "${CMD[@]}"
