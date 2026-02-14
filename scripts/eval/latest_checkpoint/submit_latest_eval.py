@@ -104,7 +104,7 @@ def _resolve_tasks_file(path: str, repo_root: Path) -> Path:
     return candidate
 
 
-def _detect_lang_tier(path: Path) -> str | None:
+def _detect_lang_tier(path: Path) -> Optional[str]:
     path_str = str(path)
     for tier in ("10_langs", "96_langs", "200_langs"):
         if tier in path_str:
