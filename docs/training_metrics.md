@@ -102,3 +102,32 @@ Expert router metrics:
 | `train/moelpr/new_primary_expert` | Expert with most new-language tokens | Non-base expert | Base expert dominates new langs |
 | `train/moelpr/new_primary_frac` | Share of new tokens on primary expert | Moderate | Very low -> no specialization |
 | `moelpr_aux_loss` | Stage 1 load-balance or Stage 2 LPR loss | Non-zero, stable | Exploding or collapsing early |
+
+## MoE-LoRA (`train/moelora/*`)
+| Metric | What it measures | Healthy | Unhealthy |
+| --- | --- | --- | --- |
+| `train/moelora/expert_load_cv` | Expert load balance variation | Low | High imbalance |
+| `train/moelora/router_entropy` | Gate entropy over experts | Moderate | Collapse (0) or uniform |
+| `train/moelora/experts_per_token` | Avg experts per token | Matches top_k or num_experts (dense) | Very low -> collapse |
+| `train/moelora/expert_load_max_frac` | Largest expert load fraction | Close to `1/num_experts` | Very high -> dominance |
+| `train/moelora/expert_load_min_frac` | Smallest expert load fraction | Non-zero | Near 0 -> dead experts |
+
+Note: MoE-LoRA uses language/task IDs as routing signal, not learned per-token routing.
+Rank is split: each expert gets `r/N` parameters.
+
+## MoV-LoRA (`train/movlora/*`)
+| Metric | What it measures | Healthy | Unhealthy |
+| --- | --- | --- | --- |
+| `train/movlora/active_token_pct` | Tokens routed to at least one expert | Near 1.0 | Low values (many unrouted) |
+| `train/movlora/zero_routed_pct` | Tokens routed to no expert | Near 0.0 | High (dead routing) |
+| `train/movlora/experts_per_token` | Avg experts per token | Close to `num_experts` (soft) | Very low -> collapse |
+| `train/movlora/expert_load_cv` | Expert load balance variation | Low (near 0) | High (>1) -> imbalance |
+| `train/movlora/expert_load_max_frac` | Largest expert load fraction | Close to `1/num_experts` | Very high -> dominance |
+| `train/movlora/expert_load_min_frac` | Smallest expert load fraction | Non-zero | Near 0 -> dead experts |
+| `train/movlora/router_entropy` | Per-layer router entropy | Moderate (not 0, not max) | 0 -> collapse; max -> no specialization |
+| `train/movlora/router_max_prob` | Mean max routing probability | ~`1/num_experts` (uniform) to ~0.5 | Near 1.0 -> single expert collapse |
+| `train/movlora/topk_density` | `experts_per_token / num_experts` | 1.0 (soft) or `top_k/N` (sparse) | Much lower than expected |
+
+Note: MoV-LoRA uses per-layer learned routers for token-level routing.
+Each expert gets the FULL rank `r` (not `r/N` as in MoE-LoRA).
+Default soft routing (top_k=0) means all experts contribute.

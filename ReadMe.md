@@ -19,6 +19,8 @@ Implemented in LLaMA‑Factory:
 - **HydraLoRA** — `LLaMA-Factory/src/peft/tuners/hydralora`
 - **CoLA** — `LLaMA-Factory/src/peft/tuners/cola`
 - **MoE‑LPR** — `LLaMA-Factory/src/peft/tuners/moelpr`
+- **MoE‑LoRA** — `LLaMA-Factory/src/peft/tuners/moelora` · Language-ID routing (Liu et al., SIGIR 2024)
+- **MoV‑LoRA** — `LLaMA-Factory/src/peft/tuners/movlora` · Learned token-level routing (Zadouri et al., ICLR 2024)
 
 Training entry code lives under `LLaMA-Factory/src/llamafactory/train`.
 
