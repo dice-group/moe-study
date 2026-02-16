@@ -1,0 +1,57 @@
+### MoE-LoRA training config for the moe-study ablation grid
+### Paper: "When MOE Meets LLMs: Parameter Efficient Fine-tuning for Multi-task Medical Applications"
+###        (Liu et al., SIGIR 2024)
+###
+### Adapted for massively multilingual SFT: language IDs replace task IDs as routing signals.
+
+stage: sft
+model_name_or_path: meta-llama/Llama-3.2-1B
+dataset: "data_dir/fineweb_stage1.jsonl"
+template: llama3
+cutoff_len: 1024
+max_samples: null
+finetuning_type: moelora
+ddp_backend: nccl
+
+# --- Language routing ---
+# language_column and language_map are typically provided via the dataset
+# or via the command-line override. The language_map JSON maps language
+# identifiers to families/groups and determines task_num automatically.
+# language_column: "language"
+# language_map: "configs/moelpr_lang_map.json"
+
+# --- Training ---
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 16
+learning_rate: 2e-4
+lr_scheduler_type: cosine
+warmup_ratio: 0.03
+num_train_epochs: 1
+
+save_steps: 500
+logging_steps: 10
+fp16: false
+bf16: true
+report_to: wandb
+
+do_train: true
+
+output_dir: ./outputs/moelora-llama3.2-1b
+overwrite_output_dir: true
+
+# --- LoRA base params ---
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: "q_proj,k_proj,v_proj,o_proj,gate_proj,down_proj,up_proj"
+
+# --- MoE-LoRA specific params ---
+# Paper default: 8 experts, dense gate, rank evenly split across experts.
+# lora_rank must be divisible by moelora_num_experts.
+moelora_num_experts: 8
+# moelora_task_num: auto-inferred from language_map when set to 1.
+moelora_task_num: 1
+moelora_task_embedding_dim: 64
+# 0 = dense gate (all experts contribute). Set >0 for sparse top-k gate.
+moelora_sparse_top_k: 0
+moelora_gate_temperature: 1.0
