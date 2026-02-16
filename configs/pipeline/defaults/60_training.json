@@ -1,0 +1,43 @@
+{
+  "training": {
+    "dataset_dir": "LLaMA-Factory/data",
+    "dataset_name": "c4",
+    "enabled": true,
+    "eval": {
+      "batch_size": 1,
+      "eval_steps": 1,
+      "strategy": "steps"
+    },
+    "eval_dataset_name": "c4",
+    "language_column": "language",
+    "lora": {
+      "alpha": 16,
+      "dropout": 0.05,
+      "rank": 8,
+      "target": "q_proj,k_proj,v_proj,o_proj"
+    },
+    "model_name_or_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+    "num_experts": 4,
+    "output_dir": "outputs/pipeline_runs/default/runs",
+    "report_to": "none",
+    "runs": [
+      {
+        "id": "lora_baseline",
+        "kind": "lora"
+      }
+    ],
+    "seed": 42,
+    "template": "llama3",
+    "train": {
+      "batch_size": 1,
+      "bf16": false,
+      "flash_attn": "disabled",
+      "fp16": false,
+      "grad_accum": 1,
+      "learning_rate": "2e-4",
+      "logging_steps": 1,
+      "max_steps": 2,
+      "save_steps": 1
+    }
+  }
+}

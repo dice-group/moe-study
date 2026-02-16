@@ -1,0 +1,31 @@
+{
+  "local_mini_quick": {
+    "extends": "local_mini",
+    "output_root": "outputs/pipeline_runs/local_mini_quick",
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/local_mini_quick/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/local_mini_quick/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/local_mini_quick/runs",
+      "runs": [
+        {"id": "lora_baseline", "kind": "lora"},
+        {
+          "id": "adamole_4exp",
+          "kind": "adamole",
+          "params": {
+            "num_experts": 4,
+            "aux_loss_coef": 0.001,
+            "max_threshold": 0.25
+          }
+        }
+      ]
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/local_mini_quick/gate.json",
+      "summary_csv": "outputs/pipeline_runs/local_mini_quick/summary.csv"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+# moe-study pipeline profiles to run.
+# One profile per line. Lines starting with # are ignored.
+
+local_mini
+# gpu_1b_tier10_all_approaches

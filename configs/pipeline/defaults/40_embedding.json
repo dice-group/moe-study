@@ -1,0 +1,8 @@
+{
+  "embedding_init": {
+    "enabled": false
+  },
+  "embedding_training": {
+    "enabled": false
+  }
+}

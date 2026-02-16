@@ -1,0 +1,18 @@
+{
+  "group_0": {
+    "group": "semitic",
+    "languages": ["arb_Arab"]
+  },
+  "group_1": {
+    "group": "uralic",
+    "languages": ["hun_Latn"]
+  },
+  "group_2": {
+    "group": "nguni_south",
+    "languages": ["xho_Latn"]
+  },
+  "group_3": {
+    "group": "nguni_north",
+    "languages": ["zul_Latn"]
+  }
+}

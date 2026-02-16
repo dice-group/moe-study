@@ -1,0 +1,128 @@
+{
+  "local_mini": {
+    "language_map_path": "configs/pipeline_4lang_map.json",
+    "output_root": "outputs/pipeline_runs/local_mini",
+    "sample": {
+      "data_files": "sample_data/fixtures/multilingual_4lang/arb_Arab.jsonl,sample_data/fixtures/multilingual_4lang/hun_Latn.jsonl,sample_data/fixtures/multilingual_4lang/xho_Latn.jsonl,sample_data/fixtures/multilingual_4lang/zul_Latn.jsonl",
+      "languages": ["arb_Arab", "hun_Latn", "xho_Latn", "zul_Latn"],
+      "max_scan": 5000,
+      "output_dir": "outputs/pipeline_runs/local_mini/sampled",
+      "per_language_target": 8,
+      "source_type": "json"
+    },
+    "tokenization": {
+      "max_length": 64,
+      "num_proc": 1,
+      "output_dir": "outputs/pipeline_runs/local_mini/tokenized"
+    },
+    "training": {
+      "num_experts": 4,
+      "output_dir": "outputs/pipeline_runs/local_mini/runs",
+      "lora": {
+        "alpha": 8,
+        "dropout": 0.0,
+        "rank": 8,
+        "target": "q_proj,k_proj,v_proj,o_proj"
+      },
+      "runs": [
+        {"id": "lora_baseline", "kind": "lora"},
+        {
+          "id": "cola_exp_lpr",
+          "kind": "cola",
+          "params": {
+            "num_A": 1, "num_B": 3, "strategy": "fully",
+            "use_experts": true, "top_k": 1,
+            "router_mode": "learned", "head_router_mode": "learned",
+            "prior_weight": 0.1, "bias_value": 0.0,
+            "head_bias_value": 0.0, "guidance_scope": "all"
+          }
+        },
+        {
+          "id": "hydra_exp_lpr",
+          "kind": "hydralora",
+          "params": {
+            "lora_num": 3, "use_experts": true, "top_k": 1,
+            "router_mode": "learned", "head_router_mode": "learned",
+            "prior_weight": 0.1, "bias_value": 0.0,
+            "head_bias_value": 0.0, "guidance_scope": "all"
+          }
+        },
+        {
+          "id": "adamole_4exp",
+          "kind": "adamole",
+          "params": {
+            "num_experts": 4,
+            "aux_loss_coef": 0.001,
+            "max_threshold": 0.25
+          }
+        },
+        {
+          "id": "mola_4exp_k2",
+          "kind": "mola",
+          "params": {
+            "num_experts": 4,
+            "top_k": 2,
+            "router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "moelpr_stage1",
+          "kind": "moelpr",
+          "params": {
+            "stage": 1,
+            "num_experts": 4,
+            "top_k": 1,
+            "aux_loss_coef": 0.01,
+            "lpr_loss_coef": 0.1
+          }
+        },
+        {
+          "id": "moelora_8exp",
+          "kind": "moelora",
+          "params": {
+            "num_experts": 8,
+            "task_num": 1,
+            "task_embedding_dim": 64,
+            "sparse_top_k": 0,
+            "gate_temperature": 1.0
+          }
+        },
+        {
+          "id": "movlora_8exp",
+          "kind": "movlora",
+          "params": {
+            "num_experts": 8,
+            "top_k": 0,
+            "router_temperature": 1.0,
+            "router_jitter_noise": 0.0,
+            "router_bias": false,
+            "router_init_std": 0.02,
+            "router_ignore_padding_tokens": false
+          }
+        }
+      ],
+      "eval": {
+        "batch_size": 1,
+        "eval_steps": 1,
+        "strategy": "steps"
+      },
+      "train": {
+        "batch_size": 1,
+        "bf16": false,
+        "flash_attn": "disabled",
+        "fp16": false,
+        "grad_accum": 1,
+        "learning_rate": "2e-4",
+        "logging_steps": 1,
+        "max_steps": 2,
+        "save_steps": 1,
+        "disable_gradient_checkpointing": true,
+        "use_reentrant_gc": false
+      }
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/local_mini/gate.json",
+      "summary_csv": "outputs/pipeline_runs/local_mini/summary.csv"
+    }
+  }
+}
