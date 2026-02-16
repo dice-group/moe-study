@@ -1,5 +1,9 @@
 # Comparison Hyperparameters (10/96/200 langs, 1B/3B/8B; MoE-LPR excluded)
 
+> **Note**: MoE-LoRA and MoV-LoRA are newer additions. Their comparison runs have not been
+> configured in the SLURM comparison pipeline yet. See `configs/train_moelora.yaml` and
+> `configs/train_movlora.yaml` for standalone configs.
+
 This document derives the effective hyperparameters/parameters for the comparison runs started via
 `scripts/slurm/comparison/run_comparison.py`.
 
@@ -142,3 +146,37 @@ unless LLaMA-Factory is reading them directly from the environment (not observed
 | cola_num_experts | 4 / 4 / 4 | job script default |
 | cola_top_k | 2 / 2 / 2 | job script default |
 | cola_debug | False / False / False | job script default |
+
+### MoE-LoRA
+
+Paper: "When MOE Meets LLMs: Parameter Efficient Fine-tuning for Multi-task Medical Applications" (Liu et al., SIGIR 2024)
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| moelora_num_experts | 8 | Paper default. rank must be divisible by num_experts |
+| moelora_task_num | 1 | Auto-inferred from language_map when set to 1 |
+| moelora_task_embedding_dim | 64 | Embedding dimension for task/language ID |
+| moelora_sparse_top_k | 0 | 0 = dense gate. Paper finds top-2 optimal |
+| moelora_gate_temperature | 1.0 | Softmax temperature |
+| lora_rank | 16 | Split: each expert gets r/N = 2 per expert |
+| lora_alpha | 32 | Standard 2× rank |
+
+Key difference: Uses language/task IDs as routing signal (not learned per-token).
+
+### MoV-LoRA
+
+Paper: "Pushing Mixture of Experts to the Limit" (Zadouri et al., ICLR 2024)
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| movlora_num_experts | 8 | Paper default |
+| movlora_top_k | 0 | 0 = soft/dense routing. Paper: soft > sparse |
+| movlora_router_temperature | 1.0 | Standard softmax |
+| movlora_router_jitter_noise | 0.0 | Multiplicative jitter during training |
+| movlora_router_bias | False | Paper: no bias |
+| movlora_router_init_std | 0.02 | Paper: 2e-2 |
+| movlora_router_ignore_padding_tokens | False | Mask padding tokens in routing |
+| lora_rank | 16 | Each expert gets FULL rank r (not r/N) |
+| lora_alpha | 32 | Standard 2× rank |
+
+Key difference: Per-layer learned router. No task/language IDs needed. Token-level routing.

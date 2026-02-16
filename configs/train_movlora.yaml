@@ -1,0 +1,60 @@
+### MoV-LoRA training config for the moe-study ablation grid
+### Paper: "Pushing Mixture of Experts to the Limit: Extremely Parameter Efficient MoE for Instruction Tuning"
+###        (Zadouri et al., ICLR 2024)
+###
+### MoV-LoRA uses per-layer learned token-level routing (no task/language IDs needed).
+### Each layer has its own router: W_g ∈ R^{d_model × num_experts} → softmax → weighted sum.
+### Default: soft merging (all experts contribute, router_top_k=0).
+
+stage: sft
+model_name_or_path: meta-llama/Llama-3.2-1B
+dataset: "data_dir/fineweb_stage1.jsonl"
+template: llama3
+cutoff_len: 1024
+max_samples: null
+finetuning_type: movlora
+ddp_backend: nccl
+
+# --- Training ---
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 16
+learning_rate: 3e-4
+lr_scheduler_type: cosine
+warmup_ratio: 0.03
+num_train_epochs: 1
+
+save_steps: 500
+logging_steps: 10
+fp16: false
+bf16: true
+report_to: wandb
+
+do_train: true
+
+output_dir: ./outputs/movlora-llama3.2-1b
+overwrite_output_dir: true
+
+# --- LoRA base params ---
+# Unlike MoE-LoRA, each expert receives the FULL rank r (not r/N).
+# Paper default: r=16, alpha=32.
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: "q_proj,k_proj,v_proj,o_proj,gate_proj,down_proj,up_proj"
+
+# --- MoV-LoRA specific params ---
+# Paper default: 8 experts, soft routing (top_k=0), no jitter.
+# Key insight: soft merging outperforms sparse top-k routing.
+movlora_num_experts: 8
+# 0 = dense/soft routing (all experts contribute). >0 for sparse top-k.
+movlora_top_k: 0
+# Softmax temperature. 1.0 = standard softmax (paper default).
+movlora_router_temperature: 1.0
+# Multiplicative jitter noise during training. 0.0 = no noise.
+movlora_router_jitter_noise: 0.0
+# Router bias. Paper: no bias.
+movlora_router_bias: false
+# Router weight init std. Paper: 2e-2.
+movlora_router_init_std: 0.02
+# Whether to mask all-zero (padding) token states when routing.
+movlora_router_ignore_padding_tokens: false
