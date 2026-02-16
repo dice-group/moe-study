@@ -241,10 +241,30 @@ def choose_best(values: Dict[str, object], better: str) -> Tuple[str | None, flo
     return best[0], best[1]
 
 
-def _value_or_placeholder(model: str, approach: str, val: float | None) -> object:
-    if approach == "baseline" and model == "8B":
-        return "PENDING_8B"
-    return val
+def resolve_run_for_combo(
+    latest_runs: Dict[Tuple[str, int, str], wandb.apis.public.Run],
+    model: str,
+    tier: int,
+    approach: str,
+) -> wandb.apis.public.Run | None:
+    run = latest_runs.get((model, tier, approach))
+    if run is not None:
+        return run
+
+    # Baselines may only exist as a full-tier run (e.g. 200 langs); reuse the
+    # largest available baseline run for that model when tier-specific runs are absent.
+    if approach != "baseline":
+        return None
+
+    candidates = [
+        (t, r)
+        for (m, t, a), r in latest_runs.items()
+        if m == model and a == "baseline"
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return candidates[0][1]
 
 
 def build_model_sheet_df(
@@ -275,9 +295,9 @@ def build_model_sheet_df(
 
                 values: Dict[str, object] = {}
                 for approach in approaches:
-                    run = latest_runs.get((model, tier, approach))
+                    run = resolve_run_for_combo(latest_runs, model, tier, approach)
                     if run is None:
-                        values[approach] = _value_or_placeholder(model, approach, None)
+                        values[approach] = None
                         continue
 
                     summary = dict(run.summary)
@@ -292,7 +312,7 @@ def build_model_sheet_df(
                         v2 = get_metric(summary, tmap["flo_x_to_en_task"], "byte_perplexity")
                         parts = [v for v in (v1, v2) if isinstance(v, (int, float))]
                         val = float(sum(parts) / len(parts)) if parts else None
-                    values[approach] = _value_or_placeholder(model, approach, val)
+                    values[approach] = val
 
                 if all(v is None for v in values.values()):
                     continue
@@ -335,24 +355,7 @@ def build_summary_df(
     for model in models:
         for tier in tiers:
             for approach in approaches:
-                if model == "8B" and approach == "baseline":
-                    rows.append(
-                        {
-                            "model_size": model,
-                            "tier": tier,
-                            "approach": approach,
-                            "run_name": "PENDING_8B",
-                            "run_id": None,
-                            "run_url": None,
-                            "belebele_acc_norm_avg": "PENDING_8B",
-                            "flores_byte_ppl_avg2dir_avg": "PENDING_8B",
-                            "n_belebele_langs": 0,
-                            "n_flores_langs": 0,
-                        }
-                    )
-                    continue
-
-                run = latest_runs.get((model, tier, approach))
+                run = resolve_run_for_combo(latest_runs, model, tier, approach)
                 if run is None:
                     rows.append(
                         {
@@ -665,6 +668,16 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Export W&B eval results to a styled Excel workbook.")
     parser.add_argument("--entity", default="dice-nlp")
     parser.add_argument("--project", default="moe-study-comparison_eval")
+    parser.add_argument(
+        "--baseline-project",
+        default=None,
+        help="Optional W&B project to source baseline runs from (approach=baseline).",
+    )
+    parser.add_argument(
+        "--baseline-entity",
+        default=None,
+        help="Optional W&B entity for --baseline-project. Defaults to --entity.",
+    )
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--models", default="1B,3B,8B")
     parser.add_argument("--tiers", default="10,96,200")
@@ -683,9 +696,22 @@ def main() -> None:
     resource_map = load_resource_map(RESOURCE_TSV)
     api = wandb.Api()
     latest_runs = select_latest_runs(api, args.entity, args.project, models, tiers, approaches)
+    if args.baseline_project:
+        baseline_entity = args.baseline_entity or args.entity
+        baseline_runs = select_latest_runs(
+            api,
+            baseline_entity,
+            args.baseline_project,
+            models,
+            tiers,
+            ["baseline"],
+        )
+        latest_runs.update(baseline_runs)
 
     expected = {(m, t, a) for m in models for t in tiers for a in approaches}
-    missing = sorted(expected - set(latest_runs.keys()))
+    missing = sorted(
+        combo for combo in expected if resolve_run_for_combo(latest_runs, combo[0], combo[1], combo[2]) is None
+    )
     if missing:
         print(f"[WARN] Missing latest runs for {len(missing)} combinations.")
 

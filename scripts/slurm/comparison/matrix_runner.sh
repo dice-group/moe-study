@@ -209,7 +209,7 @@ matrix_submit_or_run_job() {
 
   local run_name="l3-${model_size_tag}-${dataset_name}-${approach}-${variant_slug}-${timestamp}"
   local output_dir="${MATRIX_OUTPUT_ROOT}/${tokenizer_name}-${dataset_name}/${approach}/${variant_slug}_${timestamp}"
-  local log_path="${MATRIX_LOG_ROOT}/${tier_slug}_${approach}_${variant_slug}_${timestamp}.log"
+  local log_path="${MATRIX_LOG_ROOT}/${tier_slug}_${model_size_tag}_${approach}_${variant_slug}_${timestamp}.log"
   mkdir -p "${output_dir}" "$(dirname "${log_path}")"
 
   local gpu_type="${TIER_GPU_TYPE_MAP[${tier_id}]:-${MATRIX_DEFAULT_GPU_TYPE}}"
