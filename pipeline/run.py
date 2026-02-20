@@ -8,6 +8,7 @@ import datetime as dt
 import json
 import logging
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -116,10 +117,18 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     run_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     env = os.environ.copy()
+    python_exec = Path(sys.executable).resolve()
+    env["PYTHON_EXECUTABLE"] = str(python_exec)
+    env["PATH"] = f"{python_exec.parent}:{env.get('PATH', '')}"
     env["PYTHONPATH"] = f"{repo_root}:{repo_root / 'LLaMA-Factory' / 'src'}:{env.get('PYTHONPATH', '')}"
     env["PROOF_PIPELINE_RUN_TIMESTAMP"] = run_timestamp
     env["PROOF_PIPELINE_CODE_SIG"] = _compute_pipeline_code_signature(repo_root)
     os.environ["PROOF_PIPELINE_CODE_SIG"] = env["PROOF_PIPELINE_CODE_SIG"]
+    executor_cfg = profile.get("executor", {})
+    if isinstance(executor_cfg, dict):
+        cuda_visible_devices = str(executor_cfg.get("cuda_visible_devices", "")).strip()
+        if cuda_visible_devices:
+            env["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
     env.setdefault("WANDB_MODE", str(profile.get("wandb_mode", "disabled")))
     if bool(wandb_cfg.get("enabled", False)):
         project = str(wandb_cfg.get("project", "")).strip()

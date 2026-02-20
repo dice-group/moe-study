@@ -15,7 +15,7 @@ from ..context import PipelineContext
 
 
 def stage_sample(ctx: PipelineContext) -> None:
-    if "sample" in ctx.active_stages:
+    if "sample" in ctx.active_stages and bool(ctx.sample_cfg.get("enabled", True)):
         missing = _missing_modules(["datasets"])
         if missing:
             raise SystemExit(f"Missing Python modules for sample stage: {missing}")
@@ -85,9 +85,19 @@ def stage_sample(ctx: PipelineContext) -> None:
                     suffix="plan",
                     executor=ctx.executor,
                 )
+                datatrove_script = ctx.repo_root / "sample_data" / "sample_generator_datatrove.py"
+                if not datatrove_script.exists():
+                    fallback_script = ctx.repo_root / "data_sample" / "sample_generator_datatrove.py"
+                    if fallback_script.exists():
+                        datatrove_script = fallback_script
+                    else:
+                        raise SystemExit(
+                            "Missing datatrove sampler script. Expected one of: "
+                            f"{ctx.repo_root / 'sample_data' / 'sample_generator_datatrove.py'} or {fallback_script}"
+                        )
                 datatrove_cmd = [
                     "python3",
-                    str(ctx.repo_root / "sample_data" / "sample_generator_datatrove.py"),
+                    str(datatrove_script),
                     str(plan_csv),
                     str(ctx.sampled_dir),
                     "--num-proc",

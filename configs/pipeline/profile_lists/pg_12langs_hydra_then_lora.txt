@@ -1,0 +1,3 @@
+# 12-language pipeline run order (shared data)
+hydra_lpr_12lang_2k_doc_1A_1B_4exp
+lora_12lang_2k_doc_r64_alpha_128

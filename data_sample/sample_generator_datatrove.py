@@ -1,4 +1,9 @@
-# Sample usage: bash data_sample/pylauncher.sh normal data_sample.sample_generator_datatrove
+#!/usr/bin/env python3
+# Sample usage:
+#   python data_sample/sample_generator_datatrove.py <sampling_plan.csv> <output_dir> --num-proc 12
+# or legacy module mode:
+#   bash data_sample/pylauncher.sh normal data_sample.sample_generator_datatrove
+import argparse
 import os
 import pandas as pd
 from datatrove.pipeline.readers import ParquetReader
@@ -107,7 +112,32 @@ def _write_sample_sizes(sample_info):
         for subset, lang_name, res_cat, sample_size in sample_info:
             f.write(f"{subset}\t{lang_name}\t{res_cat}\t{sample_size}\n")
 
-def main() -> None:
+def _run_plan_mode(plan_csv: str, output_dir: str, num_proc: int) -> None:
+    global OUTPUT_DIR
+    OUTPUT_DIR = output_dir
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    df = pd.read_csv(plan_csv)
+    required = {"subset", "documents"}
+    missing = required - set(df.columns)
+    if missing:
+        raise SystemExit(f"[ERROR] Missing columns in plan CSV {plan_csv}: {sorted(missing)}")
+
+    exec_factory = get_spe_instance if os.getenv("SLURM_ACTIVE", "false").lower() == "true" else get_lpe_instance
+    sample_sizes = []
+    executor_list = []
+    for _, row in df.iterrows():
+        subset = str(row["subset"])
+        sample_size = int(row["documents"])
+        sample_sizes.append((subset, subset, "plan", sample_size))
+        executor_list.append(exec_factory(subset, sample_size))
+
+    _write_sample_sizes(sample_sizes)
+    for exe in executor_list:
+        exe.run()
+
+
+def _run_legacy_mode() -> None:
     # Load metadata CSV once
     metadata_df = pd.read_csv(METADATA_PATH)
     rows_list = [row for _, row in metadata_df.iterrows()]
@@ -146,6 +176,19 @@ def main() -> None:
     # Run all executors
     for exec in executor_list:
         exec.run()
+
+def main() -> None:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("plan_csv", nargs="?")
+    parser.add_argument("output_dir", nargs="?")
+    parser.add_argument("--num-proc", type=int, default=12)
+    args, _ = parser.parse_known_args()
+
+    if args.plan_csv and args.output_dir:
+        _run_plan_mode(args.plan_csv, args.output_dir, args.num_proc)
+        return
+
+    _run_legacy_mode()
 
 if __name__ == "__main__":
     main()

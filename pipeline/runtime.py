@@ -127,7 +127,11 @@ def _run_with_tee(
     log_path: Path,
     executor: Executor | None = None,
 ) -> None:
-    (executor or _DEFAULT_EXECUTOR).run(cmd, env, dry_run, log_path)
+    normalized_cmd = list(cmd)
+    python_executable = str(env.get("PYTHON_EXECUTABLE", "")).strip()
+    if python_executable and normalized_cmd and normalized_cmd[0] in {"python", "python3"}:
+        normalized_cmd[0] = python_executable
+    (executor or _DEFAULT_EXECUTOR).run(normalized_cmd, env, dry_run, log_path)
 
 
 def _run_stage_cmd(

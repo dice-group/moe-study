@@ -13,7 +13,7 @@ from ..context import PipelineContext
 
 
 def stage_tokenize(ctx: PipelineContext) -> None:
-    if "tokenize" in ctx.active_stages:
+    if "tokenize" in ctx.active_stages and bool(ctx.tokenize_cfg.get("enabled", True)):
         missing = _missing_modules(["datasets", "transformers"])
         if missing:
             raise SystemExit(f"Missing Python modules for tokenize stage: {missing}")

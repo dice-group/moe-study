@@ -132,6 +132,13 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         ])
     elif kind == 'hydralora':
         cfg = run_cfg.get('params', {})
+        expert_lora_nums = cfg.get('expert_lora_nums')
+        if isinstance(expert_lora_nums, list):
+            expert_lora_nums_arg = ",".join(str(int(x)) for x in expert_lora_nums)
+        elif expert_lora_nums is None:
+            expert_lora_nums_arg = ""
+        else:
+            expert_lora_nums_arg = str(expert_lora_nums)
         train_args.extend([
             '--lora_num', str(int(cfg.get('lora_num', 3))),
             '--use_hydralora_experts', str(bool(cfg.get('use_experts', True))),
@@ -139,6 +146,8 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
             '--hydralora_top_k', str(int(cfg.get('top_k', 1))),
             *_lpr_args(cfg, common, language_map_path, experts),
         ])
+        if expert_lora_nums_arg.strip():
+            train_args.extend(['--hydralora_expert_lora_nums', expert_lora_nums_arg])
     elif kind == 'adamole':
         cfg = run_cfg.get('params', {})
         train_args.extend([

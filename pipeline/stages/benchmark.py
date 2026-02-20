@@ -68,6 +68,7 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                 sample_manifest_path=ctx.sampled_manifest,
                 sampled_dir=ctx.sampled_dir,
             )
+            print(f"[INFO] Resolved benchmark languages, Eval is only performed in those languages: {langs}")
             if not langs:
                 raise SystemExit("Benchmark stage could not resolve trained language list.")
             ctx.benchmark_root.mkdir(parents=True, exist_ok=True)
