@@ -11,10 +11,10 @@
     "executor": {
       "type": "slurm",
       "partition": "gpu",
-      "gres": "gpu:h100:4",
+      "gres": "gpu:h100:1",
       "mem": "160G",
-      "time": "24:00:00",
-      "cpus_per_task": 32,
+      "time": "12:00:00",
+      "cpus_per_task": 16,
       "modules": [
         "toolchain/foss/2024a",
         "system/CUDA/12.6.0",
@@ -24,6 +24,13 @@
       "conda_env": "merlin"
     },
     "sample": {
+      "executor": {
+        "partition": "normal",
+        "gres": "none",
+        "cpus_per_task": 32,
+        "mem": "120G",
+        "time": "12:00:00"
+      },
       "source_type": "fineweb_datatrove",
       "languages": [],
       "max_languages": 12,
@@ -33,12 +40,19 @@
       "allow_upsample": true,
       "upsample_cap_factor": 1.0,
       "fail_on_missing": true,
-      "availability_csv": "data_prep/base_data/fineweb2-language-distribution.csv",
+      "availability_csv": "result_analysis/l2v_nested_samples/fineweb2-language-distribution.csv",
       "availability_split": "train",
       "output_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/sampled",
       "shard_subdir": "samples"
     },
     "tokenization": {
+      "executor": {
+        "partition": "normal",
+        "gres": "none",
+        "cpus_per_task": 24,
+        "mem": "96G",
+        "time": "08:00:00"
+      },
       "eval_fraction": 0.02,
       "max_length": 1024,
       "model_name": "meta-llama/Llama-3.1-8B",
@@ -59,11 +73,17 @@
       "runs": [
         {
           "id": "lora",
-          "kind": "lora"
+          "kind": "lora",
+          "train": {
+            "batch_size": 8
+          }
         },
         {
           "id": "hydralora_lpr_4exp_1a3b",
           "kind": "hydralora",
+          "train": {
+            "batch_size": 6
+          },
           "params": {
             "hydralora_lora_num": 3,
             "hydralora_expert_lora_nums": [3, 3, 3, 3],
@@ -81,6 +101,9 @@
         {
           "id": "hydralora_lpr_4exp_1a1b",
           "kind": "hydralora",
+          "train": {
+            "batch_size": 6
+          },
           "params": {
             "hydralora_lora_num": 1,
             "hydralora_expert_lora_nums": [1, 1, 1, 1],
@@ -98,6 +121,9 @@
         {
           "id": "cola_lpr_4exp_1a3b_fully",
           "kind": "cola",
+          "train": {
+            "batch_size": 6
+          },
           "params": {
             "cola_num_A": 1,
             "cola_num_B": 3,
@@ -116,6 +142,9 @@
         {
           "id": "adamole_4exp",
           "kind": "adamole",
+          "train": {
+            "batch_size": 2
+          },
           "params": {
             "adamole_num_experts": 4,
             "adamole_aux_loss_coef": 0.001,
@@ -130,11 +159,11 @@
       },
       "seed": 42,
       "train": {
-        "batch_size": 8,
+        "batch_size": 4,
         "bf16": true,
         "flash_attn": "fa2",
         "fp16": false,
-        "grad_accum": 8,
+        "grad_accum": 2,
         "learning_rate": "2e-4",
         "max_steps": null,
         "num_train_epochs": 1.0,

@@ -102,6 +102,8 @@ def stage_sample(ctx: PipelineContext) -> None:
                     str(ctx.sampled_dir),
                     "--num-proc",
                     str(int(ctx.sample_cfg.get("num_proc", 12))),
+                    "--logging-dir",
+                    str(ctx.logs_root / "sample_datatrove"),
                 ]
                 max_sample = int(ctx.sample_cfg.get("max_sample_per_language", 0))
                 if max_sample > 0:

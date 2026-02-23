@@ -58,14 +58,20 @@ def _get_subset_args(subset: str, sample_size: int):
     return jsonl_writer, parquet_reader
 
 # Executor factory functions
-def get_lpe_instance(subset: str, sample_size: int):
+def get_lpe_instance(subset: str, sample_size: int, logging_dir_base: str | None = None):
     jsonl_writer, parquet_reader = _get_subset_args(subset, sample_size)
+    if logging_dir_base:
+        log_dir = os.path.join(logging_dir_base, subset)
+    else:
+        log_dir = _output_path('slurm_dir', subset)
+    os.makedirs(log_dir, exist_ok=True)
     pipeline_exec = LocalPipelineExecutor(
         pipeline=[
             parquet_reader,
             jsonl_writer
         ],
-        tasks=TASKS_PER_SUBSET
+        tasks=TASKS_PER_SUBSET,
+        logging_dir=log_dir,
     )
     return pipeline_exec
 
@@ -76,10 +82,13 @@ def _seconds_to_hhmmss(total_seconds: int) -> str:
     seconds = total_seconds % 60
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-def get_spe_instance(subset: str, sample_size: int):
+def get_spe_instance(subset: str, sample_size: int, logging_dir_base: str | None = None):
     jsonl_writer, parquet_reader = _get_subset_args(subset, sample_size)
-    
-    log_dir = _output_path('slurm_dir', subset) # this needs to be different for every subset
+
+    if logging_dir_base:
+        log_dir = os.path.join(logging_dir_base, subset)
+    else:
+        log_dir = _output_path('slurm_dir', subset) # this needs to be different for every subset
     os.makedirs(log_dir, exist_ok=True)
     
     estimated_seconds = max(sample_size // DOCS_PER_SEC, 3600) + RANDOM_DELAY_LIMIT
@@ -112,7 +121,7 @@ def _write_sample_sizes(sample_info):
         for subset, lang_name, res_cat, sample_size in sample_info:
             f.write(f"{subset}\t{lang_name}\t{res_cat}\t{sample_size}\n")
 
-def _run_plan_mode(plan_csv: str, output_dir: str, num_proc: int) -> None:
+def _run_plan_mode(plan_csv: str, output_dir: str, num_proc: int, logging_dir: str | None = None) -> None:
     global OUTPUT_DIR
     OUTPUT_DIR = output_dir
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -130,14 +139,14 @@ def _run_plan_mode(plan_csv: str, output_dir: str, num_proc: int) -> None:
         subset = str(row["subset"])
         sample_size = int(row["documents"])
         sample_sizes.append((subset, subset, "plan", sample_size))
-        executor_list.append(exec_factory(subset, sample_size))
+        executor_list.append(exec_factory(subset, sample_size, logging_dir))
 
     _write_sample_sizes(sample_sizes)
     for exe in executor_list:
         exe.run()
 
 
-def _run_legacy_mode() -> None:
+def _run_legacy_mode(logging_dir: str | None = None) -> None:
     # Load metadata CSV once
     metadata_df = pd.read_csv(METADATA_PATH)
     rows_list = [row for _, row in metadata_df.iterrows()]
@@ -161,7 +170,7 @@ def _run_legacy_mode() -> None:
         res_cat = row["resource_category"]
         sample_sizes.append((subset, lang_name, res_cat, sample_size))
         # Get language executor
-        executor_list.append(exec_factory(subset, sample_size))
+        executor_list.append(exec_factory(subset, sample_size, logging_dir))
     
     # For English (fineweb)
     eng_subset = 'english'
@@ -170,7 +179,7 @@ def _run_legacy_mode() -> None:
     eng_sample_size = _calc_sample_size(SAMPLE_PERCENTAGE, ENGLISH_UNDERSAMPLED_COUNT)
     sample_sizes.append((eng_subset, eng_lang_name, eng_res_cat, eng_sample_size))
     # Get English executor
-    executor_list.append(exec_factory(eng_subset, eng_sample_size))
+    executor_list.append(exec_factory(eng_subset, eng_sample_size, logging_dir))
     # Write the TSV before launching any executors
     _write_sample_sizes(sample_sizes)
     # Run all executors
@@ -182,13 +191,14 @@ def main() -> None:
     parser.add_argument("plan_csv", nargs="?")
     parser.add_argument("output_dir", nargs="?")
     parser.add_argument("--num-proc", type=int, default=12)
+    parser.add_argument("--logging-dir", type=str, default="")
     args, _ = parser.parse_known_args()
 
     if args.plan_csv and args.output_dir:
-        _run_plan_mode(args.plan_csv, args.output_dir, args.num_proc)
+        _run_plan_mode(args.plan_csv, args.output_dir, args.num_proc, args.logging_dir or None)
         return
 
-    _run_legacy_mode()
+    _run_legacy_mode(args.logging_dir or None)
 
 if __name__ == "__main__":
     main()

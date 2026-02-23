@@ -223,12 +223,27 @@ class SlurmExecutor:
         script_path.write_text(script, encoding="utf-8")
 
         LOGGER.info("[SBATCH] Submitting %s", script_path)
-        result = subprocess.run(
-            ["sbatch", "--parsable", str(script_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        try:
+            result = subprocess.run(
+                ["sbatch", "--parsable", str(script_path)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            stdout = (exc.stdout or "").strip()
+            stderr = (exc.stderr or "").strip()
+            err_text = stderr or stdout or "sbatch failed without stdout/stderr."
+            LOGGER.error("[SBATCH] Submission failed for %s: %s", script_path, err_text)
+            with log_path.open("a", encoding="utf-8") as fh:
+                fh.write(f"\n[START_UTC] {started_at}\n")
+                fh.write(f"[SBATCH_ERROR] script={script_path}\n")
+                if stdout:
+                    fh.write(f"[SBATCH_STDOUT] {stdout}\n")
+                if stderr:
+                    fh.write(f"[SBATCH_STDERR] {stderr}\n")
+                fh.write(f"[CMD] {' '.join(cmd)}\n")
+            raise
         job_id = result.stdout.strip().split(";")[0]
         LOGGER.info("[SBATCH] Submitted job %s for %s", job_id, job_name)
 
@@ -247,16 +262,36 @@ class SlurmExecutor:
         slurm_log: Path,
     ) -> str:
         """Produce a complete sbatch shell script."""
+        extra_sbatch_flags = list(self.extra_sbatch_flags)
+        account = (
+            os.environ.get("PROOF_PIPELINE_SLURM_ACCOUNT")
+            or os.environ.get("SLURM_ACCOUNT")
+            or ""
+        ).strip()
+        qos = (
+            os.environ.get("PROOF_PIPELINE_SLURM_QOS")
+            or os.environ.get("SLURM_QOS")
+            or ""
+        ).strip()
+        has_account_flag = any(flag.strip().startswith("--account") for flag in extra_sbatch_flags)
+        has_qos_flag = any(flag.strip().startswith("--qos") for flag in extra_sbatch_flags)
+        if account and not has_account_flag:
+            extra_sbatch_flags.append(f"--account={account}")
+        if qos and not has_qos_flag:
+            extra_sbatch_flags.append(f"--qos={qos}")
+
         sbatch_lines = [
             f"#SBATCH --job-name={job_name}",
             f"#SBATCH --partition={self.partition}",
-            f"#SBATCH --gres={self.gres}",
             f"#SBATCH --mem={self.mem}",
             f"#SBATCH --time={self.time_limit}",
             f"#SBATCH --cpus-per-task={self.cpus_per_task}",
             f"#SBATCH --output={slurm_log}",
         ]
-        for flag in self.extra_sbatch_flags:
+        gres_value = str(self.gres).strip()
+        if gres_value and gres_value.lower() not in {"none", "cpu"}:
+            sbatch_lines.insert(2, f"#SBATCH --gres={gres_value}")
+        for flag in extra_sbatch_flags:
             sbatch_lines.append(f"#SBATCH {flag}")
 
         module_lines = ""
@@ -270,32 +305,37 @@ class SlurmExecutor:
             if key.startswith(("PYTHONPATH", "PROOF_PIPELINE_", "WANDB_", "CUDA_", "HF_")):
                 env_exports.append(f'export {key}="{env[key]}"')
 
-        conda_activate = textwrap.dedent(f"""\
-            CONDA_BASE="{self.conda_base}"
-            source "${{CONDA_BASE}}/etc/profile.d/conda.sh"
-            conda activate {self.conda_env}
-        """)
-
         cmd_str = " ".join(_shell_quote(c) for c in cmd)
+        script_lines: list[str] = ["#!/bin/bash", *sbatch_lines, "", "set -eo pipefail", ""]
 
-        script = textwrap.dedent(f"""\
-            #!/bin/bash
-            {chr(10).join(sbatch_lines)}
+        if module_lines:
+            script_lines.extend(module_lines.splitlines())
+            script_lines.append("")
 
-            set -euo pipefail
-
-            {module_lines}
-
-            {conda_activate}
-            {chr(10).join(env_exports)}
-
-            export PYTHONUNBUFFERED=1
-
-            echo "[SLURM_START] $(date -u +%Y-%m-%dT%H:%M:%SZ) job=$SLURM_JOB_ID"
-            {cmd_str}
-            echo "[SLURM_END] $(date -u +%Y-%m-%dT%H:%M:%SZ) exit_code=$?"
-        """)
-        return script
+        script_lines.extend(
+            [
+                "set +u",
+                f'CONDA_BASE="{self.conda_base}"',
+                'source "${CONDA_BASE}/etc/profile.d/conda.sh"',
+                f'if [[ "${{CONDA_DEFAULT_ENV:-}}" != "{self.conda_env}" ]]; then',
+                f"  conda activate {self.conda_env}",
+                "fi",
+                "set -u",
+            ]
+        )
+        if env_exports:
+            script_lines.extend(env_exports)
+        script_lines.extend(
+            [
+                "",
+                "export PYTHONUNBUFFERED=1",
+                "",
+                'echo "[SLURM_START] $(date -u +%Y-%m-%dT%H:%M:%SZ) job=$SLURM_JOB_ID"',
+                cmd_str,
+                'echo "[SLURM_END] $(date -u +%Y-%m-%dT%H:%M:%SZ) exit_code=$?"',
+            ]
+        )
+        return "\n".join(script_lines) + "\n"
 
     # ------------------------------------------------------------------
     # polling / waiting

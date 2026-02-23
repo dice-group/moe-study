@@ -91,6 +91,11 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
             schedule_args.extend(['--num_train_epochs', str(float(train.get('num_train_epochs', 1.0)))])
     report_to = str(run_cfg.get('report_to', common.get('report_to', 'none')))
     experts = max(1, int(common.get('num_experts', _count_experts(language_map_path))))
+    disable_gradient_checkpointing = bool(train.get('disable_gradient_checkpointing', False))
+    use_reentrant_gc = bool(train.get('use_reentrant_gc', True))
+    # AdaMoLE auxiliary losses are incompatible with re-entrant checkpointing.
+    if kind == 'adamole' and (not disable_gradient_checkpointing) and use_reentrant_gc:
+        use_reentrant_gc = False
     use_bf16 = bool(train.get('bf16', True))
     use_fp16 = bool(train.get('fp16', False))
     try:
@@ -130,8 +135,8 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         '--bf16', str(use_bf16),
         '--fp16', str(use_fp16),
         '--flash_attn', str(train.get('flash_attn', 'fa2')),
-        '--disable_gradient_checkpointing', str(bool(train.get('disable_gradient_checkpointing', False))),
-        '--use_reentrant_gc', str(bool(train.get('use_reentrant_gc', True))),
+        '--disable_gradient_checkpointing', str(disable_gradient_checkpointing),
+        '--use_reentrant_gc', str(use_reentrant_gc),
         '--report_to', report_to,
         '--include_effective_tokens_per_second', 'true',
         '--include_num_input_tokens_seen', 'true',
@@ -142,12 +147,13 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         if save_total_limit_value > 0:
             train_args.extend(['--save_total_limit', str(save_total_limit_value)])
     if eval_enabled:
+        eval_batch_size = int(train.get('batch_size', 2))
         train_args.extend([
             '--do_eval',
             '--eval_dataset', str(common.get('eval_dataset_name', common.get('dataset_name', 'c4'))),
             '--eval_strategy', str(eval_cfg.get('strategy', 'steps')),
             '--eval_steps', _format_steps_arg(eval_cfg.get('eval_steps', 100), 'training.eval.eval_steps'),
-            '--per_device_eval_batch_size', str(int(eval_cfg.get('batch_size', train.get('batch_size', 2)))),
+            '--per_device_eval_batch_size', str(eval_batch_size),
         ])
     else:
         train_args.extend(['--eval_strategy', 'no'])
