@@ -210,6 +210,43 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
             '--movlora_router_init_std', str(float(cfg.get('router_init_std', 0.02))),
             '--movlora_router_ignore_padding_tokens', str(bool(cfg.get('router_ignore_padding_tokens', False))),
         ])
+    elif kind == 'hmora':
+        cfg = run_cfg.get('params', {})
+        train_args.extend([
+            '--hmora_num_experts', str(int(cfg.get('num_experts', 8))),
+            '--hmora_dropout', str(float(cfg.get('dropout', 0.1))),
+            '--hmora_top_k_routing_strategy', str(bool(cfg.get('top_k_routing_strategy', False))),
+            '--hmora_top_k', str(int(cfg.get('top_k', 2))),
+            '--hmora_use_task_router', str(bool(cfg.get('use_task_router', False))),
+            '--hmora_task_router_only', str(bool(cfg.get('task_router_only', False))),
+            '--hmora_share_router_for_qkv', str(bool(cfg.get('share_router_for_qkv', False))),
+            '--hmora_share_router_for_w_i', str(bool(cfg.get('share_router_for_w_i', False))),
+            '--hmora_num_router_mlp_layers', str(int(cfg.get('num_router_mlp_layers', 1))),
+            '--hmora_router_hidden_dim', str(int(cfg.get('router_hidden_dim', 32))),
+            '--hmora_epsilon_alpha', str(float(cfg.get('epsilon_alpha', 4.0))),
+            '--hmora_alpha_shift', str(float(cfg.get('alpha_shift', -2.0))),
+            '--hmora_alpha_low_bound', str(float(cfg.get('alpha_low_bound', 0.2))),
+            '--hmora_alpha_up_bound', str(float(cfg.get('alpha_up_bound', 0.8))),
+            '--hmora_use_load_balancing_loss', str(bool(cfg.get('use_load_balancing_loss', False))),
+            '--hmora_use_div_loss', str(bool(cfg.get('use_div_loss', True))),
+            '--hmora_gamma_div_certain_t', str(float(cfg.get('gamma_div_certain_t', 0.4))),
+            '--hmora_gamma_div_balance_t', str(float(cfg.get('gamma_div_balance_t', 1.0))),
+            '--hmora_gamma_div_certain_s', str(float(cfg.get('gamma_div_certain_s', 0.4))),
+            '--hmora_gamma_div_balance_s', str(float(cfg.get('gamma_div_balance_s', 1.0))),
+            '--hmora_lambda_auxiliary', str(float(cfg.get('lambda_auxiliary', 0.003))),
+            '--hmora_lambda_lm', str(float(cfg.get('lambda_lm', 1.0))),
+            '--hmora_use_hydra_lora', str(bool(cfg.get('use_hydra_lora', False))),
+            '--hmora_eta_b', str(float(cfg.get('eta_b', 1.0))),
+            '--hmora_task_token', str(cfg.get('task_token', '?')),
+            '--hmora_num_encoder_layer', str(int(cfg.get('num_encoder_layer', 1))),
+        ])
+        if cfg.get('task_token_id') is not None:
+            train_args.extend(['--hmora_task_token_id', str(int(cfg['task_token_id']))])
+        if cfg.get('target_modules_lora') is not None:
+            value = cfg['target_modules_lora']
+            if isinstance(value, list):
+                value = ",".join(str(item) for item in value)
+            train_args.extend(['--hmora_target_modules_lora', str(value)])
     elif kind != 'lora':
         raise SystemExit(f'Unsupported finetuning kind: {kind}')
     dist = common.get('distributed', {})

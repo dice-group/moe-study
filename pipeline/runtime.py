@@ -187,7 +187,7 @@ def _build_run_label(base_run_label: str, run: dict[str, Any], default_num_exper
             suffix_parts.append(f"k{int(params['top_k'])}")
         if run_kind == "cola" and "strategy" in params:
             suffix_parts.append(_sanitize_slug(str(params["strategy"])))
-    elif run_kind in {"adamole", "mola", "moelpr", "moelora", "movlora"}:
+    elif run_kind in {"adamole", "mola", "moelpr", "moelora", "movlora", "hmora"}:
         if "num_experts" in params:
             suffix_parts.append(f"nexp{int(params['num_experts'])}")
         if "top_k" in params:

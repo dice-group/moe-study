@@ -225,6 +225,7 @@ _APPROACH_MODULES: dict[str, list[str]] = {
     "MOELPR":    ["moe_experts", "moe_router_embedding"],
     "MOELORA":   ["lora_A", "lora_B", "lora_gate", "lora_task_embedding"],
     "MOVLORA":   ["lora_A", "lora_B", "lora_router"],
+    "HMORA":     ["lora_A", "lora_B", "lora_router_pool"],
 }
 
 
@@ -245,6 +246,10 @@ def _load_adapter_config(run_dir: Path) -> dict[str, Any]:
     cfg_path = run_dir / "adapter_config.json"
     if cfg_path.exists():
         return json.loads(cfg_path.read_text("utf-8"))
+    for ck in reversed(_find_checkpoints(run_dir)):
+        ck_cfg = ck / "adapter_config.json"
+        if ck_cfg.exists():
+            return json.loads(ck_cfg.read_text("utf-8"))
     return {}
 
 
@@ -257,9 +262,9 @@ def _find_checkpoints(run_dir: Path) -> list[Path]:
     """Return checkpoint dirs sorted by step number (ascending)."""
     cks = []
     for d in run_dir.iterdir():
-        if d.is_dir() and d.name.startswith("checkpoint-") and not d.name.endswith("_adapter"):
+        if d.is_dir() and d.name.startswith("checkpoint-"):
             cks.append(d)
-    return sorted(cks, key=lambda p: int(p.name.split("-")[1]))
+    return sorted(cks, key=lambda p: int(p.name.split("-")[1].split("_")[0]))
 
 
 def _adapter_file(d: Path) -> Path | None:
@@ -437,7 +442,7 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
             "lora_A", "lora_B", "router", "lora_route", "expert_",
             "lora_gating", "lora_threshold", "moe_layer", "moe_experts",
             "moe_router_embedding", "lora_gate", "lora_task_embedding",
-            "lora_router",
+            "lora_router", "lora_router_pool", "lora_task_encoder",
         ):
             if frag in k:
                 component_counts[frag] += 1
@@ -463,7 +468,7 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
             entry.setdefault("errors", []).append(
                 f"expert count mismatch: config={cfg_num_experts} vs checkpoint={ck_num_experts}"
             )
-    elif approach in ("ADAMOLE", "MOLA", "MOELPR", "MOELORA", "MOVLORA"):
+    elif approach in ("ADAMOLE", "MOLA", "MOELPR", "MOELORA", "MOVLORA", "HMORA"):
         acfg = _load_adapter_config(run_dir)
         moe_info: dict[str, Any] = {"approach": approach}
         if approach == "ADAMOLE":
@@ -481,6 +486,11 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
         elif approach == "MOVLORA":
             moe_info["num_experts"] = acfg.get("movlora_num_experts")
             moe_info["top_k"] = acfg.get("movlora_top_k")
+        elif approach == "HMORA":
+            moe_info["num_experts"] = acfg.get("num_experts", acfg.get("hmora_num_experts"))
+            moe_info["top_k"] = acfg.get("top_k", acfg.get("hmora_top_k"))
+            moe_info["use_task_router"] = acfg.get("use_task_router", acfg.get("hmora_use_task_router"))
+            moe_info["use_hydra_lora"] = acfg.get("use_hydra_lora", acfg.get("hmora_use_hydra_lora"))
         entry["moe_config"] = moe_info
 
     # --- weight diff between first and last checkpoint ---
@@ -506,7 +516,7 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
                 entry["warning"] = "no weights changed between first and last checkpoint"
 
             # --- component-level diff (router vs experts vs lora) ---
-            if approach in ("COLA", "HYDRALORA", "ADAMOLE", "MOLA", "MOELPR", "MOELORA", "MOVLORA"):
+            if approach in ("COLA", "HYDRALORA", "ADAMOLE", "MOLA", "MOELPR", "MOELORA", "MOVLORA", "HMORA"):
                 diff_by_component = _component_diff(first_keys, sd_first, sd_last)
                 entry["component_diff"] = diff_by_component
                 # Router must have trained if guidance_scope != "none"

@@ -29,7 +29,7 @@ REQUIRED_MERGED_PROFILE_KEYS = (
     "report",
 )
 
-ALLOWED_RUN_KINDS = {"lora", "cola", "hydralora"}
+ALLOWED_RUN_KINDS = {"lora", "cola", "hydralora", "adamole", "mola", "moelpr", "moelora", "movlora", "hmora"}
 ALLOWED_SAMPLE_SOURCE_TYPES = {"hf", "json", "fineweb_datatrove"}
 ALLOWED_FLORES_MODES = {"both", "into_en", "from_en"}
 ALLOWED_PROFILE_EXTRA_KEYS = {"run_naming", "logs_dir", "extends"}
