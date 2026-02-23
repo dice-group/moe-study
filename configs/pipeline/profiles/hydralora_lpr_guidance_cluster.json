@@ -1,0 +1,178 @@
+{
+  "hydralora_lpr_guidance_12langs_2k_cluster": {
+    "extends": "gpu_1b_tier10_all_approaches",
+    "language_map_path": "configs/pg_language_groupings/12_languages_grouping.json",
+    "output_root": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster",
+    "logs_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/logs",
+    "run_naming": {
+      "experiment_tag": "hydralora-lpr-guidance-12langs-2k",
+      "language_count_hint": 12
+    },
+    "executor": {
+      "type": "slurm",
+      "partition": "gpu",
+      "gres": "gpu:h100:4",
+      "mem": "160G",
+      "time": "24:00:00",
+      "cpus_per_task": 32,
+      "modules": [
+        "toolchain/foss/2024a",
+        "system/CUDA/12.6.0",
+        "lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0"
+      ],
+      "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3",
+      "conda_env": "merlin"
+    },
+    "sample": {
+      "source_type": "fineweb_datatrove",
+      "languages": [],
+      "max_languages": 12,
+      "target_docs_per_language": 2000,
+      "fairness_policy": "equal_documents",
+      "auto_adjust_target_to_min_available": false,
+      "allow_upsample": true,
+      "upsample_cap_factor": 1.0,
+      "fail_on_missing": true,
+      "availability_csv": "data_prep/base_data/fineweb2-language-distribution.csv",
+      "availability_split": "train",
+      "output_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/sampled",
+      "shard_subdir": "samples"
+    },
+    "tokenization": {
+      "eval_fraction": 0.02,
+      "max_length": 1024,
+      "model_name": "meta-llama/Llama-3.1-8B",
+      "num_proc": 8,
+      "mask_pad_labels": true,
+      "output_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/tokenized"
+    },
+    "training": {
+      "model_name_or_path": "meta-llama/Llama-3.1-8B",
+      "num_experts": 4,
+      "output_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/runs",
+      "lora": {
+        "rank": 32,
+        "alpha": 64,
+        "dropout": 0.05,
+        "target": "all"
+      },
+      "runs": [
+        {
+          "id": "lora",
+          "kind": "lora"
+        },
+        {
+          "id": "hydralora_lpr_4exp_1a3b",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_lora_num": 3,
+            "hydralora_expert_lora_nums": [3, 3, 3, 3],
+            "hydralora_use_experts": true,
+            "hydralora_num_experts": 4,
+            "hydralora_top_k": 1,
+            "hydralora_router_mode": "learned",
+            "hydralora_head_router_mode": "learned",
+            "hydralora_prior_weight": 0.1,
+            "hydralora_bias_value": 0.0,
+            "hydralora_head_bias_value": 0.0,
+            "hydralora_guidance_scope": "all"
+          }
+        },
+        {
+          "id": "hydralora_lpr_4exp_1a1b",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_lora_num": 1,
+            "hydralora_expert_lora_nums": [1, 1, 1, 1],
+            "hydralora_use_experts": true,
+            "hydralora_num_experts": 4,
+            "hydralora_top_k": 1,
+            "hydralora_router_mode": "learned",
+            "hydralora_head_router_mode": "learned",
+            "hydralora_prior_weight": 0.1,
+            "hydralora_bias_value": 0.0,
+            "hydralora_head_bias_value": 0.0,
+            "hydralora_guidance_scope": "all"
+          }
+        },
+        {
+          "id": "cola_lpr_4exp_1a3b_fully",
+          "kind": "cola",
+          "params": {
+            "cola_num_A": 1,
+            "cola_num_B": 3,
+            "cola_strategy": "fully",
+            "cola_use_experts": true,
+            "cola_num_experts": 4,
+            "cola_top_k": 1,
+            "cola_router_mode": "learned",
+            "cola_head_router_mode": "learned",
+            "cola_prior_weight": 0.1,
+            "cola_bias_value": 0.0,
+            "cola_head_bias_value": 0.0,
+            "cola_guidance_scope": "all"
+          }
+        },
+        {
+          "id": "adamole_4exp",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 4,
+            "adamole_aux_loss_coef": 0.001,
+            "adamole_max_threshold": 0.25
+          }
+        }
+      ],
+      "eval": {
+        "batch_size": 1,
+        "eval_steps": 0.25,
+        "strategy": "steps"
+      },
+      "seed": 42,
+      "train": {
+        "batch_size": 8,
+        "bf16": true,
+        "flash_attn": "fa2",
+        "fp16": false,
+        "grad_accum": 8,
+        "learning_rate": "2e-4",
+        "max_steps": null,
+        "num_train_epochs": 1.0,
+        "logging_steps": 25,
+        "save_steps": 0.25,
+        "save_total_limit": 4
+      }
+    },
+    "benchmark": {
+      "enabled": true,
+      "batch_size": "auto",
+      "tasks_file": "configs/lm_eval_tasks.txt",
+      "include_belebele": true,
+      "include_flores": true,
+      "flores_mode": "both",
+      "fail_if_no_tasks": true,
+      "tokenizer": "meta-llama/Llama-3.1-8B",
+      "output_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "lora",
+      "primary_metric": "eval_loss",
+      "min_relative_improvement": 0.0,
+      "gate_json": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/gate.json",
+      "summary_csv": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/summary.csv"
+    },
+    "report": {
+      "enabled": true,
+      "baseline_cache_root": "outputs/baselines",
+      "output_xlsx": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/report.xlsx"
+    },
+    "wandb": {
+      "enabled": true,
+      "entity": "",
+      "mode": "online",
+      "project": "hydralora-lpr-guidance-12langs",
+      "train_prefix": "train",
+      "eval_prefix": "eval/benchmark"
+    }
+  }
+}

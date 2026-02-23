@@ -1,0 +1,796 @@
+{
+  "moe_comparison_fair_shared": {
+    "extends": "gpu_1b_tier10_all_approaches",
+    "output_root": "outputs/pipeline_runs/moe_comparison_fair",
+    "run_naming": {
+      "experiment_tag": "moe-comparison-fair"
+    },
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair/tokenized"
+    },
+    "training": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair/runs",
+      "seed": 42,
+      "num_experts": 4,
+      "lora": {
+        "rank": 8,
+        "alpha": 16,
+        "dropout": 0.05,
+        "target": "q_proj,k_proj,v_proj,o_proj"
+      },
+      "train": {
+        "batch_size": 15,
+        "grad_accum": 2,
+        "learning_rate": "2e-4",
+        "weight_decay": 0.0,
+        "max_steps": 800,
+        "logging_steps": 50,
+        "save_steps": 200,
+        "save_total_limit": 4,
+        "bf16": true,
+        "fp16": false,
+        "flash_attn": "fa2"
+      },
+      "eval": {
+        "strategy": "steps",
+        "batch_size": 2,
+        "eval_steps": 200
+      },
+      "runs": []
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair/benchmarks",
+      "tasks_file": "configs/lm_eval_tasks_10_langs.txt"
+    },
+    "summary": {
+      "baseline_id": "lora",
+      "primary_metric": "eval_loss",
+      "min_relative_improvement": 0.0,
+      "gate_json": "outputs/pipeline_runs/moe_comparison_fair/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_comparison_fair/summary.csv"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_comparison_fair/report.xlsx"
+    }
+  },
+  "moe_comparison_fair": {
+    "extends": "moe_comparison_fair_shared",
+    "training": {
+      "enabled": true,
+      "runs": [
+        {
+          "id": "lora",
+          "kind": "lora"
+        },
+        {
+          "id": "adamole",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 4,
+            "adamole_aux_loss_coef": 0.001,
+            "adamole_max_threshold": 0.25
+          }
+        },
+        {
+          "id": "mola",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 4,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "hydralora",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_lora_num": 3,
+            "hydralora_use_experts": true,
+            "hydralora_num_experts": 4,
+            "hydralora_top_k": 1,
+            "hydralora_router_mode": "learned",
+            "hydralora_head_router_mode": "learned",
+            "hydralora_prior_weight": 0.1,
+            "hydralora_bias_value": 0.0,
+            "hydralora_head_bias_value": 0.0,
+            "hydralora_guidance_scope": "all"
+          }
+        },
+        {
+          "id": "moelora",
+          "kind": "moelora",
+          "params": {
+            "moelora_num_experts": 8,
+            "moelora_task_num": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_sparse_top_k": 0,
+            "moelora_gate_temperature": 1.0
+          }
+        },
+        {
+          "id": "movlora",
+          "kind": "movlora",
+          "params": {
+            "movlora_num_experts": 8,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "hmora",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 8,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        }
+      ]
+    },
+    "benchmark": {
+      "enabled": true
+    },
+    "wandb": {
+      "enabled": true,
+      "project": "moe-study-comparison-fair",
+      "mode": "online"
+    }
+  },
+  "moe_comparison_fair_local_smoke": {
+    "extends": "moe_comparison_fair",
+    "executor": {
+      "type": "local"
+    },
+    "language_map_path": "configs/pipeline_4lang_map.json",
+    "output_root": "outputs/pipeline_runs/moe_comparison_fair_local_smoke",
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled"
+    },
+    "sample": {
+      "source_type": "json",
+      "data_files": "sample_data/fixtures/multilingual_4lang/arb_Arab.jsonl,sample_data/fixtures/multilingual_4lang/hun_Latn.jsonl,sample_data/fixtures/multilingual_4lang/xho_Latn.jsonl,sample_data/fixtures/multilingual_4lang/zul_Latn.jsonl",
+      "languages": [
+        "arb_Arab",
+        "hun_Latn",
+        "xho_Latn",
+        "zul_Latn"
+      ],
+      "shard_subdir": "",
+      "max_scan": 5000,
+      "per_language_target": 8,
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_local_smoke/sampled"
+    },
+    "tokenization": {
+      "model_name": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+      "max_length": 64,
+      "num_proc": 1,
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_local_smoke/tokenized"
+    },
+    "training": {
+      "model_name_or_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_local_smoke/runs",
+      "train": {
+        "batch_size": 1,
+        "grad_accum": 1,
+        "learning_rate": "2e-4",
+        "weight_decay": 0.0,
+        "max_steps": 1,
+        "logging_steps": 1,
+        "save_steps": 1,
+        "save_total_limit": 1,
+        "bf16": false,
+        "fp16": false,
+        "flash_attn": "disabled",
+        "disable_gradient_checkpointing": true,
+        "use_reentrant_gc": false
+      },
+      "eval": {
+        "strategy": "steps",
+        "batch_size": 1,
+        "eval_steps": 1
+      }
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_local_smoke/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_comparison_fair_local_smoke/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_comparison_fair_local_smoke/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_comparison_fair_local_smoke/report.xlsx"
+    }
+  },
+  "moe_comparison_fair_8b_shared": {
+    "extends": "gpu_1b_tier10_all_approaches",
+    "language_map_path": "configs/pg_language_groupings/200_languages_grouping.json",
+    "output_root": "outputs/pipeline_runs/moe_comparison_fair_8b",
+    "run_naming": {
+      "experiment_tag": "moe-comparison-fair-8b",
+      "language_count_hint": 200
+    },
+    "sample": {
+      "source_type": "fineweb_datatrove",
+      "languages": [],
+      "max_languages": 0,
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b/sampled",
+      "shard_subdir": "samples"
+    },
+    "tokenization": {
+      "model_name": "meta-llama/Llama-3.1-8B",
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b/tokenized"
+    },
+    "training": {
+      "model_name_or_path": "meta-llama/Llama-3.1-8B",
+      "num_experts": 11,
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b/runs",
+      "lora": {
+        "rank": 32,
+        "alpha": 64,
+        "dropout": 0.5,
+        "target": "all"
+      },
+      "seed": 42,
+      "runs": [
+        {
+          "id": "lora",
+          "kind": "lora"
+        },
+        {
+          "id": "adamole",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 4,
+            "adamole_aux_loss_coef": 0.001,
+            "adamole_max_threshold": 0.25
+          }
+        },
+        {
+          "id": "mola",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 4,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "hydralora",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_lora_num": 3,
+            "hydralora_use_experts": true,
+            "hydralora_num_experts": 11,
+            "hydralora_top_k": 1,
+            "hydralora_router_mode": "learned",
+            "hydralora_head_router_mode": "learned",
+            "hydralora_prior_weight": 0.1,
+            "hydralora_bias_value": 0.0,
+            "hydralora_head_bias_value": 0.0,
+            "hydralora_guidance_scope": "all"
+          }
+        },
+        {
+          "id": "moelora",
+          "kind": "moelora",
+          "params": {
+            "moelora_num_experts": 8,
+            "moelora_task_num": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_sparse_top_k": 0,
+            "moelora_gate_temperature": 1.0
+          }
+        },
+        {
+          "id": "movlora",
+          "kind": "movlora",
+          "params": {
+            "movlora_num_experts": 8,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "hmora",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 8,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        }
+      ]
+    },
+    "benchmark": {
+      "enabled": true,
+      "tasks_file": "configs/lm_eval_tasks_10_langs.txt",
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "lora",
+      "primary_metric": "eval_loss",
+      "min_relative_improvement": 0.0,
+      "gate_json": "outputs/pipeline_runs/moe_comparison_fair_8b/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_comparison_fair_8b/summary.csv"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_comparison_fair_8b/report.xlsx"
+    },
+    "wandb": {
+      "enabled": true,
+      "project": "moe-study-comparison-fair-8b",
+      "mode": "online"
+    }
+  },
+  "moe_comparison_fair_8b_10langs": {
+    "extends": "moe_comparison_fair_8b_shared",
+    "output_root": "outputs/pipeline_runs/moe_comparison_fair_8b_10langs",
+    "run_naming": {
+      "experiment_tag": "moe-comparison-fair-8b-10langs",
+      "language_count_hint": 10
+    },
+    "executor": {
+      "time": "03:36:00"
+    },
+    "sample": {
+      "max_languages": 10,
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_10langs/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_10langs/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_10langs/runs"
+    },
+    "benchmark": {
+      "tasks_file": "configs/lm_eval_tasks_10_langs.txt",
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_10langs/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_comparison_fair_8b_10langs/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_comparison_fair_8b_10langs/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_comparison_fair_8b_10langs/report.xlsx"
+    }
+  },
+  "moe_comparison_fair_8b_96langs": {
+    "extends": "moe_comparison_fair_8b_shared",
+    "output_root": "outputs/pipeline_runs/moe_comparison_fair_8b_96langs",
+    "run_naming": {
+      "experiment_tag": "moe-comparison-fair-8b-96langs",
+      "language_count_hint": 96
+    },
+    "executor": {
+      "time": "1-10:30:00"
+    },
+    "sample": {
+      "max_languages": 96,
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_96langs/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_96langs/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_96langs/runs"
+    },
+    "benchmark": {
+      "tasks_file": "configs/lm_eval_tasks_96_langs.txt",
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_96langs/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_comparison_fair_8b_96langs/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_comparison_fair_8b_96langs/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_comparison_fair_8b_96langs/report.xlsx"
+    }
+  },
+  "moe_comparison_fair_8b_200langs": {
+    "extends": "moe_comparison_fair_8b_shared",
+    "output_root": "outputs/pipeline_runs/moe_comparison_fair_8b_200langs",
+    "run_naming": {
+      "experiment_tag": "moe-comparison-fair-8b-200langs",
+      "language_count_hint": 200
+    },
+    "executor": {
+      "time": "3-00:00:00"
+    },
+    "sample": {
+      "max_languages": 200,
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_200langs/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_200langs/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_200langs/runs"
+    },
+    "benchmark": {
+      "tasks_file": "configs/lm_eval_tasks_200_langs.txt",
+      "output_dir": "outputs/pipeline_runs/moe_comparison_fair_8b_200langs/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_comparison_fair_8b_200langs/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_comparison_fair_8b_200langs/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_comparison_fair_8b_200langs/report.xlsx"
+    }
+  },
+  "moe_scaling_top3_200langs_shared": {
+    "extends": "moe_comparison_fair_8b_200langs",
+    "output_root": "outputs/pipeline_runs/moe_scaling_top3_200langs",
+    "run_naming": {
+      "experiment_tag": "moe-scaling-top3-200langs",
+      "language_count_hint": 200
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs/runs",
+      "runs": [
+        {
+          "id": "mola",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 4,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "moelora",
+          "kind": "moelora",
+          "params": {
+            "moelora_num_experts": 8,
+            "moelora_task_num": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_sparse_top_k": 0,
+            "moelora_gate_temperature": 1.0
+          }
+        },
+        {
+          "id": "hmora",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 8,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        }
+      ]
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "mola",
+      "gate_json": "outputs/pipeline_runs/moe_scaling_top3_200langs/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_scaling_top3_200langs/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_scaling_top3_200langs/report.xlsx"
+    },
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs/tokenized"
+    }
+  },
+  "moe_scaling_top3_200langs_num_experts_2x": {
+    "extends": "moe_scaling_top3_200langs_shared",
+    "output_root": "outputs/pipeline_runs/moe_scaling_top3_200langs_num_experts_2x",
+    "run_naming": {
+      "experiment_tag": "moe-scaling-top3-200langs-num-experts-2x",
+      "language_count_hint": 200
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_num_experts_2x/runs",
+      "runs": [
+        {
+          "id": "mola",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 8,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "moelora",
+          "kind": "moelora",
+          "params": {
+            "moelora_num_experts": 16,
+            "moelora_task_num": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_sparse_top_k": 0,
+            "moelora_gate_temperature": 1.0
+          }
+        },
+        {
+          "id": "hmora",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 16,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        }
+      ]
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_num_experts_2x/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_scaling_top3_200langs_num_experts_2x/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_scaling_top3_200langs_num_experts_2x/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_scaling_top3_200langs_num_experts_2x/report.xlsx"
+    },
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_num_experts_2x/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_num_experts_2x/tokenized"
+    }
+  },
+  "moe_scaling_top3_200langs_topk8": {
+    "extends": "moe_scaling_top3_200langs_shared",
+    "output_root": "outputs/pipeline_runs/moe_scaling_top3_200langs_topk8",
+    "run_naming": {
+      "experiment_tag": "moe-scaling-top3-200langs-topk8",
+      "language_count_hint": 200
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_topk8/runs",
+      "runs": [
+        {
+          "id": "mola",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 4,
+            "mola_top_k": 8,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "moelora",
+          "kind": "moelora",
+          "params": {
+            "moelora_num_experts": 8,
+            "moelora_task_num": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_sparse_top_k": 8,
+            "moelora_gate_temperature": 1.0
+          }
+        },
+        {
+          "id": "hmora",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 8,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 8,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        }
+      ]
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_topk8/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_scaling_top3_200langs_topk8/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_scaling_top3_200langs_topk8/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_scaling_top3_200langs_topk8/report.xlsx"
+    },
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_topk8/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_topk8/tokenized"
+    }
+  },
+  "moe_scaling_top3_200langs_lora_r64": {
+    "extends": "moe_scaling_top3_200langs_shared",
+    "output_root": "outputs/pipeline_runs/moe_scaling_top3_200langs_lora_r64",
+    "run_naming": {
+      "experiment_tag": "moe-scaling-top3-200langs-lora-r64",
+      "language_count_hint": 200
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_lora_r64/runs",
+      "lora": {
+        "rank": 64,
+        "alpha": 64,
+        "dropout": 0.5,
+        "target": "all"
+      }
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_lora_r64/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_scaling_top3_200langs_lora_r64/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_scaling_top3_200langs_lora_r64/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_scaling_top3_200langs_lora_r64/report.xlsx"
+    },
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_lora_r64/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_lora_r64/tokenized"
+    }
+  },
+  "moe_scaling_top3_200langs_tokenizer_extension": {
+    "extends": "moe_scaling_top3_200langs_shared",
+    "output_root": "outputs/pipeline_runs/moe_scaling_top3_200langs_tokenizer_extension",
+    "run_naming": {
+      "experiment_tag": "moe-scaling-top3-200langs-tokenizer-extension",
+      "language_count_hint": 200
+    },
+    "tokenizer_extension": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_tokenizer_extension/tokenizer_extension"
+    },
+    "embedding_init": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_tokenizer_extension/initialized_model"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_tokenizer_extension/runs"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_tokenizer_extension/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_scaling_top3_200langs_tokenizer_extension/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_scaling_top3_200langs_tokenizer_extension/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_scaling_top3_200langs_tokenizer_extension/report.xlsx"
+    },
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_tokenizer_extension/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_scaling_top3_200langs_tokenizer_extension/tokenized"
+    }
+  }
+}
