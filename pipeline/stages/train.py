@@ -61,8 +61,8 @@ def stage_train(ctx: PipelineContext) -> None:
         else:
             # Collect pending runs (skip already-complete ones).
             pending: list[
-                tuple[dict, str, str, Path]
-            ] = []  # (run_cfg, run_id, run_name_label, output_dir)
+                tuple[dict, str, str, Path, Path]
+            ] = []  # (run_cfg, run_id, run_name_label, output_dir, log_path)
             for run in runs:
                 run_id = str(run["id"])
                 run_name_label = _build_run_label(
@@ -84,12 +84,14 @@ def stage_train(ctx: PipelineContext) -> None:
                     ctx.logger.info("[SKIP] train run %s (already complete)", run_id)
                     continue
                 output_dir.mkdir(parents=True, exist_ok=True)
-                pending.append((run, run_id, run_name_label, output_dir))
+                run_log_dir = ctx.logs_root / "train_runs" / run_id
+                run_log_path = run_log_dir / f"{run_name_label}.train.log"
+                pending.append((run, run_id, run_name_label, output_dir, run_log_path))
 
             if pending and hasattr(ctx.executor, "run_batch") and len(pending) > 1:
                 # Parallel path: build all commands, submit as a batch.
                 jobs: list[tuple[list[str], dict[str, str], Path]] = []
-                for run, _run_id, run_name_label, output_dir in pending:
+                for run, _run_id, run_name_label, output_dir, log_path in pending:
                     cmd, run_env = build_training_cmd(
                         repo_root=ctx.repo_root,
                         env=ctx.env,
@@ -101,7 +103,6 @@ def stage_train(ctx: PipelineContext) -> None:
                         embedding_training_cfg=ctx.embedding_training_cfg,
                         run_name=run_name_label,
                     )
-                    log_path = ctx.logs_root / f"{run_name_label}.train.log"
                     jobs.append((cmd, run_env, log_path))
                 ctx.logger.info(
                     "[BATCH] Submitting %d training runs via %s",
@@ -111,11 +112,11 @@ def stage_train(ctx: PipelineContext) -> None:
                 ctx.executor.run_batch(jobs, dry_run=ctx.args.dry_run)
                 # After batch completes, mark each output dir as done.
                 if not ctx.args.dry_run:
-                    for _run, _run_id, _label, output_dir in pending:
+                    for _run, _run_id, _label, output_dir, _log_path in pending:
                         (output_dir / ".training_complete").write_text("ok\n", encoding="utf-8")
             else:
                 # Sequential path: one run at a time (single run or LocalExecutor).
-                for run, _run_id, run_name_label, output_dir in pending:
+                for run, _run_id, run_name_label, output_dir, log_path in pending:
                     run_training_variant(
                         repo_root=ctx.repo_root,
                         env=ctx.env,
@@ -126,14 +127,14 @@ def stage_train(ctx: PipelineContext) -> None:
                         tokenized_path=ctx.tokenized_dir,
                         embedding_training_cfg=ctx.embedding_training_cfg,
                         run_name=run_name_label,
-                        log_path=ctx.logs_root / f"{run_name_label}.train.log",
+                        log_path=log_path,
                         dry_run=ctx.args.dry_run,
                         executor=ctx.executor,
                     )
 
             # Write lineage manifests for all completed runs.
             if not ctx.args.dry_run:
-                for run, run_id, _label, output_dir in pending:
+                for run, run_id, _label, output_dir, _log_path in pending:
                     _dump_json(
                         output_dir / "model_tokenizer_lineage.json",
                         {

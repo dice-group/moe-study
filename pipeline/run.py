@@ -44,6 +44,26 @@ STAGES = [
 ]
 
 
+def _stage_profile_cfg(profile: dict[str, Any], stage: str) -> dict[str, Any]:
+    """Map pipeline stage names to their profile config blocks."""
+    stage_to_profile_key = {
+        "sample": "sample",
+        "tokenizer_extend": "tokenizer_extension",
+        "embedding_init": "embedding_init",
+        "tokenize": "tokenization",
+        "audit": "audit",
+        "train": "training",
+        "embedding_verify": "embedding_training",
+        "benchmark": "benchmark",
+        "baseline_eval": "baseline_eval",
+        "summary": "summary",
+        "report": "report",
+    }
+    key = stage_to_profile_key.get(stage, "")
+    cfg = profile.get(key, {})
+    return cfg if isinstance(cfg, dict) else {}
+
+
 def _configure_pipeline_logger(logs_root: Path, run_timestamp: str) -> logging.Logger:
     logger = logging.getLogger("proof_pipeline")
     logger.setLevel(logging.INFO)
@@ -299,6 +319,8 @@ def main() -> int:
         handler = stage_handlers.get(stage)
         if handler is None:
             raise SystemExit(f"No stage handler configured for: {stage}")
+        stage_cfg = _stage_profile_cfg(ctx.profile, stage)
+        ctx.executor = build_executor(ctx.profile, stage_cfg)
         stage_started_perf = time.perf_counter()
         ctx.logger.info("[STAGE_START] %s", stage)
         _emit("stage_start", stage=stage)

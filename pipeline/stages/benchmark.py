@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import shlex
 import shutil
+from pathlib import Path
 
 from .common import ensure_lm_eval_layout
 from .runtime import (
@@ -25,6 +27,41 @@ def _read_selected_tasks_file(path) -> list[str]:
         return []
     lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines()]
     return [line for line in lines if line and not line.startswith("#")]
+
+
+def _resolve_eval_script(ctx: PipelineContext) -> str:
+    raw = str(ctx.benchmark_cfg.get("eval_script", "")).strip()
+    if raw:
+        return _abs(ctx.repo_root, raw)
+    return _abs(ctx.repo_root, "scripts/eval/lm_eval_checkpoint_adapter_only.sh")
+
+
+def _extract_test_data_file(config_path: Path) -> str | None:
+    for line in config_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("test:"):
+            return stripped.split(":", 1)[1].strip()
+    return None
+
+
+def _validate_flores_task_data_paths(repo_root: Path, include_path: Path, selected_tasks: list[str]) -> None:
+    for task in selected_tasks:
+        if not task.startswith("flores_en_perplexity_"):
+            continue
+        task_yaml = include_path / f"{task}.yaml"
+        if not task_yaml.exists():
+            raise SystemExit(f"Missing FLORES task config: {task_yaml}")
+        data_file = _extract_test_data_file(task_yaml)
+        if not data_file:
+            raise SystemExit(f"FLORES task config missing dataset test path: {task_yaml}")
+        data_path = Path(data_file)
+        if not data_path.is_absolute():
+            data_path = repo_root / data_path
+        if not data_path.exists():
+            raise SystemExit(
+                f"FLORES dataset path not found for task '{task}': {data_path}. "
+                "Regenerate/repair flores_en_perplexity YAML configs."
+            )
 
 
 def stage_benchmark(ctx: PipelineContext) -> None:
@@ -115,10 +152,19 @@ def stage_benchmark(ctx: PipelineContext) -> None:
             if not ctx.args.dry_run and (not bool(ctx.benchmark_cfg.get("allow_missing_lm_eval", False))):
                 if shutil.which(lm_eval_bin) is None:
                     raise SystemExit(f"Benchmark stage requires '{lm_eval_bin}' in PATH.")
-            eval_script = _abs(ctx.repo_root, str(ctx.benchmark_cfg.get("eval_script", "tests/smoke/lm_eval_checkpoint_local.sh")))
+            eval_script = _resolve_eval_script(ctx)
+            if not eval_script.exists():
+                raise SystemExit(f"Benchmark eval script not found: {eval_script}")
             tokenizer = resolved_eval_tokenizer
             batch_size = str(ctx.benchmark_cfg.get("batch_size", "auto"))
-            extra_args = str(ctx.benchmark_cfg.get("extra_args", ""))
+            extra_args = str(ctx.benchmark_cfg.get("extra_args", "")).strip()
+            include_path = ctx.repo_root / "scripts" / "eval" / "latest_checkpoint" / "lm-evaluation-harness" / "lm_eval" / "tasks" / "flores_en_perplexity" / "configs"
+            if bool(ctx.benchmark_cfg.get("include_flores", True)) and include_path.is_dir():
+                _validate_flores_task_data_paths(ctx.repo_root, include_path, selected_tasks)
+                parsed_extra_args = shlex.split(extra_args) if extra_args else []
+                if "--include-path" not in parsed_extra_args:
+                    parsed_extra_args.extend(["--include-path", str(include_path)])
+                    extra_args = shlex.join(parsed_extra_args)
             default_eval_project = str(ctx.wandb_cfg.get("project", "proof_eval")) if bool(ctx.wandb_cfg.get("enabled", False)) else "proof_eval"
             wandb_project = str(ctx.benchmark_cfg.get("wandb_project", default_eval_project))
             wandb_prefix_root = str(

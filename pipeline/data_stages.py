@@ -1,14 +1,10 @@
-#!/usr/bin/env python3
-"""Data-oriented stage handler registry for multilingual proof pipeline."""
-
-from __future__ import annotations
-
 from .stages.audit import stage_audit
 from .stages.embedding_init import stage_embedding_init
 from .stages.sample import stage_sample
 from .stages.tokenize import stage_tokenize
 from .stages.tokenizer_extend import stage_tokenizer_extend
 
+"""Data-oriented stage handler registry for multilingual proof pipeline."""
 
 DATA_STAGE_HANDLERS = {
     "sample": stage_sample,

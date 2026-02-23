@@ -174,26 +174,89 @@ def _model_slug(model_name_or_path: str) -> str:
     return _sanitize_slug(value)
 
 
+def _param_value(params: dict[str, Any], key: str, default: Any, *aliases: str) -> Any:
+    if key in params:
+        return params[key]
+    for alias in aliases:
+        if alias in params:
+            return params[alias]
+    return default
+
+
 def _build_run_label(base_run_label: str, run: dict[str, Any], default_num_experts: int) -> str:
     run_kind = str(run.get("kind", "run"))
     params = run.get("params", {})
     suffix_parts = [run_kind]
     if run_kind in {"cola", "hydralora"}:
-        if "num_experts" in params:
-            suffix_parts.append(f"nexp{int(params['num_experts'])}")
-        elif "use_experts" in params and bool(params["use_experts"]):
+        num_experts_value = (
+            _param_value(params, "cola_num_experts", None, "num_experts")
+            if run_kind == "cola"
+            else _param_value(params, "hydralora_num_experts", None, "num_experts")
+        )
+        use_experts = (
+            bool(_param_value(params, "cola_use_experts", True, "use_experts"))
+            if run_kind == "cola"
+            else bool(_param_value(params, "hydralora_use_experts", True, "use_experts"))
+        )
+        top_k_value = (
+            _param_value(params, "cola_top_k", None, "top_k")
+            if run_kind == "cola"
+            else _param_value(params, "hydralora_top_k", None, "top_k")
+        )
+        if num_experts_value is not None:
+            suffix_parts.append(f"nexp{int(num_experts_value)}")
+        elif use_experts:
             suffix_parts.append(f"nexp{int(default_num_experts)}")
-        if "top_k" in params:
-            suffix_parts.append(f"k{int(params['top_k'])}")
-        if run_kind == "cola" and "strategy" in params:
-            suffix_parts.append(_sanitize_slug(str(params["strategy"])))
-    elif run_kind in {"adamole", "mola", "moelpr", "moelora", "movlora"}:
-        if "num_experts" in params:
-            suffix_parts.append(f"nexp{int(params['num_experts'])}")
-        if "top_k" in params:
-            suffix_parts.append(f"k{int(params['top_k'])}")
-        elif "sparse_top_k" in params:
-            suffix_parts.append(f"k{int(params['sparse_top_k'])}")
+        if top_k_value is not None:
+            suffix_parts.append(f"k{int(top_k_value)}")
+        if run_kind == "cola":
+            strategy_value = _param_value(params, "cola_strategy", None, "strategy")
+            if strategy_value is not None:
+                suffix_parts.append(_sanitize_slug(str(strategy_value)))
+            num_a_value = _param_value(params, "cola_num_A", None, "num_A")
+            num_b_value = _param_value(params, "cola_num_B", None, "num_B")
+            if num_a_value is not None and num_b_value is not None:
+                suffix_parts.append(f"a{int(num_a_value)}b{int(num_b_value)}")
+        else:
+            lora_num_value = _param_value(params, "hydralora_lora_num", None, "lora_num")
+            if lora_num_value is not None:
+                suffix_parts.append(f"lora{int(lora_num_value)}")
+            expert_heads = _param_value(params, "hydralora_expert_lora_nums", None, "expert_lora_nums")
+            if isinstance(expert_heads, list) and expert_heads:
+                try:
+                    parsed_heads = [int(item) for item in expert_heads]
+                except (TypeError, ValueError):
+                    parsed_heads = []
+                if parsed_heads:
+                    if len(set(parsed_heads)) == 1:
+                        suffix_parts.append(f"heads{parsed_heads[0]}x{len(parsed_heads)}")
+                    else:
+                        suffix_parts.append("heads" + "-".join(str(item) for item in parsed_heads))
+    elif run_kind in {"adamole", "mola", "moelpr", "moelora", "movlora", "hmora"}:
+        num_experts_value = _param_value(
+            params,
+            f"{run_kind}_num_experts",
+            None,
+            "num_experts",
+        )
+        top_k_value = _param_value(
+            params,
+            f"{run_kind}_top_k",
+            None,
+            "top_k",
+        )
+        sparse_top_k_value = _param_value(
+            params,
+            "moelora_sparse_top_k" if run_kind == "moelora" else "sparse_top_k",
+            None,
+            "sparse_top_k",
+        )
+        if num_experts_value is not None:
+            suffix_parts.append(f"nexp{int(num_experts_value)}")
+        if top_k_value is not None:
+            suffix_parts.append(f"k{int(top_k_value)}")
+        elif sparse_top_k_value is not None:
+            suffix_parts.append(f"k{int(sparse_top_k_value)}")
     return _sanitize_slug(f"{base_run_label}-{'-'.join(suffix_parts)}")
 
 
@@ -447,52 +510,75 @@ def _validate_lpr_contract(
         if kind not in {"cola", "hydralora"}:
             continue
         params = run.get("params", {})
-        if not bool(params.get("use_experts", True)):
+        use_experts = (
+            bool(_param_value(params, "cola_use_experts", True, "use_experts"))
+            if kind == "cola"
+            else bool(_param_value(params, "hydralora_use_experts", True, "use_experts"))
+        )
+        if not use_experts:
             continue
 
         if kind == "cola":
-            num_experts = int(params.get("num_experts", train_cfg.get("num_experts", expected_experts)))
+            num_experts = int(
+                _param_value(params, "cola_num_experts", train_cfg.get("num_experts", expected_experts), "num_experts")
+            )
             if num_experts != expected_experts:
                 raise ValueError(
                     f"LPR contract mismatch for run '{run_id}': cola_num_experts={num_experts} "
                     f"but language_map groups={expected_experts}."
                 )
-            explicit_heads = _parse_optional_int_list(params.get("expert_num_B"))
+            explicit_heads = _parse_optional_int_list(_param_value(params, "cola_expert_num_B", None, "expert_num_B"))
             if explicit_heads is not None:
                 heads = explicit_heads
             elif subgroup_sizes and any(size > 0 for size in subgroup_sizes):
                 heads = list(subgroup_sizes)
             else:
-                heads = [int(params.get("num_B", 3))] * expected_experts
+                heads = [int(_param_value(params, "cola_num_B", 3, "num_B"))] * expected_experts
         else:
-            num_experts = int(params.get("num_experts", train_cfg.get("num_experts", expected_experts)))
+            num_experts = int(
+                _param_value(
+                    params,
+                    "hydralora_num_experts",
+                    train_cfg.get("num_experts", expected_experts),
+                    "num_experts",
+                )
+            )
             if num_experts != expected_experts:
                 raise ValueError(
                     f"LPR contract mismatch for run '{run_id}': hydralora_num_experts={num_experts} "
                     f"but language_map groups={expected_experts}."
                 )
-            explicit_heads = _parse_optional_int_list(params.get("expert_lora_nums"))
+            explicit_heads = _parse_optional_int_list(
+                _param_value(params, "hydralora_expert_lora_nums", None, "expert_lora_nums")
+            )
             if explicit_heads is not None:
                 heads = explicit_heads
             elif subgroup_sizes and any(size > 0 for size in subgroup_sizes):
                 heads = list(subgroup_sizes)
             else:
-                heads = [int(params.get("lora_num", 3))] * expected_experts
+                heads = [int(_param_value(params, "hydralora_lora_num", 3, "lora_num"))] * expected_experts
 
         if len(heads) != expected_experts or any(int(h) <= 0 for h in heads):
             raise ValueError(
                 f"LPR head contract mismatch for run '{run_id}': expected {expected_experts} positive entries, got {heads}."
             )
 
-        router_mode = str(params.get("router_mode", "learned"))
-        head_router_mode = str(params.get("head_router_mode", "learned"))
-        guidance_scope = str(params.get("guidance_scope", "all"))
+        if kind == "cola":
+            router_mode = str(_param_value(params, "cola_router_mode", "learned", "router_mode"))
+            head_router_mode = str(_param_value(params, "cola_head_router_mode", "learned", "head_router_mode"))
+            guidance_scope = str(_param_value(params, "cola_guidance_scope", "all", "guidance_scope"))
+            prior_weight = float(_param_value(params, "cola_prior_weight", 0.1, "prior_weight"))
+        else:
+            router_mode = str(_param_value(params, "hydralora_router_mode", "learned", "router_mode"))
+            head_router_mode = str(_param_value(params, "hydralora_head_router_mode", "learned", "head_router_mode"))
+            guidance_scope = str(_param_value(params, "hydralora_guidance_scope", "all", "guidance_scope"))
+            prior_weight = float(_param_value(params, "hydralora_prior_weight", 0.1, "prior_weight"))
         if router_mode != "learned" or head_router_mode != "learned":
             raise ValueError(
                 f"LPR routing contract mismatch for run '{run_id}': router_mode/head_router_mode must be learned "
                 f"(got {router_mode}/{head_router_mode})."
             )
-        if guidance_scope not in {"all", "router", "head"}:
+        if guidance_scope not in {"all", "expert_only", "none", "router", "head"}:
             raise ValueError(f"LPR guidance scope invalid for run '{run_id}': {guidance_scope}")
 
         run_checks.append(
@@ -504,7 +590,7 @@ def _validate_lpr_contract(
                 "router_mode": router_mode,
                 "head_router_mode": head_router_mode,
                 "guidance_scope": guidance_scope,
-                "prior_weight": float(params.get("prior_weight", 0.1)),
+                "prior_weight": prior_weight,
             }
         )
 
