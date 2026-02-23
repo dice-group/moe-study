@@ -3,7 +3,7 @@
     "allow_missing_lm_eval": true,
     "batch_size": "1",
     "enabled": false,
-    "eval_script": "",
+    "eval_script": "scripts/eval/lm_eval_checkpoint_adapter_only.sh",
     "extra_args": "",
     "fail_if_no_tasks": false,
     "flores_mode": "both",

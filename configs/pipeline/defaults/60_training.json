@@ -36,7 +36,8 @@
       "grad_accum": 1,
       "learning_rate": "2e-4",
       "logging_steps": 1,
-      "max_steps": 2,
+      "max_steps": 0,
+      "num_train_epochs": 1.0,
       "save_steps": 1
     }
   }

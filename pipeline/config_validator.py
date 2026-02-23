@@ -1,13 +1,10 @@
-#!/usr/bin/env python3
-"""KISS validator for proof pipeline config JSON, pointer JSON, or bundle dir."""
-
-from __future__ import annotations
-
 import argparse
 from pathlib import Path
 from typing import Any
 
 from .config_loader import load_pipeline_config as _shared_load_pipeline_config
+
+"""validator for proof pipeline config JSON, pointer JSON, or complete dirs"""
 
 REQUIRED_TOP_LEVEL_KEYS = (
     "schema_version",
@@ -117,11 +114,7 @@ def _validate_training_runs(training: dict[str, Any], path: str, errors: list[st
     return run_ids
 
 
-def _validate_profile(
-    profile_name: str,
-    merged_profile: dict[str, Any],
-    errors: list[str],
-) -> None:
+def _validate_profile(profile_name: str, merged_profile: dict[str, Any], errors: list[str]):
     prefix = f"profiles.{profile_name}"
 
     for key in REQUIRED_MERGED_PROFILE_KEYS:

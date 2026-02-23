@@ -30,34 +30,43 @@ def _write_check(path: Path, payload: dict[str, Any]) -> None:
 
 def check_sample(sampled_dir: Path, shard_dir: Path, *, dry_run: bool) -> None:
     """Verify sampled shards: per-language file counts, doc counts, disk size."""
+
     if dry_run:
         return
+
     out: dict[str, Any] = {"stage": "sample", "pass": True, "languages": {}}
     total_docs = 0
     total_bytes = 0
     shard_files = sorted(shard_dir.rglob("*.jsonl")) + sorted(shard_dir.rglob("*.jsonl.gz"))
+
+    # iterate over shard files and count documents and count
     for jsonl in shard_files:
         lang = jsonl.parent.name  # e.g. arb_Arab/part_000.jsonl(.gz)
         size = jsonl.stat().st_size
+
         if jsonl.name.endswith(".jsonl.gz"):
             with gzip.open(jsonl, "rt", encoding="utf-8") as fh:
                 docs = sum(1 for _ in fh)
         else:
             docs = sum(1 for _ in jsonl.open("r", encoding="utf-8"))
+
         entry = out["languages"].setdefault(lang, {"files": 0, "docs": 0, "bytes": 0})
         entry["files"] += 1
         entry["docs"] += docs
         entry["bytes"] += size
         total_docs += docs
         total_bytes += size
+
     out["total_docs"] = total_docs
     out["total_bytes"] = total_bytes
     out["total_bytes_human"] = f"{total_bytes / 1024 / 1024:.2f} MB"
     out["num_languages"] = len(out["languages"])
+
     if total_docs == 0:
         out["pass"] = False
         _write_check(sampled_dir / "_check.json", out)
         raise SystemExit("[CHECK FAIL] sample: zero documents produced")
+
     empty = [lang for lang, v in out["languages"].items() if v["docs"] == 0]
     if empty:
         out["pass"] = False
@@ -73,8 +82,10 @@ def check_sample(sampled_dir: Path, shard_dir: Path, *, dry_run: bool) -> None:
 
 def check_tokenize(tokenized_dir: Path, *, dry_run: bool) -> None:
     """Verify tokenized dataset: row counts, token counts, splits, language IDs, example."""
+
     if dry_run:
         return
+
     from datasets import load_from_disk
 
     ds = load_from_disk(str(tokenized_dir))
@@ -156,15 +167,12 @@ def check_tokenize(tokenized_dir: Path, *, dry_run: bool) -> None:
 # tokenizer_extend  (already strong – add summary _check.json)
 # ---------------------------------------------------------------------------
 
-def check_tokenizer_extend(
-    extension_manifest_path: Path,
-    extended_tokenizer_dir: Path,
-    *,
-    dry_run: bool,
-) -> None:
+def check_tokenizer_extend(extension_manifest_path: Path, extended_tokenizer_dir: Path, *, dry_run: bool):
     """Write a summary _check.json from the already-validated extension manifest."""
+
     if dry_run:
         return
+
     manifest = json.loads(extension_manifest_path.read_text(encoding="utf-8"))
     out: dict[str, Any] = {
         "stage": "tokenizer_extend",
@@ -181,32 +189,29 @@ def check_tokenizer_extend(
 # embedding_init
 # ---------------------------------------------------------------------------
 
-def check_embedding_init(
-    output_dir: Path,
-    manifest_path: Path,
-    expected_vocab_size: int | None,
-    *,
-    dry_run: bool,
-) -> None:
+def check_embedding_init(output_dir: Path, manifest_path: Path, expected_vocab_size: int | None, *, dry_run: bool):
     """Verify initialized model: config.json vocab_size matches extended tokenizer."""
+
     if dry_run:
         return
+
     config_path = output_dir / "config.json"
     out: dict[str, Any] = {"stage": "embedding_init", "pass": True}
+
     if not config_path.exists():
         out["pass"] = False
         _write_check(output_dir / "_check.json", out)
         raise SystemExit(f"[CHECK FAIL] embedding_init: {config_path} missing")
+
     config = json.loads(config_path.read_text(encoding="utf-8"))
     out["model_vocab_size"] = config.get("vocab_size")
     out["expected_vocab_size"] = expected_vocab_size
+
     if expected_vocab_size is not None and config.get("vocab_size") != expected_vocab_size:
         out["pass"] = False
         _write_check(output_dir / "_check.json", out)
-        raise SystemExit(
-            f"[CHECK FAIL] embedding_init: model vocab_size={config.get('vocab_size')} "
-            f"!= expected {expected_vocab_size}"
-        )
+        raise SystemExit(f"[CHECK FAIL] embedding_init: model vocab_size={config.get('vocab_size')} != expected {expected_vocab_size}")
+
     _write_check(output_dir / "_check.json", out)
 
 
@@ -214,8 +219,11 @@ def check_embedding_init(
 # train  — helpers
 # ---------------------------------------------------------------------------
 
-# Expected module-name fragments per approach (from adapter_config.json peft_type).
-# Fragments are matched as substrings in adapter checkpoint key names.
+# each saved checkpoint includes different weight modules, depending how they are called in each approach
+# e.g. Lora includes lora_A/B others include router, experts etc.
+# these are listed in the saved weights and int the adapter_config.json
+# For verification we check if the expected modules exist, also one check if they change between checkpoints to verify its trainings
+
 _APPROACH_MODULES: dict[str, list[str]] = {
     "LORA":      ["lora_A", "lora_B"],
     "COLA":      ["lora_A", "lora_B", "router", "expert_"],
@@ -260,6 +268,7 @@ def _detect_approach(run_dir: Path) -> str:
 
 def _find_checkpoints(run_dir: Path) -> list[Path]:
     """Return checkpoint dirs sorted by step number (ascending)."""
+
     cks = []
     for d in run_dir.iterdir():
         if d.is_dir() and d.name.startswith("checkpoint-"):
@@ -331,11 +340,7 @@ def _extract_lpr_config(acfg: dict[str, Any], approach: str) -> dict[str, Any]:
     return lpr
 
 
-def _component_diff(
-    keys: list[str],
-    sd_first: dict[str, Any],
-    sd_last: dict[str, Any],
-) -> dict[str, dict[str, int]]:
+def _component_diff(keys: list[str], sd_first: dict[str, Any], sd_last: dict[str, Any]) -> dict[str, dict[str, int]]:
     """Count changed/unchanged weights grouped by component type."""
     import torch
     buckets: dict[str, list[bool]] = collections.defaultdict(list)
@@ -452,16 +457,13 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
         entry["pass"] = False
         entry["error"] = f"missing expected modules: {missing_fragments}"
 
-    # --- MoE expert structure (CoLA / HydraLoRA / AdaMoLE / MoLA / MoE-LPR / MoE-LoRA / MoV-LoRA) ---
+    # for MoE expert structure (CoLA / HydraLoRA / AdaMoLE / MoLA / MoE-LPR / MoE-LoRA / MoV-LoRA)
     if approach in ("COLA", "HYDRALORA"):
         entry["expert_structure"] = _parse_expert_structure(first_keys)
-        # Read expected values from adapter_config.json
-        acfg = _load_adapter_config(run_dir)
+        acfg = _load_adapter_config(run_dir) # Read expected values from adapter_config.json
         entry["lpr_config"] = _extract_lpr_config(acfg, approach)
         # Cross-check: num_experts in config vs checkpoint
-        cfg_num_experts = acfg.get(
-            "cola_num_experts" if approach == "COLA" else "num_experts"
-        )
+        cfg_num_experts = acfg.get("cola_num_experts" if approach == "COLA" else "num_experts")
         ck_num_experts = entry["expert_structure"]["num_experts"]
         if cfg_num_experts is not None and ck_num_experts != cfg_num_experts:
             entry["pass"] = False
@@ -471,6 +473,7 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
     elif approach in ("ADAMOLE", "MOLA", "MOELPR", "MOELORA", "MOVLORA", "HMORA"):
         acfg = _load_adapter_config(run_dir)
         moe_info: dict[str, Any] = {"approach": approach}
+
         if approach == "ADAMOLE":
             moe_info["num_experts"] = acfg.get("adamole_num_experts")
         elif approach == "MOLA":
@@ -493,7 +496,7 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
             moe_info["use_hydra_lora"] = acfg.get("use_hydra_lora", acfg.get("hmora_use_hydra_lora"))
         entry["moe_config"] = moe_info
 
-    # --- weight diff between first and last checkpoint ---
+    # here we do weight diff between first and last checkpoint, this verifies that parameters were updated
     if len(ck_paths) >= 2:
         first_keys_set = set(first_keys)
         last_keys = _load_adapter_keys(ck_paths[-1])
@@ -542,11 +545,14 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
 # train  — public API
 # ---------------------------------------------------------------------------
 
-def check_train(train_root: Path, runs: list[dict[str, Any]], *, dry_run: bool) -> None:
+def check_train(train_root: Path, runs: list[dict[str, Any]], *, dry_run: bool):
     """Verify training results: loss, adapter modules, and weight updates."""
+
     if dry_run:
         return
+
     out: dict[str, Any] = {"stage": "train", "pass": True, "runs": {}}
+
     for run in runs:
         run_id = str(run["id"])
         run_dir = train_root / run_id
@@ -589,18 +595,17 @@ def check_train(train_root: Path, runs: list[dict[str, Any]], *, dry_run: bool) 
 # benchmark
 # ---------------------------------------------------------------------------
 
-def check_benchmark(
-    benchmark_root: Path,
-    summary_path: Path,
-    *,
-    dry_run: bool,
-) -> None:
+def check_benchmark(benchmark_root: Path, summary_path: Path, *, dry_run: bool):
     """Verify benchmark: all runs have expected task count."""
+
     if dry_run:
         return
+
     if not summary_path.exists():
         return  # benchmark may be disabled
+
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
+
     out: dict[str, Any] = {"stage": "benchmark", "pass": True, "runs": {}}
     for run_info in summary.get("runs", []):
         run_id = run_info.get("run_id", "?")

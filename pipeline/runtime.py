@@ -578,7 +578,7 @@ def _validate_lpr_contract(
                 f"LPR routing contract mismatch for run '{run_id}': router_mode/head_router_mode must be learned "
                 f"(got {router_mode}/{head_router_mode})."
             )
-        if guidance_scope not in {"all", "router", "head"}:
+        if guidance_scope not in {"all", "expert_only", "none", "router", "head"}:
             raise ValueError(f"LPR guidance scope invalid for run '{run_id}': {guidance_scope}")
 
         run_checks.append(

@@ -10,26 +10,23 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-import os
 import re
-import shutil
 import subprocess
-import tempfile
 import textwrap
 import time
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, Sequence
 
 LOGGER = logging.getLogger("proof_pipeline")
 
-# ---------------------------------------------------------------------------
-# Protocol
-# ---------------------------------------------------------------------------
-
 
 class Executor(Protocol):
-    """Minimal contract every executor backend must satisfy."""
+    """
+        Minimal contract every executor backend must satisfy
+        We use this because the pipline should be usable within different environments e.g. Otus Cluster and GPU VM
+    """
 
     def run(
         self,
