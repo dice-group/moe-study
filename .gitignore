@@ -23,6 +23,7 @@ data_prep/loss_analysis_tokenizer/loss_analysis_output
 emissions.csv
 /fw_samples_structured/
 /papers/further
+/papers/library
 comparison_runs_smoke
 local_runs
 tokenized_smoke
