@@ -1,0 +1,143 @@
+{
+  "moe_study_profile_otus_cluster": {
+    "extends": "gpu_1b_tier10_all_approaches",
+    "output_root": "outputs/pipeline_runs/moe_study_profile_otus_cluster",
+    "sample": {
+      "enabled": false
+    },
+    "tokenization": {
+      "enabled": false,
+      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_labeled/llama-3.1-8B_tokenizer/10_langs"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster/runs",
+      "lora": {
+        "rank": 32,
+        "alpha": 64,
+        "dropout": 0.05,
+        "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+      },
+      "runs": [
+        {
+          "id": "lora",
+          "kind": "lora",
+          "lora": {
+            "rank": 128,
+            "alpha": 256
+          },
+          "train": {
+            "batch_size": 20
+          }
+        },
+        {
+          "id": "hydralora",
+          "kind": "hydralora",
+          "train": {
+            "batch_size": 4
+          },
+          "params": {
+            "hydralora_lora_num": 3,
+            "hydralora_use_experts": true,
+            "hydralora_num_experts": 4,
+            "hydralora_top_k": 1,
+            "hydralora_router_mode": "learned",
+            "hydralora_head_router_mode": "learned",
+            "hydralora_prior_weight": 0.1,
+            "hydralora_bias_value": 0.0,
+            "hydralora_head_bias_value": 0.0,
+            "hydralora_guidance_scope": "all"
+          }
+        },
+        {
+          "id": "moelora",
+          "kind": "moelora",
+          "train": {
+            "batch_size": 4
+          },
+          "params": {
+            "moelora_num_experts": 4,
+            "moelora_task_num": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_sparse_top_k": 0,
+            "moelora_gate_temperature": 1.0
+          }
+        },
+        {
+          "id": "adamole",
+          "kind": "adamole",
+          "train": {
+            "batch_size": 4
+          },
+          "params": {
+            "adamole_num_experts": 4,
+            "adamole_aux_loss_coef": 0.001,
+            "adamole_max_threshold": 0.25
+          }
+        },
+        {
+          "id": "adamoe_1",
+          "kind": "mola",
+          "train": {
+            "batch_size": 4
+          },
+          "params": {
+            "mola_num_experts": 4,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "mov",
+          "kind": "movlora",
+          "train": {
+            "batch_size": 12
+          },
+          "params": {
+            "movlora_num_experts": 8,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        }
+      ],
+      "eval": {
+        "strategy": "no",
+        "batch_size": 2,
+        "eval_steps": 200
+      },
+      "train": {
+        "batch_size": 15,
+        "bf16": true,
+        "flash_attn": "fa2",
+        "fp16": false,
+        "grad_accum": 2,
+        "learning_rate": "2e-4",
+        "logging_steps": 1,
+        "max_steps": 5,
+        "save_steps": 5
+      }
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "lora",
+      "gate_json": "outputs/pipeline_runs/moe_study_profile_otus_cluster/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_profile_otus_cluster/summary.csv"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster/report.xlsx"
+    },
+    "wandb": {
+      "enabled": true,
+      "entity": "",
+      "mode": "online",
+      "project": "moe-study-otus-cluster-5step"
+    }
+  }
+}
