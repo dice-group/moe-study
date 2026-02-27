@@ -36,60 +36,86 @@ def _read_summary_csv(path: Path) -> list[dict[str, str]]:
 
 def _iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for file in sorted(benchmark_dir.rglob("*_lm_eval.jsonl")):
-        run_id = file.parent.name
-        for line in file.read_text(encoding="utf-8").splitlines():
-            raw = line.strip()
-            if not raw:
-                continue
-            try:
-                payload = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
+    if not benchmark_dir.exists():
+        return rows
 
-            # JSONL row format from tests/smoke/lm_eval_checkpoint_local.sh or mock script.
-            if isinstance(payload, dict) and isinstance(payload.get("task"), str):
-                value = payload.get("value")
-                if isinstance(value, (int, float)):
-                    rows.append(
-                        {
-                            "run_id": run_id,
-                            "task": payload["task"],
-                            "metric": str(payload.get("metric", "")),
-                            "value": float(value),
-                            "wandb_project": str(payload.get("wandb_project", "")),
-                            "wandb_prefix": str(payload.get("wandb_prefix", "")),
-                        }
-                    )
-                continue
-
-            # Fallback for non-JSONL lm-eval object payloads with a "results" map.
-            results = payload.get("results") if isinstance(payload, dict) else None
-            if not isinstance(results, dict):
-                continue
-            for task, metrics in results.items():
-                if not isinstance(task, str) or not isinstance(metrics, dict):
-                    continue
-                metric_key = ""
-                metric_val: float | None = None
-                for candidate in ("acc_norm,none", "word_perplexity,none", "byte_perplexity,none"):
-                    val = metrics.get(candidate)
-                    if isinstance(val, (int, float)):
-                        metric_key = candidate
-                        metric_val = float(val)
-                        break
-                if metric_val is None:
-                    continue
+    def _ingest_payload(payload: Any, *, run_id: str) -> None:
+        # JSONL row format from tests/smoke/lm_eval_checkpoint_local.sh or mock script.
+        if isinstance(payload, dict) and isinstance(payload.get("task"), str):
+            value = payload.get("value")
+            if isinstance(value, (int, float)):
                 rows.append(
                     {
                         "run_id": run_id,
-                        "task": task,
-                        "metric": metric_key,
-                        "value": metric_val,
-                        "wandb_project": "",
-                        "wandb_prefix": "",
+                        "task": payload["task"],
+                        "metric": str(payload.get("metric", "")),
+                        "value": float(value),
+                        "wandb_project": str(payload.get("wandb_project", "")),
+                        "wandb_prefix": str(payload.get("wandb_prefix", "")),
                     }
                 )
+            return
+
+        # Fallback for lm-eval object payloads with a "results" map.
+        results = payload.get("results") if isinstance(payload, dict) else None
+        if not isinstance(results, dict):
+            return
+        for task, metrics in results.items():
+            if not isinstance(task, str) or not isinstance(metrics, dict):
+                continue
+            metric_key = ""
+            metric_val: float | None = None
+            for candidate in ("acc_norm,none", "acc,none", "word_perplexity,none", "byte_perplexity,none"):
+                val = metrics.get(candidate)
+                if isinstance(val, (int, float)):
+                    metric_key = candidate
+                    metric_val = float(val)
+                    break
+            if metric_val is None:
+                continue
+            rows.append(
+                {
+                    "run_id": run_id,
+                    "task": task,
+                    "metric": metric_key,
+                    "value": metric_val,
+                    "wandb_project": "",
+                    "wandb_prefix": "",
+                }
+            )
+
+    for path in sorted(benchmark_dir.rglob("*_lm_eval.jsonl")):
+        run_id = path.parent.name
+        if path.is_file():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                raw = line.strip()
+                if not raw:
+                    continue
+                try:
+                    payload = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                _ingest_payload(payload, run_id=run_id)
+            continue
+        if path.is_dir():
+            for result_file in sorted(path.rglob("results_*.json")):
+                try:
+                    payload = json.loads(result_file.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    continue
+                _ingest_payload(payload, run_id=run_id)
+
+    # Current benchmark script output: per-run lm-eval JSON files.
+    for json_file in sorted(benchmark_dir.rglob("with_language_ids_*.json")) + sorted(
+        benchmark_dir.rglob("no_language_ids.json")
+    ):
+        if not json_file.is_file():
+            continue
+        try:
+            payload = json.loads(json_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        _ingest_payload(payload, run_id=json_file.parent.name)
     return rows
 
 

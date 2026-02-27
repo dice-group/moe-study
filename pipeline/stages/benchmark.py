@@ -159,12 +159,16 @@ def stage_benchmark(ctx: PipelineContext) -> None:
             batch_size = str(ctx.benchmark_cfg.get("batch_size", "auto"))
             extra_args = str(ctx.benchmark_cfg.get("extra_args", "")).strip()
             include_path = ctx.repo_root / "scripts" / "eval" / "latest_checkpoint" / "lm-evaluation-harness" / "lm_eval" / "tasks" / "flores_en_perplexity" / "configs"
-            if bool(ctx.benchmark_cfg.get("include_flores", True)) and include_path.is_dir():
-                _validate_flores_task_data_paths(ctx.repo_root, include_path, selected_tasks)
+            selected_flores_tasks = [task for task in selected_tasks if task.startswith("flores_en_perplexity_")]
+            if bool(ctx.benchmark_cfg.get("include_flores", True)) and selected_flores_tasks and include_path.is_dir():
+                _validate_flores_task_data_paths(ctx.repo_root, include_path, selected_flores_tasks)
                 parsed_extra_args = shlex.split(extra_args) if extra_args else []
-                if "--include-path" not in parsed_extra_args:
-                    parsed_extra_args.extend(["--include-path", str(include_path)])
-                    extra_args = shlex.join(parsed_extra_args)
+                if "--include-path" in parsed_extra_args:
+                    idx = parsed_extra_args.index("--include-path")
+                    parsed_extra_args[idx] = "--include_path"
+                if "--include_path" not in parsed_extra_args:
+                    parsed_extra_args.extend(["--include_path", str(include_path)])
+                extra_args = shlex.join(parsed_extra_args)
             default_eval_project = str(ctx.wandb_cfg.get("project", "proof_eval")) if bool(ctx.wandb_cfg.get("enabled", False)) else "proof_eval"
             wandb_project = str(ctx.benchmark_cfg.get("wandb_project", default_eval_project))
             wandb_prefix_root = str(
