@@ -79,6 +79,10 @@
         {
           "id": "moelora",
           "kind": "moelora",
+          "lora": {
+            "alpha": 256,
+            "rank": 128
+          },
           "params": {
             "moelora_gate_temperature": 1.0,
             "moelora_num_experts": 4,
@@ -119,7 +123,7 @@
           "id": "mov",
           "kind": "movlora",
           "params": {
-            "movlora_num_experts": 8,
+            "movlora_num_experts": 4,
             "movlora_router_bias": false,
             "movlora_router_ignore_padding_tokens": false,
             "movlora_router_init_std": 0.02,
@@ -129,6 +133,41 @@
           },
           "train": {
             "batch_size": 12
+          }
+        },
+        {
+          "id": "hmora",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 4,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": false,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          },
+          "train": {
+            "batch_size": 4
           }
         }
       ],
