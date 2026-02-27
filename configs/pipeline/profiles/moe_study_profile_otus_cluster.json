@@ -1,113 +1,139 @@
 {
   "moe_study_profile_otus_cluster": {
-    "extends": "gpu_1b_tier10_all_approaches",
     "output_root": "outputs/pipeline_runs/moe_study_profile_otus_cluster",
+    "executor": {
+      "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3",
+      "conda_env": "merlin",
+      "cpus_per_task": 32,
+      "gres": "gpu:h100:1",
+      "mem": "128G",
+      "modules": [
+        "toolchain/foss/2024a",
+        "system/CUDA/12.6.0",
+        "lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0"
+      ],
+      "partition": "gpu",
+      "time": "27:00:00",
+      "type": "slurm"
+    },
+    "language_map_path": "configs/moelpr_lang_map.json",
     "sample": {
+      "enabled": false
+    },
+    "tokenizer_extension": {
+      "enabled": false
+    },
+    "embedding_init": {
       "enabled": false
     },
     "tokenization": {
       "enabled": false,
       "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_labeled/llama-3.1-8B_tokenizer/10_langs"
     },
+    "audit": {
+      "enabled": true
+    },
     "training": {
-      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster/runs",
+      "dataset_dir": "LLaMA-Factory/data",
+      "dataset_name": "identity",
+      "enabled": true,
+      "eval": {
+        "eval_steps": 0.2,
+        "strategy": "no"
+      },
+      "eval_dataset_name": "identity",
+      "language_column": "language",
       "lora": {
-        "rank": 32,
         "alpha": 64,
         "dropout": 0.05,
+        "rank": 32,
         "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
       },
+      "model_name_or_path": "meta-llama/Llama-3.1-8B",
+      "num_experts": 4,
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster/runs",
+      "report_to": "none",
       "runs": [
         {
           "id": "lora",
           "kind": "lora",
           "lora": {
-            "rank": 128,
-            "alpha": 256
+            "alpha": 256,
+            "rank": 128
           },
           "train": {
-            "batch_size": 20
+            "batch_size": 5
           }
         },
         {
           "id": "hydralora",
           "kind": "hydralora",
+          "params": {
+            "hydralora_lora_num": 4,
+            "hydralora_use_experts": false
+          },
           "train": {
             "batch_size": 4
-          },
-          "params": {
-            "hydralora_lora_num": 3,
-            "hydralora_use_experts": true,
-            "hydralora_num_experts": 4,
-            "hydralora_top_k": 1,
-            "hydralora_router_mode": "learned",
-            "hydralora_head_router_mode": "learned",
-            "hydralora_prior_weight": 0.1,
-            "hydralora_bias_value": 0.0,
-            "hydralora_head_bias_value": 0.0,
-            "hydralora_guidance_scope": "all"
           }
         },
         {
           "id": "moelora",
           "kind": "moelora",
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 4,
+            "moelora_sparse_top_k": 0,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          },
           "train": {
             "batch_size": 4
-          },
-          "params": {
-            "moelora_num_experts": 4,
-            "moelora_task_num": 1,
-            "moelora_task_embedding_dim": 64,
-            "moelora_sparse_top_k": 0,
-            "moelora_gate_temperature": 1.0
           }
         },
         {
           "id": "adamole",
           "kind": "adamole",
-          "train": {
-            "batch_size": 4
-          },
           "params": {
-            "adamole_num_experts": 4,
             "adamole_aux_loss_coef": 0.001,
-            "adamole_max_threshold": 0.25
+            "adamole_max_threshold": 0.25,
+            "adamole_num_experts": 4
+          },
+          "train": {
+            "batch_size": 3
           }
         },
         {
           "id": "adamoe_1",
           "kind": "mola",
-          "train": {
-            "batch_size": 4
-          },
           "params": {
             "mola_num_experts": 4,
-            "mola_top_k": 2,
-            "mola_router_aux_loss_coef": 0.01
+            "mola_num_null_experts": 8,
+            "mola_router_aux_loss_coef": 0.01,
+            "mola_top_k": 3
+          },
+          "train": {
+            "batch_size": 4
           }
         },
         {
           "id": "mov",
           "kind": "movlora",
-          "train": {
-            "batch_size": 12
-          },
           "params": {
             "movlora_num_experts": 8,
-            "movlora_top_k": 0,
-            "movlora_router_temperature": 1.0,
-            "movlora_router_jitter_noise": 0.0,
             "movlora_router_bias": false,
+            "movlora_router_ignore_padding_tokens": false,
             "movlora_router_init_std": 0.02,
-            "movlora_router_ignore_padding_tokens": false
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_temperature": 1.0,
+            "movlora_top_k": 0
+          },
+          "train": {
+            "batch_size": 12
           }
         }
       ],
-      "eval": {
-        "strategy": "no",
-        "batch_size": 2,
-        "eval_steps": 200
-      },
+      "seed": 42,
+      "template": "llama3",
       "train": {
         "batch_size": 15,
         "bf16": true,
@@ -117,27 +143,53 @@
         "learning_rate": "2e-4",
         "logging_steps": 1,
         "max_steps": 5,
+        "num_train_epochs": 1.0,
         "save_steps": 5
       }
     },
+    "embedding_training": {
+      "enabled": false
+    },
     "benchmark": {
+      "allow_missing_lm_eval": true,
+      "batch_size": "auto",
       "enabled": false,
-      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster/benchmarks"
+      "eval_script": "scripts/eval/lm_eval_checkpoint_adapter_only.sh",
+      "extra_args": "",
+      "fail_if_no_tasks": false,
+      "flores_mode": "both",
+      "include_belebele": true,
+      "include_flores": true,
+      "lm_eval_bin": "lm_eval",
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster/benchmarks",
+      "tasks_file": "configs/lm_eval_tasks_10_langs.txt",
+      "tokenizer": "meta-llama/Llama-3.2-1B",
+      "wandb_mode": "disabled",
+      "wandb_prefix": "eval/benchmark",
+      "wandb_project": "moe-study-pipeline"
+    },
+    "baseline_eval": {
+      "enabled": false
     },
     "summary": {
       "baseline_id": "lora",
       "gate_json": "outputs/pipeline_runs/moe_study_profile_otus_cluster/gate.json",
+      "min_relative_improvement": 0.02,
       "summary_csv": "outputs/pipeline_runs/moe_study_profile_otus_cluster/summary.csv"
     },
     "report": {
+      "baseline_cache_root": "outputs/baselines",
       "enabled": false,
       "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster/report.xlsx"
     },
     "wandb": {
       "enabled": true,
       "entity": "",
+      "eval_prefix": "eval/benchmark",
       "mode": "online",
-      "project": "moe-study-otus-cluster-5step"
-    }
+      "project": "moe-study-otus-cluster-5step",
+      "train_prefix": "train"
+    },
+    "wandb_mode": "disabled"
   }
 }

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import os
 import re
 import subprocess
 import textwrap
@@ -471,9 +472,48 @@ def _utc_stamp() -> str:
 
 
 def _job_name_from_log(log_path: Path) -> str:
-    """Derive a short Slurm job name from the log file path."""
-    name = log_path.stem
-    # Truncate to 64 chars (Slurm limit is 128).
+    """Derive a compact Slurm job name, e.g. ``l8B_10l_hydra``."""
+    run_id = log_path.parent.name.strip().lower()
+    run_name = log_path.stem
+    if run_name.endswith(".train"):
+        run_name = run_name[: -len(".train")]
+
+    # Parse language count from labels like "...-10langs-...".
+    lang_count = ""
+    lang_match = re.search(r"-(\d+)langs-", run_name)
+    if lang_match:
+        lang_count = lang_match.group(1)
+
+    # Parse model size from model slug prefixes like "l-3-1-8b-..." or "...-1b-...".
+    model_tag = "lX"
+    model_segment = run_name
+    if lang_match:
+        model_segment = run_name[: lang_match.start()]
+    size_match = re.search(r"-(\d+)b(?:-|$)", model_segment)
+    if size_match:
+        model_tag = f"l{size_match.group(1)}B"
+
+    approach_map = {
+        "hydralora": "hydra",
+        "lora": "lora",
+        "moelora": "moelora",
+        "adamole": "adamole",
+        "adamoe_1": "adamoe1",
+        "mola": "adamoe1",
+        "mov": "mov",
+        "movlora": "mov",
+    }
+    approach = approach_map.get(run_id, run_id or "run")
+    if not approach:
+        approach = "run"
+
+    if lang_count:
+        name = f"{approach}_{lang_count}l_{model_tag}"
+    else:
+        name = f"{approach}_{model_tag}"
+
+    name = re.sub(r"[^a-zA-Z0-9_.-]+", "_", name)
+    # Keep short and readable in default squeue output.
     return name[:64]
 
 
