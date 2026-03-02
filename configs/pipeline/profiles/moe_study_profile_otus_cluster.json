@@ -123,7 +123,7 @@
           "id": "mov",
           "kind": "movlora",
           "params": {
-            "movlora_num_experts": 4,
+            "movlora_num_experts": 30,
             "movlora_router_bias": false,
             "movlora_router_ignore_padding_tokens": false,
             "movlora_router_init_std": 0.02,
@@ -132,7 +132,7 @@
             "movlora_top_k": 0
           },
           "train": {
-            "batch_size": 12
+            "batch_size": 4
           }
         },
         {
