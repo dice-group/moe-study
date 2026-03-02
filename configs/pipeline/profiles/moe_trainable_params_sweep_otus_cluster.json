@@ -1,0 +1,881 @@
+{
+  "moe_trainable_params_sweep_otus_cluster": {
+    "output_root": "outputs/pipeline_runs/moe_trainable_params_sweep_otus_cluster",
+    "executor": {
+      "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3",
+      "conda_env": "merlin",
+      "cpus_per_task": 4,
+      "gres": "gpu:h100:1",
+      "mem": "32G",
+      "modules": [
+        "toolchain/foss/2024a",
+        "system/CUDA/12.6.0",
+        "lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0"
+      ],
+      "partition": "gpu",
+      "time": "27:00:00",
+      "type": "slurm"
+    },
+    "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
+    "sample": {
+      "enabled": false
+    },
+    "tokenizer_extension": {
+      "enabled": false
+    },
+    "embedding_init": {
+      "enabled": false
+    },
+    "tokenization": {
+      "enabled": false,
+      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_labeled/llama-3.1-8B_tokenizer/10_langs"
+    },
+    "audit": {
+      "enabled": false
+    },
+    "training": {
+      "dataset_dir": "LLaMA-Factory/data",
+      "dataset_name": "identity",
+      "enabled": true,
+      "executor": {
+        "time": "00:01:00"
+      },
+      "eval": {
+        "eval_steps": 1,
+        "strategy": "no"
+      },
+      "eval_dataset_name": "identity",
+      "language_column": "language",
+      "lora": {
+        "alpha": 4,
+        "dropout": 0.05,
+        "rank": 2,
+        "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+      },
+      "model_name_or_path": "meta-llama/Llama-3.1-8B",
+      "num_experts": 2,
+      "output_dir": "outputs/pipeline_runs/moe_trainable_params_sweep_otus_cluster/runs",
+      "report_to": "none",
+      "runs": [
+        {
+          "id": "lora_e2",
+          "kind": "lora",
+          "lora": {
+            "rank": 4,
+            "alpha": 8
+          }
+        },
+        {
+          "id": "lora_e4",
+          "kind": "lora",
+          "lora": {
+            "rank": 8,
+            "alpha": 16
+          }
+        },
+        {
+          "id": "lora_e8",
+          "kind": "lora",
+          "lora": {
+            "rank": 16,
+            "alpha": 32
+          }
+        },
+        {
+          "id": "lora_e16",
+          "kind": "lora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          }
+        },
+        {
+          "id": "lora_e32",
+          "kind": "lora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          }
+        },
+        {
+          "id": "lora_e64",
+          "kind": "lora",
+          "lora": {
+            "rank": 128,
+            "alpha": 256
+          }
+        },
+        {
+          "id": "lora_e128",
+          "kind": "lora",
+          "lora": {
+            "rank": 256,
+            "alpha": 512
+          }
+        },
+        {
+          "id": "lora_e256",
+          "kind": "lora",
+          "lora": {
+            "rank": 512,
+            "alpha": 1024
+          }
+        },
+        {
+          "id": "adamoe_1_e2",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 2,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "adamoe_1_e4",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 4,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "adamoe_1_e8",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 8,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "adamoe_1_e16",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 16,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "adamoe_1_e32",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 32,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "adamoe_1_e64",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 64,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "adamoe_1_e128",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 128,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "adamoe_1_e256",
+          "kind": "mola",
+          "params": {
+            "mola_num_experts": 256,
+            "mola_top_k": 2,
+            "mola_router_aux_loss_coef": 0.01
+          }
+        },
+        {
+          "id": "adamole_e2",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 2,
+            "adamole_aux_loss_coef": 0.0
+          }
+        },
+        {
+          "id": "adamole_e4",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 4,
+            "adamole_aux_loss_coef": 0.0
+          }
+        },
+        {
+          "id": "adamole_e8",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 8,
+            "adamole_aux_loss_coef": 0.0
+          }
+        },
+        {
+          "id": "adamole_e16",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 16,
+            "adamole_aux_loss_coef": 0.0
+          }
+        },
+        {
+          "id": "adamole_e32",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 32,
+            "adamole_aux_loss_coef": 0.0
+          }
+        },
+        {
+          "id": "adamole_e64",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 64,
+            "adamole_aux_loss_coef": 0.0
+          }
+        },
+        {
+          "id": "adamole_e128",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 128,
+            "adamole_aux_loss_coef": 0.0
+          }
+        },
+        {
+          "id": "adamole_e256",
+          "kind": "adamole",
+          "params": {
+            "adamole_num_experts": 256,
+            "adamole_aux_loss_coef": 0.0
+          }
+        },
+        {
+          "id": "hmora_e2",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 2,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": false,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        },
+        {
+          "id": "hmora_e4",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 4,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": false,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        },
+        {
+          "id": "hmora_e8",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 8,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": false,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        },
+        {
+          "id": "hmora_e16",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 16,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": false,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        },
+        {
+          "id": "hmora_e32",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 32,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": false,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        },
+        {
+          "id": "hmora_e64",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 64,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": false,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        },
+        {
+          "id": "hmora_e128",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 128,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": false,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        },
+        {
+          "id": "hmora_e256",
+          "kind": "hmora",
+          "params": {
+            "hmora_num_experts": 256,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": false,
+            "hmora_task_router_only": false,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_router_hidden_dim": 32,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": false,
+            "hmora_eta_b": 1.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          }
+        },
+        {
+          "id": "hydralora_e2",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_use_experts": false,
+            "hydralora_lora_num": 2,
+            "hydralora_prior_weight": 0.0,
+            "hydralora_guidance_scope": "none"
+          }
+        },
+        {
+          "id": "hydralora_e4",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_use_experts": false,
+            "hydralora_lora_num": 4,
+            "hydralora_prior_weight": 0.0,
+            "hydralora_guidance_scope": "none"
+          }
+        },
+        {
+          "id": "hydralora_e8",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_use_experts": false,
+            "hydralora_lora_num": 8,
+            "hydralora_prior_weight": 0.0,
+            "hydralora_guidance_scope": "none"
+          }
+        },
+        {
+          "id": "hydralora_e16",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_use_experts": false,
+            "hydralora_lora_num": 16,
+            "hydralora_prior_weight": 0.0,
+            "hydralora_guidance_scope": "none"
+          }
+        },
+        {
+          "id": "hydralora_e32",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_use_experts": false,
+            "hydralora_lora_num": 32,
+            "hydralora_prior_weight": 0.0,
+            "hydralora_guidance_scope": "none"
+          }
+        },
+        {
+          "id": "hydralora_e64",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_use_experts": false,
+            "hydralora_lora_num": 64,
+            "hydralora_prior_weight": 0.0,
+            "hydralora_guidance_scope": "none"
+          }
+        },
+        {
+          "id": "hydralora_e128",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_use_experts": false,
+            "hydralora_lora_num": 128,
+            "hydralora_prior_weight": 0.0,
+            "hydralora_guidance_scope": "none"
+          }
+        },
+        {
+          "id": "hydralora_e256",
+          "kind": "hydralora",
+          "params": {
+            "hydralora_use_experts": false,
+            "hydralora_lora_num": 256,
+            "hydralora_prior_weight": 0.0,
+            "hydralora_guidance_scope": "none"
+          }
+        },
+        {
+          "id": "moelora_e2",
+          "kind": "moelora",
+          "lora": {
+            "rank": 4,
+            "alpha": 8
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 2,
+            "moelora_sparse_top_k": 0,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_e4",
+          "kind": "moelora",
+          "lora": {
+            "rank": 8,
+            "alpha": 16
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 4,
+            "moelora_sparse_top_k": 0,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_e8",
+          "kind": "moelora",
+          "lora": {
+            "rank": 16,
+            "alpha": 32
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 8,
+            "moelora_sparse_top_k": 0,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_e16",
+          "kind": "moelora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 16,
+            "moelora_sparse_top_k": 0,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_e32",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 0,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_e64",
+          "kind": "moelora",
+          "lora": {
+            "rank": 128,
+            "alpha": 256
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 64,
+            "moelora_sparse_top_k": 0,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_e128",
+          "kind": "moelora",
+          "lora": {
+            "rank": 256,
+            "alpha": 512
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 128,
+            "moelora_sparse_top_k": 0,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_e256",
+          "kind": "moelora",
+          "lora": {
+            "rank": 512,
+            "alpha": 1024
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 256,
+            "moelora_sparse_top_k": 0,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "movlora_e2",
+          "kind": "movlora",
+          "params": {
+            "movlora_num_experts": 2,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "movlora_e4",
+          "kind": "movlora",
+          "params": {
+            "movlora_num_experts": 4,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "movlora_e8",
+          "kind": "movlora",
+          "params": {
+            "movlora_num_experts": 8,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "movlora_e16",
+          "kind": "movlora",
+          "params": {
+            "movlora_num_experts": 16,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "movlora_e32",
+          "kind": "movlora",
+          "params": {
+            "movlora_num_experts": 32,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "movlora_e64",
+          "kind": "movlora",
+          "params": {
+            "movlora_num_experts": 64,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "movlora_e128",
+          "kind": "movlora",
+          "params": {
+            "movlora_num_experts": 128,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "movlora_e256",
+          "kind": "movlora",
+          "params": {
+            "movlora_num_experts": 256,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        }
+      ],
+      "seed": 42,
+      "template": "llama3",
+      "train": {
+        "batch_size": 1,
+        "bf16": true,
+        "flash_attn": "fa2",
+        "fp16": false,
+        "grad_accum": 2,
+        "learning_rate": "2e-4",
+        "logging_steps": 1,
+        "max_steps": 1,
+        "num_train_epochs": 1.0,
+        "save_steps": 1
+      }
+    },
+    "embedding_training": {
+      "enabled": false
+    },
+    "benchmark": {
+      "allow_missing_lm_eval": true,
+      "batch_size": "auto",
+      "enabled": false,
+      "eval_script": "scripts/eval/lm_eval_checkpoint_adapter_only.sh",
+      "extra_args": "",
+      "fail_if_no_tasks": false,
+      "flores_mode": "both",
+      "include_belebele": true,
+      "include_flores": true,
+      "lm_eval_bin": "lm_eval",
+      "output_dir": "outputs/pipeline_runs/moe_trainable_params_sweep_otus_cluster/benchmarks",
+      "tasks_file": "configs/lm_eval_tasks_10_langs.txt",
+      "tokenizer": "meta-llama/Llama-3.2-1B",
+      "wandb_mode": "disabled",
+      "wandb_prefix": "eval/benchmark",
+      "wandb_project": "moe-study-pipeline"
+    },
+    "baseline_eval": {
+      "enabled": false
+    },
+    "summary": {
+      "baseline_id": "lora_e2",
+      "gate_json": "outputs/pipeline_runs/moe_trainable_params_sweep_otus_cluster/gate.json",
+      "min_relative_improvement": 0.02,
+      "summary_csv": "outputs/pipeline_runs/moe_trainable_params_sweep_otus_cluster/summary.csv"
+    },
+    "report": {
+      "baseline_cache_root": "outputs/baselines",
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_trainable_params_sweep_otus_cluster/report.xlsx"
+    },
+    "wandb": {
+      "enabled": false,
+      "entity": "",
+      "eval_prefix": "eval/benchmark",
+      "mode": "disabled",
+      "project": "moe-study-otus-cluster-params-sweep",
+      "train_prefix": "train"
+    },
+    "wandb_mode": "disabled"
+  }
+}
