@@ -232,7 +232,7 @@ _APPROACH_MODULES: dict[str, list[str]] = {
     "MOLA":      ["lora_A", "lora_B", "lora_gating", "moe_layer"],
     "MOELPR":    ["moe_experts", "moe_router_embedding"],
     "MOELORA":   ["lora_A", "lora_B", "lora_gate", "lora_task_embedding"],
-    "MOVLORA":   ["lora_A", "lora_B", "lora_router"],
+    "MOVLORA":   ["lora_router", "lora_mov_scaling"],
     "HMORA":     ["lora_A", "lora_B", "lora_router_pool"],
 }
 
@@ -447,7 +447,7 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
             "lora_A", "lora_B", "router", "lora_route", "expert_",
             "lora_gating", "lora_threshold", "moe_layer", "moe_experts",
             "moe_router_embedding", "lora_gate", "lora_task_embedding",
-            "lora_router", "lora_router_pool", "lora_task_encoder",
+            "lora_router", "lora_mov_scaling", "lora_router_pool", "lora_task_encoder",
         ):
             if frag in k:
                 component_counts[frag] += 1

@@ -16,7 +16,7 @@
       "time": "27:00:00",
       "type": "slurm"
     },
-    "language_map_path": "configs/moelpr_lang_map.json",
+    "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
     "sample": {
       "enabled": false
     },
@@ -37,7 +37,16 @@
       "dataset_dir": "LLaMA-Factory/data",
       "dataset_name": "identity",
       "enabled": true,
+      "distributed": {
+        "enabled": false,
+        "num_processes": 1,
+        "num_machines": 1,
+        "machine_rank": 0,
+        "main_process_ip": "127.0.0.1",
+        "main_process_port": 29501
+      },
       "eval": {
+        "enabled": false,
         "eval_steps": 0.2,
         "strategy": "no"
       },
@@ -174,8 +183,10 @@
       "seed": 42,
       "template": "llama3",
       "train": {
-        "batch_size": 15,
+        "batch_size": 4,
+        "auto_find_batch_size": false,
         "bf16": true,
+        "disable_gradient_checkpointing": false,
         "flash_attn": "fa2",
         "fp16": false,
         "grad_accum": 2,
@@ -183,7 +194,10 @@
         "logging_steps": 1,
         "max_steps": 5,
         "num_train_epochs": 1.0,
-        "save_steps": 5
+        "save_steps": 5,
+        "save_total_limit": 1,
+        "use_reentrant_gc": true,
+        "weight_decay": 0.0
       }
     },
     "embedding_training": {
@@ -214,6 +228,7 @@
       "baseline_id": "lora",
       "gate_json": "outputs/pipeline_runs/moe_study_profile_otus_cluster/gate.json",
       "min_relative_improvement": 0.02,
+      "primary_metric": "eval_loss",
       "summary_csv": "outputs/pipeline_runs/moe_study_profile_otus_cluster/summary.csv"
     },
     "report": {

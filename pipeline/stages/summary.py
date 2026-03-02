@@ -62,6 +62,12 @@ def stage_summary(ctx: PipelineContext) -> None:
                         "router_grad_present_frac": _latest_metric(history, "router_grad_present_frac"),
                         "expert_load_cv": _latest_metric(history, "expert_load_cv"),
                         "active_expert_frac": _latest_metric(history, "active_expert_frac"),
+                        "active_token_pct": _latest_metric(history, "active_token_pct"),
+                        "zero_routed_pct": _latest_metric(history, "zero_routed_pct"),
+                        "experts_per_token": _latest_metric(history, "experts_per_token"),
+                        "router_entropy": _latest_metric(history, "router_entropy"),
+                        "router_max_prob": _latest_metric(history, "router_max_prob"),
+                        "topk_density": _latest_metric(history, "topk_density"),
                         "lpr_target_hit_rate": _latest_metric_any_suffix(
                             history, ["language_target_hit_rate", "expert_target_hit_rate"]
                         ),

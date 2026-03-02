@@ -492,20 +492,9 @@ def _validate_lpr_contract(
     sample_cfg: dict[str, Any],
     language_map_path: Path,
 ) -> dict[str, Any]:
-    language_to_family, families, subgroup_sizes = _language_groupings(language_map_path)
-    expected_experts = len(families)
-    if expected_experts <= 0:
-        raise ValueError("No language families/groups resolved from language_map.")
-
-    sampled_langs = [str(x) for x in sample_cfg.get("languages", []) if str(x).strip()]
-    missing_langs = sorted([lang for lang in sampled_langs if lang not in language_to_family])
-    if missing_langs:
-        raise ValueError(f"Sample languages missing from language_map: {missing_langs}")
-
     runs = train_cfg.get("runs", [])
-    run_checks: list[dict[str, Any]] = []
+    lpr_expert_runs: list[dict[str, Any]] = []
     for run in runs:
-        run_id = str(run.get("id", "unknown"))
         kind = str(run.get("kind", ""))
         if kind not in {"cola", "hydralora"}:
             continue
@@ -515,8 +504,35 @@ def _validate_lpr_contract(
             if kind == "cola"
             else bool(_param_value(params, "hydralora_use_experts", True, "use_experts"))
         )
-        if not use_experts:
-            continue
+        if use_experts:
+            lpr_expert_runs.append(run)
+
+    sampled_langs = [str(x) for x in sample_cfg.get("languages", []) if str(x).strip()]
+    if not lpr_expert_runs:
+        return {
+            "language_map_path": str(language_map_path),
+            "expected_experts": 0,
+            "families": [],
+            "subgroup_sizes": [],
+            "sampled_languages": sampled_langs,
+            "runs": [],
+            "skipped": "no_lpr_expert_runs",
+        }
+
+    language_to_family, families, subgroup_sizes = _language_groupings(language_map_path)
+    expected_experts = len(families)
+    if expected_experts <= 0:
+        raise ValueError("No language families/groups resolved from language_map.")
+
+    missing_langs = sorted([lang for lang in sampled_langs if lang not in language_to_family])
+    if missing_langs:
+        raise ValueError(f"Sample languages missing from language_map: {missing_langs}")
+
+    run_checks: list[dict[str, Any]] = []
+    for run in lpr_expert_runs:
+        run_id = str(run.get("id", "unknown"))
+        kind = str(run.get("kind", ""))
+        params = run.get("params", {})
 
         if kind == "cola":
             num_experts = int(

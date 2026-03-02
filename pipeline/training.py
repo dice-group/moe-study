@@ -98,8 +98,10 @@ def _approach_specific_train_args(
             '--use_hydralora_experts', str(use_experts),
             '--hydralora_num_experts', str(int(_cfg_value(cfg, 'hydralora_num_experts', experts if use_experts else 1, 'num_experts'))),
             '--hydralora_top_k', str(int(_cfg_value(cfg, 'hydralora_top_k', 1, 'top_k'))),
-            *_lpr_args(cfg, common, language_map_path, experts, prefix='hydralora'),
         ])
+        # Only pass language-prior routing args when HydraLoRA experts are enabled.
+        if use_experts:
+            approach_args.extend(_lpr_args(cfg, common, language_map_path, experts, prefix='hydralora'))
         if expert_lora_nums_arg.strip():
             approach_args.extend(['--hydralora_expert_lora_nums', expert_lora_nums_arg])
         return approach_args
@@ -240,7 +242,11 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         else:
             schedule_args.extend(['--num_train_epochs', str(float(train.get('num_train_epochs', 1.0)))])
     report_to = str(run_cfg.get('report_to', common.get('report_to', 'none')))
-    experts = max(1, int(common.get('num_experts', _count_experts(language_map_path))))
+    num_experts_raw = common.get('num_experts')
+    if num_experts_raw is None:
+        experts = max(1, int(_count_experts(language_map_path)))
+    else:
+        experts = max(1, int(num_experts_raw))
     disable_gradient_checkpointing = bool(train.get('disable_gradient_checkpointing', False))
     use_reentrant_gc = bool(train.get('use_reentrant_gc', True))
     # AdaMoLE auxiliary losses are incompatible with re-entrant checkpointing.

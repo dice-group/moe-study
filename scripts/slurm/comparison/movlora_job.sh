@@ -142,7 +142,6 @@ echo "[INFO] Running MoV-LoRA training into ${OUTPUT_DIR}"
   --lora_alpha "${LORA_ALPHA:-16}" \
   --lora_dropout "${LORA_DROPOUT:-0.05}" \
   --lora_target "${LORA_TARGETS:-q_proj,k_proj,v_proj,o_proj}" \
-  --use_rslora "${USE_RSLORA:-False}" \
   --movlora_num_experts "${MOVLORA_NUM_EXPERTS:-8}" \
   --movlora_top_k "${MOVLORA_TOP_K:-0}" \
   --movlora_router_temperature "${MOVLORA_ROUTER_TEMPERATURE:-1.0}" \
