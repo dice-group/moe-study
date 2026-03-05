@@ -30,7 +30,7 @@ def stage_baseline_eval(ctx: PipelineContext) -> None:
                 "--models",
                 ",".join((str(x) for x in models)),
                 "--tasks-file",
-                str(_abs(ctx.repo_root, str(ctx.baseline_eval_cfg.get("tasks_file", "configs/lm_eval_tasks/200_langs_with_flores.txt")))),
+                str(_abs(ctx.repo_root, str(ctx.baseline_eval_cfg.get("tasks_file", "configs/lm_eval_tasks.txt")))),
                 "--output-root",
                 str(ctx.baseline_cache_root),
                 "--batch-size",
@@ -42,6 +42,15 @@ def stage_baseline_eval(ctx: PipelineContext) -> None:
                 "--extra-args",
                 str(ctx.baseline_eval_cfg.get("extra_args", "")),
             ]
+            single_manifest = str(ctx.baseline_eval_cfg.get("precomputed_manifest", "")).strip()
+            if single_manifest:
+                cmd.extend(["--precomputed-manifest", str(_abs(ctx.repo_root, single_manifest))])
+            manifest_list = ctx.baseline_eval_cfg.get("precomputed_manifests", [])
+            if isinstance(manifest_list, list):
+                for manifest in manifest_list:
+                    value = str(manifest).strip()
+                    if value:
+                        cmd.extend(["--precomputed-manifest", str(_abs(ctx.repo_root, value))])
             if bool(ctx.baseline_eval_cfg.get("force", False)):
                 cmd.append("--force")
             _run_stage_cmd(cmd=cmd, env=ctx.env, dry_run=ctx.args.dry_run, logs_root=ctx.logs_root, stage="baseline_eval", executor=ctx.executor)

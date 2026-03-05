@@ -1,0 +1,13 @@
+{
+  "model": "meta-llama/Llama-3.1-8B",
+  "model_slug": "l-3-1-8b",
+  "seed": 42,
+  "batch_size": "auto",
+  "gpu": "0",
+  "tasks_file": "tasks_resolved.txt",
+  "resolved_tasks_txt": "tasks_resolved.txt",
+  "num_requested_tasks": 529,
+  "num_result_tasks": 544,
+  "num_summary_rows": 544,
+  "metrics_summary_csv": "l-3-1-8b_full_baseline_metrics_summary.csv"
+}

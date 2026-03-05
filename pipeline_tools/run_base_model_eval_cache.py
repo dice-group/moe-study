@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import re
@@ -54,6 +55,102 @@ def _pick_metric(task: str, metrics: dict[str, Any]) -> tuple[str, float] | None
     return None
 
 
+def _read_json(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected JSON object in {path}")
+    return payload
+
+
+def _resolve_from_manifest(manifest_path: Path, value: str) -> Path:
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return candidate
+    return (manifest_path.parent / candidate).resolve()
+
+
+def _load_precomputed_sources(manifest_paths: list[Path]) -> dict[str, dict[str, str]]:
+    sources: dict[str, dict[str, str]] = {}
+    for path in manifest_paths:
+        if not path.exists():
+            raise FileNotFoundError(f"Precomputed manifest not found: {path}")
+        payload = _read_json(path)
+        model_slug = str(payload.get("model_slug", "")).strip()
+        model = str(payload.get("model", "")).strip()
+        metrics_long_csv = str(payload.get("metrics_long_csv", "")).strip()
+        metrics_summary_csv = str(payload.get("metrics_summary_csv", "")).strip()
+        raw_output_json = str(payload.get("raw_output_json", "")).strip()
+        if not model_slug:
+            raise ValueError(f"Precomputed manifest missing model_slug: {path}")
+        chosen_csv = metrics_summary_csv or metrics_long_csv
+        if not chosen_csv:
+            raise ValueError(f"Precomputed manifest missing both metrics_summary_csv and metrics_long_csv: {path}")
+        resolved_csv = _resolve_from_manifest(path, chosen_csv)
+        sources[model_slug] = {
+            "manifest_path": str(path.resolve()),
+            "model": model,
+            "model_slug": model_slug,
+            "metrics_csv": str(resolved_csv),
+            "metrics_summary_csv": metrics_summary_csv,
+            "metrics_long_csv": metrics_long_csv,
+            "raw_output_json": raw_output_json,
+        }
+    return sources
+
+
+def _materialize_metrics_jsonl_from_csv(
+    *,
+    csv_path: Path,
+    jsonl_path: Path,
+    model: str,
+    model_slug: str,
+    requested_tasks: list[str],
+) -> int:
+    if not csv_path.exists():
+        raise FileNotFoundError(f"Precomputed CSV not found: {csv_path}")
+    requested = {task.strip() for task in requested_tasks if task.strip()}
+    group_prefixes = tuple(f"{task}_" for task in requested if "_" not in task)
+
+    def include_task(task_name: str) -> bool:
+        if task_name in requested:
+            return True
+        for prefix in group_prefixes:
+            if task_name.startswith(prefix):
+                return True
+        return False
+
+    rows_written = 0
+    with csv_path.open("r", encoding="utf-8", newline="") as handle, jsonl_path.open("w", encoding="utf-8") as out:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            task = str(row.get("task", "")).strip()
+            metric = str(row.get("metric", "")).strip()
+            raw_value = row.get("value")
+            if not task or not metric:
+                continue
+            if not include_task(task):
+                continue
+            try:
+                value = float(raw_value) if raw_value is not None else None
+            except (TypeError, ValueError):
+                value = None
+            if value is None:
+                continue
+            payload = {
+                "run_id": f"baseline::{model_slug}",
+                "task": task,
+                "metric": metric,
+                "value": value,
+                "wandb_project": "",
+                "wandb_prefix": "",
+                "model": model,
+                "model_slug": model_slug,
+            }
+            out.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            rows_written += 1
+    return rows_written
+
+
 def _run_cmd(cmd: list[str], env: dict[str, str], dry_run: bool) -> None:
     print(f"[CMD] {' '.join(cmd)}", flush=True)
     if dry_run:
@@ -81,6 +178,37 @@ def _load_lm_eval_results_payload(output_path: Path) -> tuple[dict[str, Any], Pa
     return payload, payload_path
 
 
+def _cache_entry_matches_request(
+    *,
+    manifest_payload: dict[str, Any] | None,
+    model_slug: str,
+    metrics_jsonl: Path,
+    tasks_file: Path,
+    seed: int,
+    batch_size: str,
+) -> bool:
+    if not manifest_payload:
+        return False
+    if str(manifest_payload.get("tasks_file", "")) != str(tasks_file.resolve()):
+        return False
+    if str(manifest_payload.get("batch_size", "")) != str(batch_size):
+        return False
+    if int(manifest_payload.get("seed", -1)) != int(seed):
+        return False
+    rows = manifest_payload.get("rows", [])
+    if not isinstance(rows, list):
+        return False
+    expected_metrics = str(metrics_jsonl.resolve())
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("model_slug", "")).strip() != model_slug:
+            continue
+        if str(row.get("metrics_long_jsonl", "")).strip() == expected_metrics:
+            return True
+    return False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Cache base-model lm-eval results.")
     parser.add_argument("--models", required=True, help="Comma-separated HF model IDs.")
@@ -92,6 +220,12 @@ def main() -> int:
     parser.add_argument("--extra-args", default="")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--precomputed-manifest",
+        action="append",
+        default=[],
+        help="Path to a precomputed baseline manifest (from run_llama31_8b_full_baseline_eval.py). Can be provided multiple times.",
+    )
     args = parser.parse_args()
 
     models = [x.strip() for x in args.models.split(",") if x.strip()]
@@ -105,6 +239,15 @@ def main() -> int:
 
     output_root = Path(args.output_root)
     output_root.mkdir(parents=True, exist_ok=True)
+    output_manifest_path = output_root / "manifest.json"
+    output_manifest_payload: dict[str, Any] | None = None
+    if output_manifest_path.exists():
+        try:
+            output_manifest_payload = _read_json(output_manifest_path)
+        except (OSError, json.JSONDecodeError, ValueError):
+            output_manifest_payload = None
+    precomputed_manifests = [Path(path).resolve() for path in args.precomputed_manifest]
+    precomputed_by_slug = _load_precomputed_sources(precomputed_manifests) if precomputed_manifests else {}
     env = os.environ.copy()
     env.setdefault("PYTHONHASHSEED", str(args.seed))
     env.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
@@ -117,7 +260,19 @@ def main() -> int:
         raw_json = model_dir / "lm_eval_output.json"
         metrics_jsonl = model_dir / "metrics_long.jsonl"
 
-        if metrics_jsonl.exists() and not args.force and not args.dry_run:
+        if (
+            metrics_jsonl.exists()
+            and not args.force
+            and not args.dry_run
+            and _cache_entry_matches_request(
+                manifest_payload=output_manifest_payload,
+                model_slug=slug,
+                metrics_jsonl=metrics_jsonl,
+                tasks_file=tasks_file,
+                seed=args.seed,
+                batch_size=str(args.batch_size),
+            )
+        ):
             print(f"[SKIP] cached baseline exists for {model} at {metrics_jsonl}")
             manifest_rows.append(
                 {
@@ -126,6 +281,31 @@ def main() -> int:
                     "raw_output_json": str(raw_json.resolve()),
                     "metrics_long_jsonl": str(metrics_jsonl.resolve()),
                     "num_tasks": None,
+                }
+            )
+            continue
+
+        precomputed = precomputed_by_slug.get(slug)
+        if precomputed and not args.force and not args.dry_run:
+            csv_path = Path(precomputed["metrics_csv"]).resolve()
+            row_count = _materialize_metrics_jsonl_from_csv(
+                csv_path=csv_path,
+                jsonl_path=metrics_jsonl,
+                model=model,
+                model_slug=slug,
+                requested_tasks=tasks,
+            )
+            print(f"[SKIP] using precomputed baseline CSV for {model}: {csv_path} -> {metrics_jsonl} ({row_count} rows)")
+            raw_output_value = str(precomputed.get("raw_output_json", "")).strip() or str(raw_json.resolve())
+            manifest_rows.append(
+                {
+                    "model": model,
+                    "model_slug": slug,
+                    "raw_output_json": raw_output_value,
+                    "metrics_long_jsonl": str(metrics_jsonl.resolve()),
+                    "num_tasks": row_count,
+                    "source": "precomputed_csv",
+                    "source_manifest": str(precomputed.get("manifest_path", "")),
                 }
             )
             continue
@@ -187,6 +367,7 @@ def main() -> int:
                 "raw_output_json": raw_output_value,
                 "metrics_long_jsonl": str(metrics_jsonl.resolve()),
                 "num_tasks": task_count,
+                "source": "lm_eval",
             }
         )
 
