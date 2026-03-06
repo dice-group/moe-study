@@ -43,6 +43,63 @@ def _resolve_languages(explicit: str, language_map_path: str, max_languages: int
     return langs
 
 
+def _allocate_weighted_targets(
+        available: dict[str, int],
+        weights: dict[str, float],
+        total_target: int,
+        *,
+        allow_upsample: bool,
+) -> dict[str, int]:
+    if total_target <= 0:
+        raise ValueError("max_total_docs must be > 0 for weighted sampling policies.")
+
+    positive = {lang: int(max(0, count)) for lang, count in available.items() if int(max(0, count)) > 0}
+    if not positive:
+        raise ValueError("None of the selected languages have positive document availability.")
+
+    capacity_total = sum(positive.values())
+    effective_total = int(total_target) if allow_upsample else int(min(total_target, capacity_total))
+    if effective_total <= 0:
+        return {lang: 0 for lang in available}
+
+    total_weight = sum(float(max(0.0, weights.get(lang, 0.0))) for lang in positive)
+    if total_weight > 0:
+        raw = {
+            lang: (effective_total * float(max(0.0, weights.get(lang, 0.0))) / float(total_weight))
+            for lang in positive
+        }
+    else:
+        raise ValueError("None of the selected languages have positive document availability.")
+
+    targets = {lang: int(raw[lang]) for lang in positive}
+    assigned = sum(targets.values())
+
+    # largest remainder to match the exact requested total.
+    order = sorted(
+        positive.keys(),
+        key=lambda lang: (raw[lang] - targets[lang], float(max(0.0, weights.get(lang, 0.0)))),
+        reverse=True,
+    )
+    idx = 0
+    guard = 0
+    max_steps = max(10000, effective_total * 10)
+
+    # cycle through sorted order with biggest remainder, add +1 until total docs is reached,
+    while assigned < effective_total and order:
+        lang = order[idx % len(order)]
+        if allow_upsample or targets[lang] < positive[lang]: # only add when upsampled is allowed or current targe is still below available docs
+            targets[lang] += 1
+            assigned += 1
+        idx += 1
+        guard += 1
+        if guard > max_steps:
+            raise RuntimeError("Failed to allocate weighted targets within safety bound.")
+
+    out = {lang: 0 for lang in available}
+    out.update(targets)
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build fair FineWeb sampling plan.")
     parser.add_argument("--availability-csv", required=True, help="FineWeb availability CSV path.")
@@ -56,9 +113,25 @@ def main() -> int:
     parser.add_argument("--target-docs-per-language", type=int, default=10000)
     parser.add_argument(
         "--fairness-policy",
-        choices=["equal_documents"],
+        choices=["equal_documents", "alpha_smoothing"],
         default="equal_documents",
         help="Sampling policy for selected languages.",
+    )
+    parser.add_argument(
+        "--max-total-docs",
+        type=int,
+        default=0,
+        help=(
+            "Global cap of planned documents across all selected languages. "
+            "Used by alpha_smoothing; if omitted there, falls back to "
+            "target_docs_per_language * num_languages."
+        ),
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.3,
+        help="Smoothing exponent for alpha_smoothing policy (lower => more upweighting of lower-resource languages).",
     )
     parser.add_argument(
         "--auto-adjust-target-to-min-available",
@@ -95,8 +168,39 @@ def main() -> int:
         raise SystemExit("None of the selected languages have positive document availability.")
 
     target_docs = int(args.target_docs_per_language)
-    if args.auto_adjust_target_to_min_available:
+    if args.auto_adjust_target_to_min_available and args.fairness_policy == "equal_documents":
         target_docs = min(target_docs, min(positive))
+
+    requested_total_docs = int(args.max_total_docs)
+    effective_total_docs = 0
+    if args.fairness_policy == "alpha_smoothing":
+        if args.alpha <= 0:
+            raise SystemExit("alpha must be > 0 when fairness_policy=alpha_smoothing")
+        if requested_total_docs <= 0:
+            requested_total_docs = target_docs * len(languages)
+        #
+        # match existing smoothing from data_sample/generate_sampling_plans.py behavior, use language token mass (words) for weights; fall back to documents.
+        words_map: dict[str, float] = {}
+        if "words" in df.columns:
+            words_df = df[["subset", "words"]].copy()
+            words_df["words"] = pd.to_numeric(words_df["words"], errors="coerce").fillna(0.0)
+            words_map = words_df.groupby("subset")["words"].max().to_dict()
+        alpha_weights = {}
+        for lang in languages:
+            avail_docs = int(available.get(lang, 0))
+            if avail_docs <= 0:
+                raise ValueError(f"No documents available in language: {lang}")
+            mass = float(words_map.get(lang, 0.0))
+            if mass <= 0.0:
+                mass = float(avail_docs)
+            alpha_weights[lang] = float(mass ** float(args.alpha))
+        targets = _allocate_weighted_targets(
+            available=available,
+            weights=alpha_weights,
+            total_target=requested_total_docs,
+            allow_upsample=bool(args.allow_upsample),
+        )
+        effective_total_docs = int(sum(targets.values()))
 
     rows = []
     total_planned = 0
@@ -106,7 +210,7 @@ def main() -> int:
     for lang in languages:
         avail = int(available[lang])
         total_available += avail
-        target = target_docs
+        target = target_docs if args.fairness_policy == "equal_documents" else int(targets.get(lang, 0))
         if avail <= 0:
             sampled = 0
             upsample = target if args.allow_upsample else 0
@@ -152,7 +256,10 @@ def main() -> int:
         "num_languages": len(languages),
         "split": args.split,
         "fairness_policy": args.fairness_policy,
+        "alpha": float(args.alpha) if args.fairness_policy == "alpha_smoothing" else 0.0,
         "target_docs_per_language": target_docs,
+        "max_total_docs_requested": int(requested_total_docs) if args.fairness_policy == "alpha_smoothing" else 0,
+        "max_total_docs_effective": int(effective_total_docs) if args.fairness_policy == "alpha_smoothing" else 0,
         "total_planned_documents": total_planned,
         "total_available_documents": total_available,
         "total_upsample_needed": total_upsample,

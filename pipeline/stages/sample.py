@@ -67,9 +67,14 @@ def stage_sample(ctx: PipelineContext) -> None:
                     str(int(ctx.sample_cfg.get("target_docs_per_language", 12000))),
                     "--fairness-policy",
                     str(ctx.sample_cfg.get("fairness_policy", "equal_documents")),
+                    "--alpha",
+                    str(float(ctx.sample_cfg.get("alpha", 0.3))),
                     "--split",
                     str(ctx.sample_cfg.get("availability_split", "train")),
                 ]
+                max_total_docs = int(ctx.sample_cfg.get("max_total_documents", 0))
+                if max_total_docs > 0:
+                    plan_cmd.extend(["--max-total-docs", str(max_total_docs)])
                 if bool(ctx.sample_cfg.get("auto_adjust_target_to_min_available", True)):
                     plan_cmd.append("--auto-adjust-target-to-min-available")
                 if bool(ctx.sample_cfg.get("allow_upsample", False)):
