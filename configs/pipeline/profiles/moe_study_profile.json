@@ -95,7 +95,7 @@
           "params": {
             "moelora_gate_temperature": 1.0,
             "moelora_num_experts": 4,
-            "moelora_sparse_top_k": 0,
+            "moelora_sparse_top_k": 2,
             "moelora_task_embedding_dim": 64,
             "moelora_task_num": 1
           },
@@ -245,5 +245,38 @@
       "train_prefix": "train"
     },
     "wandb_mode": "disabled"
+  },
+  "moe_study_profile_lola_gpuvm": {
+    "extends": "moe_study_profile_otus_cluster",
+    "output_root": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm",
+    "logs_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-lola-gpuvm-local-gpu1-seq",
+      "language_count_hint": 10
+    },
+    "executor": {
+      "type": "local",
+      "cuda_visible_devices": "1"
+    },
+    "tokenization": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/hala_lola/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/runs",
+      "train": {
+        "flash_attn": "sdpa"
+      }
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/report.xlsx"
+    }
   }
 }

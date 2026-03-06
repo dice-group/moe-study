@@ -28,7 +28,6 @@ from .context import PipelineContext
 from .data_stages import DATA_STAGE_HANDLERS
 from .model_eval_stages import MODEL_STAGE_HANDLERS
 
-
 STAGES = [
     "sample",
     "tokenizer_extend",
@@ -42,6 +41,20 @@ STAGES = [
     "summary",
     "report",
 ]
+
+
+def _parse_run_ids(raw_values: list[str]) -> list[str]:
+    """ This enables to run different approaches form a bigger configu individually by using its run id (e.g. hmora)"""
+    run_ids: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_values:
+        for item in str(raw).split(","):
+            run_id = item.strip()
+            if not run_id or run_id in seen:
+                continue
+            seen.add(run_id)
+            run_ids.append(run_id)
+    return run_ids
 
 
 def _stage_profile_cfg(profile: dict[str, Any], stage: str) -> dict[str, Any]:
@@ -101,20 +114,63 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--start-at", choices=STAGES, default="sample")
     parser.add_argument("--stop-after", choices=STAGES, default="summary")
+    parser.add_argument(
+        "--run-id",
+        action="append",
+        default=[],
+        help="Run only selected training run id(s). Repeat flag or pass comma-separated ids.",
+    )
+    parser.add_argument(
+        "--executor-type",
+        choices=["local", "slurm"],
+        default="",
+        help="Override executor type from profile.",
+    )
+    parser.add_argument(
+        "--cuda-visible-devices",
+        default="",
+        help="Override CUDA_VISIBLE_DEVICES for pipeline subprocesses.",
+    )
+    parser.add_argument(
+        "--pycharm-debug",
+        action="store_true",
+        help="Attach train subprocesses to a PyCharm debug server.",
+    )
+    parser.add_argument("--pycharm-debug-host", default="127.0.0.1")
+    parser.add_argument("--pycharm-debug-port", type=int, default=12345)
+    parser.add_argument(
+        "--pycharm-debug-suspend",
+        action="store_true",
+        help="Suspend training subprocess at debugger attach point.",
+    )
     return parser.parse_args()
 
 
 def _build_context(args: argparse.Namespace) -> PipelineContext:
     repo_root = Path(__file__).resolve().parents[1]
     config = _load_pipeline_config(_abs(repo_root, args.config))
-    profile = _resolve_profile(config, args.profile)
+    profile = dict(_resolve_profile(config, args.profile))
+    run_ids = _parse_run_ids(args.run_id)
+    args.run_id = run_ids
     force_stages = set(args.force_stage)
+
+    executor_cfg_raw = profile.get("executor", {})
+    executor_cfg = dict(executor_cfg_raw) if isinstance(executor_cfg_raw, dict) else {}
+    executor_overridden = False
+    if args.executor_type:
+        executor_cfg["type"] = args.executor_type
+        executor_overridden = True
+    if str(args.cuda_visible_devices).strip():
+        executor_cfg["cuda_visible_devices"] = str(args.cuda_visible_devices).strip()
+        executor_overridden = True
+    if executor_overridden:
+        profile["executor"] = executor_cfg
 
     stage_start_idx = STAGES.index(args.start_at)
     stage_stop_idx = STAGES.index(args.stop_after)
     if stage_stop_idx < stage_start_idx:
         raise SystemExit("--stop-after must come after --start-at")
-    active_stages = STAGES[stage_start_idx : stage_stop_idx + 1]
+    active_stages = STAGES[stage_start_idx: stage_stop_idx + 1]
 
     output_root = _abs(repo_root, profile.get("output_root", f"outputs/proof_runs/{args.profile}"))
     state_path = output_root / "state" / "pipeline_state.json"
@@ -125,6 +181,30 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     tokenize_cfg = profile.get("tokenization", {})
     audit_cfg = profile.get("audit", {})
     train_cfg = profile.get("training", {})
+    if run_ids:
+        runs = train_cfg.get("runs", []) if isinstance(train_cfg, dict) else []
+        if not isinstance(runs, list):
+            raise SystemExit("profile.training.runs must be a list to use --run-id")
+        selected_run_ids = set(run_ids)
+        selected = [run for run in runs if str(run.get("id", "")) in selected_run_ids]
+        selected_ids = {str(run.get("id", "")) for run in selected}
+        missing = [run_id for run_id in run_ids if run_id not in selected_ids]
+        if missing:
+            raise SystemExit(f"Unknown --run-id values for profile '{args.profile}': {missing}")
+        train_cfg = dict(train_cfg)
+        train_cfg["runs"] = selected
+        profile["training"] = train_cfg
+    if args.pycharm_debug:
+        train_cfg = dict(train_cfg)
+        debugger_cfg_raw = train_cfg.get("debugger", {})
+        debugger_cfg = dict(debugger_cfg_raw) if isinstance(debugger_cfg_raw, dict) else {}
+        debugger_cfg["enabled"] = True
+        debugger_cfg["kind"] = "pycharm"
+        debugger_cfg["host"] = str(args.pycharm_debug_host).strip() or "127.0.0.1"
+        debugger_cfg["port"] = int(args.pycharm_debug_port)
+        debugger_cfg["suspend"] = bool(args.pycharm_debug_suspend)
+        train_cfg["debugger"] = debugger_cfg
+        profile["training"] = train_cfg
     tokenizer_extension_cfg = profile.get("tokenizer_extension", {})
     embedding_init_cfg = profile.get("embedding_init", {})
     embedding_training_cfg = profile.get("embedding_training", {})
@@ -149,6 +229,10 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
         cuda_visible_devices = str(executor_cfg.get("cuda_visible_devices", "")).strip()
         if cuda_visible_devices:
             env["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+    if run_ids:
+        env["PROOF_PIPELINE_SELECTED_RUN_IDS"] = ",".join(run_ids)
+    if args.pycharm_debug:
+        env["PROOF_PIPELINE_PYCHARM_DEBUG"] = "1"
     env.setdefault("WANDB_MODE", str(profile.get("wandb_mode", "disabled")))
     if bool(wandb_cfg.get("enabled", False)):
         project = str(wandb_cfg.get("project", "")).strip()
@@ -172,7 +256,8 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     report_xlsx = _abs(repo_root, report_cfg.get("output_xlsx", str(output_root / "report.xlsx")))
     lpr_contract_path = output_root / "audit" / "lpr_contract.json"
 
-    extension_root = _abs(repo_root, tokenizer_extension_cfg.get("output_dir", str(output_root / "tokenizer_extension")))
+    extension_root = _abs(repo_root,
+                          tokenizer_extension_cfg.get("output_dir", str(output_root / "tokenizer_extension")))
     extension_pipeline_root = _abs(
         repo_root,
         tokenizer_extension_cfg.get("pipeline_output_dir", str(extension_root / "pipeline")),
@@ -313,6 +398,7 @@ def main() -> int:
         start_at=ctx.args.start_at,
         stop_after=ctx.args.stop_after,
         active_stages=ctx.active_stages,
+        run_ids=ctx.args.run_id,
     )
 
     for stage in ctx.active_stages:

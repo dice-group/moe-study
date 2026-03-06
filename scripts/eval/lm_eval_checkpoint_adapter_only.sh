@@ -12,6 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 LLAMAFACTORY_SRC="${REPO_ROOT}/LLaMA-Factory/src"
+LM_EVAL_HARNESS_SRC="${REPO_ROOT}/scripts/eval/latest_checkpoint/lm-evaluation-harness"
 EXTRA=""
 
 while [[ $# -gt 0 ]]; do
@@ -108,6 +109,13 @@ if [[ -d "${LLAMAFACTORY_SRC}" ]]; then
     export PYTHONPATH="${LLAMAFACTORY_SRC}:${PYTHONPATH}"
   else
     export PYTHONPATH="${LLAMAFACTORY_SRC}"
+  fi
+fi
+if [[ -d "${LM_EVAL_HARNESS_SRC}" ]]; then
+  if [[ -n "${PYTHONPATH:-}" ]]; then
+    export PYTHONPATH="${LM_EVAL_HARNESS_SRC}:${PYTHONPATH}"
+  else
+    export PYTHONPATH="${LM_EVAL_HARNESS_SRC}"
   fi
 fi
 set -u

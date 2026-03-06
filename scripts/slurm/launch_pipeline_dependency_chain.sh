@@ -6,7 +6,7 @@ set -euo pipefail
 #   python -m pipeline.run --start-at <stage> --stop-after <stage>
 # The stage itself still uses profile executor settings (including stage-level overrides).
 
-PROFILE="${PROFILE:-hydralora_lpr_guidance_12langs_2k_cluster}"
+PROFILE="${PROFILE:-hala_otus}"
 CONFIG_PATH="${CONFIG_PATH:-configs/pipeline}"
 START_STAGE="${START_STAGE:-sample}"
 STOP_STAGE="${STOP_STAGE:-report}"

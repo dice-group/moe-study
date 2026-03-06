@@ -1,27 +1,26 @@
 {
-  "hydralora_lpr_guidance_12langs_2k_cluster": {
-    "extends": "gpu_1b_tier10_all_approaches",
-    "language_map_path": "configs/pg_language_groupings/12_languages_grouping.json",
-    "output_root": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster",
-    "logs_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/logs",
+  "hala_otus": {
+    "output_root": "outputs/pipeline_runs/hala_otus",
+    "logs_dir": "outputs/pipeline_runs/hala_otus/logs",
     "run_naming": {
-      "experiment_tag": "hydralora-lpr-guidance-12langs-2k",
+      "experiment_tag": "hala-otus-12langs-2k",
       "language_count_hint": 12
     },
+    "language_map_path": "configs/pg_language_groupings/12_languages_grouping.json",
     "executor": {
-      "type": "slurm",
-      "partition": "gpu",
+      "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3",
+      "conda_env": "merlin",
+      "cpus_per_task": 32,
       "gres": "gpu:h100:1",
-      "mem": "160G",
-      "time": "12:00:00",
-      "cpus_per_task": 16,
+      "mem": "128G",
       "modules": [
         "toolchain/foss/2024a",
         "system/CUDA/12.6.0",
         "lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0"
       ],
-      "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3",
-      "conda_env": "merlin"
+      "partition": "gpu",
+      "time": "27:00:00",
+      "type": "slurm"
     },
     "sample": {
       "executor": {
@@ -42,7 +41,7 @@
       "fail_on_missing": true,
       "availability_csv": "result_analysis/l2v_nested_samples/fineweb2-language-distribution.csv",
       "availability_split": "train",
-      "output_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/sampled",
+      "output_dir": "outputs/pipeline_runs/hala_otus/sampled",
       "shard_subdir": "samples"
     },
     "tokenization": {
@@ -58,31 +57,37 @@
       "model_name": "meta-llama/Llama-3.1-8B",
       "num_proc": 8,
       "mask_pad_labels": true,
-      "output_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/tokenized"
+      "output_dir": "outputs/pipeline_runs/hala_otus/tokenized"
     },
     "training": {
       "model_name_or_path": "meta-llama/Llama-3.1-8B",
       "num_experts": 4,
-      "output_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/runs",
+      "output_dir": "outputs/pipeline_runs/hala_otus/runs",
       "lora": {
-        "rank": 32,
-        "alpha": 64,
+        "rank": 8,
+        "alpha": 16,
         "dropout": 0.05,
-        "target": "all"
+        "target": "q_proj,k_proj,v_proj,o_proj"
+      },
+      "train": {
+        "flash_attn": "sdpa",
+        "grad_accum": 2,
+        "disable_gradient_checkpointing": true,
+        "logging_steps": 50,
+        "save_steps": 3000
+      },
+      "eval": {
+        "strategy": "steps",
+        "eval_steps": 3000
       },
       "runs": [
-        {
-          "id": "lora",
-          "kind": "lora",
-          "train": {
-            "batch_size": 8
-          }
-        },
         {
           "id": "hydralora_lpr_4exp_1a3b",
           "kind": "hydralora",
           "train": {
-            "batch_size": 6
+            "batch_size": 3,
+            "grad_accum": 2,
+            "auto_find_batch_size": false
           },
           "params": {
             "hydralora_lora_num": 3,
@@ -99,10 +104,25 @@
           }
         },
         {
+          "id": "lora",
+          "kind": "lora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          },
+          "train": {
+            "batch_size": 6,
+            "grad_accum": 2,
+            "auto_find_batch_size": false
+          }
+        },
+        {
           "id": "hydralora_lpr_4exp_1a1b",
           "kind": "hydralora",
           "train": {
-            "batch_size": 6
+            "batch_size": 5,
+            "grad_accum": 2,
+            "auto_find_batch_size": false
           },
           "params": {
             "hydralora_lora_num": 1,
@@ -122,7 +142,9 @@
           "id": "cola_lpr_4exp_1a3b_fully",
           "kind": "cola",
           "train": {
-            "batch_size": 6
+            "batch_size": 5,
+            "grad_accum": 2,
+            "auto_find_batch_size": false
           },
           "params": {
             "cola_num_A": 1,
@@ -143,7 +165,9 @@
           "id": "adamole_4exp",
           "kind": "adamole",
           "train": {
-            "batch_size": 2
+            "batch_size": 3,
+            "grad_accum": 2,
+            "auto_find_batch_size": false
           },
           "params": {
             "adamole_num_experts": 4,
@@ -152,25 +176,7 @@
           }
         }
       ],
-      "eval": {
-        "batch_size": 1,
-        "eval_steps": 0.25,
-        "strategy": "steps"
-      },
-      "seed": 42,
-      "train": {
-        "batch_size": 4,
-        "bf16": true,
-        "flash_attn": "fa2",
-        "fp16": false,
-        "grad_accum": 2,
-        "learning_rate": "2e-4",
-        "max_steps": null,
-        "num_train_epochs": 1.0,
-        "logging_steps": 25,
-        "save_steps": 0.25,
-        "save_total_limit": 4
-      }
+      "seed": 42
     },
     "benchmark": {
       "enabled": true,
@@ -181,27 +187,63 @@
       "flores_mode": "both",
       "fail_if_no_tasks": true,
       "tokenizer": "meta-llama/Llama-3.1-8B",
-      "output_dir": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/benchmarks"
+      "output_dir": "outputs/pipeline_runs/hala_otus/benchmarks"
     },
     "summary": {
       "baseline_id": "lora",
       "primary_metric": "eval_loss",
       "min_relative_improvement": 0.0,
-      "gate_json": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/gate.json",
-      "summary_csv": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/summary.csv"
+      "gate_json": "outputs/pipeline_runs/hala_otus/gate.json",
+      "summary_csv": "outputs/pipeline_runs/hala_otus/summary.csv"
     },
     "report": {
       "enabled": true,
       "baseline_cache_root": "outputs/baselines",
-      "output_xlsx": "outputs/pipeline_runs/hydralora_lpr_guidance_12langs_2k_cluster/report.xlsx"
+      "output_xlsx": "outputs/pipeline_runs/hala_otus/report.xlsx"
     },
     "wandb": {
       "enabled": true,
       "entity": "",
       "mode": "online",
-      "project": "hydralora-lpr-guidance-12langs",
+      "project": "hala-otus-12langs",
       "train_prefix": "train",
       "eval_prefix": "eval/benchmark"
+    }
+  },
+  "hala_lola": {
+    "extends": "hala_otus",
+    "output_root": "outputs/pipeline_runs/hala_lola",
+    "logs_dir": "outputs/pipeline_runs/hala_lola/logs",
+    "run_naming": {
+      "experiment_tag": "hala-lola-gpuvm-local-gpu1-seq",
+      "language_count_hint": 12
+    },
+    "executor": {
+      "type": "local",
+      "cuda_visible_devices": "1"
+    },
+    "sample": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/hala_lola/sampled",
+      "shard_subdir": "samples"
+    },
+    "tokenization": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/hala_lola/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/hala_lola/runs"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/hala_lola/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "lora",
+      "gate_json": "outputs/pipeline_runs/hala_lola/gate.json",
+      "summary_csv": "outputs/pipeline_runs/hala_lola/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/hala_lola/report.xlsx"
     }
   }
 }

@@ -34,6 +34,65 @@ def _format_steps_arg(value: Any, path: str) -> str:
     return str(numeric)
 
 
+def _parse_bool(value: Any, *, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def _wrap_with_pycharm_debugger(cmd: list[str], debugger_cfg: dict[str, Any]) -> list[str]:
+    if len(cmd) < 5 or cmd[1:4] != ['-m', 'llamafactory.cli', 'train']:
+        raise SystemExit("training.debugger supports only non-distributed llamafactory.cli train commands.")
+    host = str(debugger_cfg.get('host', '127.0.0.1')).strip() or '127.0.0.1'
+    try:
+        port = int(debugger_cfg.get('port', 12345))
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"training.debugger.port must be an integer (got {debugger_cfg.get('port')!r})") from exc
+    if port <= 0:
+        raise SystemExit(f"training.debugger.port must be > 0 (got {port})")
+    suspend = _parse_bool(debugger_cfg.get('suspend', False), default=False)
+    return [
+        'python3',
+        '-m',
+        'pipeline.pycharm_debug_launcher',
+        '--module',
+        'llamafactory.cli',
+        '--host',
+        host,
+        '--port',
+        str(port),
+        '--suspend',
+        'true' if suspend else 'false',
+        '--',
+        *cmd[3:],
+    ]
+
+
+def _maybe_wrap_debugger_cmd(
+    cmd: list[str],
+    *,
+    common: dict[str, Any],
+    run_cfg: dict[str, Any],
+    distributed_enabled: bool,
+) -> list[str]:
+    debugger_cfg = _deep_merge(common.get('debugger', {}), run_cfg.get('debugger', {}))
+    if not isinstance(debugger_cfg, dict) or not _parse_bool(debugger_cfg.get('enabled', False), default=False):
+        return cmd
+    if distributed_enabled:
+        raise SystemExit("training.debugger requires training.distributed.enabled=false.")
+    kind = str(debugger_cfg.get('kind', 'pycharm')).strip().lower()
+    if kind != 'pycharm':
+        raise SystemExit(f"Unsupported training.debugger.kind: {kind!r}. Supported values: pycharm")
+    return _wrap_with_pycharm_debugger(cmd, debugger_cfg)
+
+
 def _lpr_args(
     cfg: dict[str, Any],
     common: dict[str, Any],
@@ -351,6 +410,12 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
             'python3', '-m', 'llamafactory.cli', 'train',
             *train_args,
         ]
+    cmd = _maybe_wrap_debugger_cmd(
+        cmd,
+        common=common,
+        run_cfg=run_cfg,
+        distributed_enabled=bool(dist.get('enabled', False)),
+    )
     return cmd, env
 
 
