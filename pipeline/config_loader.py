@@ -9,12 +9,62 @@ def load_json(path: Path) -> dict[str, Any]:
         return json.load(handle)
 
 
+def _merge_runs_by_id(base: list[Any], override: list[Any]) -> list[Any]:
+    """
+    Merge training runs by run id while, but preserve order
+    """
+    if not isinstance(base, list) or not isinstance(override, list):
+        return override
+
+    if any(not isinstance(item, dict) or not str(item.get("id", "")).strip() for item in override):
+        return override
+    if any(not isinstance(item, dict) or not str(item.get("id", "")).strip() for item in base):
+        return override
+
+    override_by_id = {str(item["id"]).strip(): item for item in override}
+    merged_runs: list[Any] = []
+    used_ids: set[str] = set()
+
+    for base_item in base:
+        run_id = str(base_item["id"]).strip()
+        if run_id in override_by_id:
+            merged_runs.append(deep_merge(base_item, override_by_id[run_id]))
+            used_ids.add(run_id)
+        else:
+            merged_runs.append(base_item)
+
+    for override_item in override:
+        run_id = str(override_item["id"]).strip()
+        if run_id in used_ids:
+            continue
+        merged_runs.append(override_item)
+
+    return merged_runs
+
+
+def _should_merge_runs_by_id(override: list[Any]) -> bool:
+    """merge by id only for minimal override entries, to e.g. override batch size only"""
+    if not isinstance(override, list) or not override:
+        return False
+    if any(not isinstance(item, dict) or not str(item.get("id", "")).strip() for item in override):
+        return False
+    return any("kind" not in item for item in override)
+
+
 def deep_merge(base: Any, override: Any) -> Any:
     if isinstance(base, dict) and isinstance(override, dict):
         merged = dict(base)
         for key, value in override.items():
             if key in merged:
-                merged[key] = deep_merge(merged[key], value)
+                if (
+                    key == "runs"
+                    and isinstance(merged[key], list)
+                    and isinstance(value, list)
+                    and _should_merge_runs_by_id(value)
+                ):
+                    merged[key] = _merge_runs_by_id(merged[key], value)
+                else:
+                    merged[key] = deep_merge(merged[key], value)
             else:
                 merged[key] = value
         return merged

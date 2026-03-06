@@ -98,55 +98,24 @@ def _configure_pipeline_logger(logs_root: Path, run_timestamp: str) -> logging.L
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run multilingual proof pipeline.")
     parser.add_argument("--profile", default="local_mini", help="Profile key in proof config.")
-    parser.add_argument(
-        "--config",
-        default="configs/pipeline",
-        help="Pipeline config JSON, config-bundle pointer JSON, or config bundle directory.",
-    )
+    parser.add_argument("--config", default="configs/pipeline", help="Pipeline config JSON, config-bundle pointer JSON, or config bundle directory.")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--list-profiles", action="store_true", help="List available profiles and exit.")
-    parser.add_argument(
-        "--force-stage",
-        action="append",
-        default=[],
-        choices=STAGES,
-        help="Force rerun of a stage even if cached.",
-    )
+    parser.add_argument("--force-stage", action="append", default=[], choices=STAGES, help="Force rerun of a stage even if cached (e.g tokenization)")
     parser.add_argument("--start-at", choices=STAGES, default="sample")
     parser.add_argument("--stop-after", choices=STAGES, default="summary")
-    parser.add_argument(
-        "--run-id",
-        action="append",
-        default=[],
-        help="Run only selected training run id(s). Repeat flag or pass comma-separated ids.",
-    )
-    parser.add_argument(
-        "--executor-type",
-        choices=["local", "slurm"],
-        default="",
-        help="Override executor type from profile.",
-    )
-    parser.add_argument(
-        "--cuda-visible-devices",
-        default="",
-        help="Override CUDA_VISIBLE_DEVICES for pipeline subprocesses.",
-    )
-    parser.add_argument(
-        "--pycharm-debug",
-        action="store_true",
-        help="Attach train subprocesses to a PyCharm debug server.",
-    )
+    parser.add_argument("--run-id", action="append", default=[], help="Run only selected training run ids (e.g hmora, cola)")
+    parser.add_argument("--executor-type", choices=["local", "slurm"], default="", help="Override executor type from profile.")
+    parser.add_argument("--cuda-visible-devices", default="", help="Override CUDA_VISIBLE_DEVICES for pipeline subprocesses.",)
+    parser.add_argument("--pycharm-debug", action="store_true", help="Attach train subprocesses to a PyCharm debug server.",)
     parser.add_argument("--pycharm-debug-host", default="127.0.0.1")
     parser.add_argument("--pycharm-debug-port", type=int, default=12345)
-    parser.add_argument(
-        "--pycharm-debug-suspend",
-        action="store_true",
-        help="Suspend training subprocess at debugger attach point.",
-    )
+    parser.add_argument("--pycharm-debug-suspend", action="store_true", help="Suspend training subprocess at debugger attach point.")
     return parser.parse_args()
 
 
 def _build_context(args: argparse.Namespace) -> PipelineContext:
+    # main paths / configs
     repo_root = Path(__file__).resolve().parents[1]
     config = _load_pipeline_config(_abs(repo_root, args.config))
     profile = dict(_resolve_profile(config, args.profile))
@@ -176,6 +145,7 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     state_path = output_root / "state" / "pipeline_state.json"
     output_root.mkdir(parents=True, exist_ok=True)
 
+    # stage wise config resolution
     language_map_path = _abs(repo_root, profile["language_map_path"])
     sample_cfg = profile.get("sample", {})
     tokenize_cfg = profile.get("tokenization", {})
@@ -243,6 +213,7 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
             env["WANDB_ENTITY"] = entity
         env["WANDB_MODE"] = str(wandb_cfg.get("mode", env.get("WANDB_MODE", "online")))
 
+    # paths and dirs
     sampled_dir = _abs(repo_root, sample_cfg.get("output_dir", str(output_root / "sampled")))
     sampled_manifest = sampled_dir / "manifest.json"
     shard_subdir = str(sample_cfg.get("shard_subdir", "")).strip().strip("/")
@@ -256,27 +227,14 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     report_xlsx = _abs(repo_root, report_cfg.get("output_xlsx", str(output_root / "report.xlsx")))
     lpr_contract_path = output_root / "audit" / "lpr_contract.json"
 
-    extension_root = _abs(repo_root,
-                          tokenizer_extension_cfg.get("output_dir", str(output_root / "tokenizer_extension")))
-    extension_pipeline_root = _abs(
-        repo_root,
-        tokenizer_extension_cfg.get("pipeline_output_dir", str(extension_root / "pipeline")),
-    )
-    extension_prepared_dir = _abs(
-        repo_root,
-        tokenizer_extension_cfg.get("prepared_data_dir", str(extension_root / "prepared_shards")),
-    )
+    extension_root = _abs(repo_root, tokenizer_extension_cfg.get("output_dir", str(output_root / "tokenizer_extension")))
+    extension_pipeline_root = _abs(repo_root, tokenizer_extension_cfg.get("pipeline_output_dir", str(extension_root / "pipeline")))
+    extension_prepared_dir = _abs(repo_root, tokenizer_extension_cfg.get("prepared_data_dir", str(extension_root / "prepared_shards")))
     extension_prepared_manifest = extension_root / "prepared_manifest.json"
     extension_manifest_path = extension_root / "extension_manifest.json"
-    extended_tokenizer_dir = _abs(
-        repo_root,
-        tokenizer_extension_cfg.get("extended_tokenizer_dir", str(extension_pipeline_root / "extended_tokenizer")),
-    )
+    extended_tokenizer_dir = _abs(repo_root, tokenizer_extension_cfg.get("extended_tokenizer_dir", str(extension_pipeline_root / "extended_tokenizer")))
 
-    embedding_init_output_dir = _abs(
-        repo_root,
-        embedding_init_cfg.get("output_dir", str(extension_root / "initialized_model")),
-    )
+    embedding_init_output_dir = _abs(repo_root, embedding_init_cfg.get("output_dir", str(extension_root / "initialized_model")),)
     embedding_init_manifest_path = extension_root / "embedding_init_manifest.json"
     embedding_verify_root = output_root / "audit" / "embedding_verify"
     embedding_verify_summary_path = output_root / "audit" / "embedding_verify_summary.json"

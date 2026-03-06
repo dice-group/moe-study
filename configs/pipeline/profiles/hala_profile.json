@@ -232,7 +232,39 @@
       "output_dir": "outputs/pipeline_runs/hala_lola/tokenized"
     },
     "training": {
-      "output_dir": "outputs/pipeline_runs/hala_lola/runs"
+      "output_dir": "outputs/pipeline_runs/hala_lola/runs",
+      "runs": [
+        {
+          "id": "hydralora_lpr_4exp_1a3b",
+          "train": {
+            "batch_size": 3
+          }
+        },
+        {
+          "id": "lora",
+          "train": {
+            "batch_size": 6
+          }
+        },
+        {
+          "id": "hydralora_lpr_4exp_1a1b",
+          "train": {
+            "batch_size": 5
+          }
+        },
+        {
+          "id": "cola_lpr_4exp_1a3b_fully",
+          "train": {
+            "batch_size": 5
+          }
+        },
+        {
+          "id": "adamole_4exp",
+          "train": {
+            "batch_size": 3
+          }
+        }
+      ]
     },
     "benchmark": {
       "output_dir": "outputs/pipeline_runs/hala_lola/benchmarks"
@@ -244,6 +276,96 @@
     },
     "report": {
       "output_xlsx": "outputs/pipeline_runs/hala_lola/report.xlsx"
+    }
+  },
+  "hala_lola_12_alpha_smoke_200docs": {
+    "extends": "hala_lola",
+    "output_root": "outputs/pipeline_runs/hala_lola_12_alpha_smoke_200docs",
+    "logs_dir": "outputs/pipeline_runs/hala_lola_12_alpha_smoke_200docs/logs",
+    "run_naming": {
+      "experiment_tag": "hala-lola-12langs-alpha-smoke-200docs",
+      "language_count_hint": 12
+    },
+    "sample": {
+      "enabled": true,
+      "max_languages": 12,
+      "target_docs_per_language": 200,
+      "fairness_policy": "alpha_smoothing",
+      "alpha": 0.3,
+      "max_total_documents": 200,
+      "auto_adjust_target_to_min_available": false,
+      "allow_upsample": true,
+      "upsample_cap_factor": 1.0,
+      "fail_on_missing": true,
+      "availability_split": "train",
+      "output_dir": "outputs/pipeline_runs/hala_lola_12_alpha_smoke_200docs/sampled",
+      "shard_subdir": "samples"
+    },
+    "tokenization": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/hala_lola_12_alpha_smoke_200docs/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/hala_lola_12_alpha_smoke_200docs/runs"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/hala_lola_12_alpha_smoke_200docs/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "lora",
+      "gate_json": "outputs/pipeline_runs/hala_lola_12_alpha_smoke_200docs/gate.json",
+      "summary_csv": "outputs/pipeline_runs/hala_lola_12_alpha_smoke_200docs/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/hala_lola_12_alpha_smoke_200docs/report.xlsx"
+    },
+    "wandb": {
+      "project": "hala-lola-12langs-alpha-smoke-200docs"
+    }
+  },
+  "hala_lola_12_alpha_100kdocs": {
+    "extends": "hala_lola",
+    "output_root": "outputs/pipeline_runs/hala_lola_12_alpha_100kdocs",
+    "logs_dir": "outputs/pipeline_runs/hala_lola_12_alpha_100kdocs/logs",
+    "run_naming": {
+      "experiment_tag": "hala-lola-12langs-alpha-max100kdocs",
+      "language_count_hint": 12
+    },
+    "sample": {
+      "enabled": true,
+      "max_languages": 12,
+      "target_docs_per_language": 100000,
+      "fairness_policy": "alpha_smoothing",
+      "alpha": 0.3,
+      "max_total_documents": 100000,
+      "auto_adjust_target_to_min_available": false,
+      "allow_upsample": true,
+      "upsample_cap_factor": 1.0,
+      "fail_on_missing": true,
+      "availability_split": "train",
+      "output_dir": "outputs/pipeline_runs/hala_lola_12_alpha_100kdocs/sampled",
+      "shard_subdir": "samples"
+    },
+    "tokenization": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/hala_lola_12_alpha_100kdocs/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/hala_lola_12_alpha_100kdocs/runs"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/hala_lola_12_alpha_100kdocs/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "lora",
+      "gate_json": "outputs/pipeline_runs/hala_lola_12_alpha_100kdocs/gate.json",
+      "summary_csv": "outputs/pipeline_runs/hala_lola_12_alpha_100kdocs/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/hala_lola_12_alpha_100kdocs/report.xlsx"
+    },
+    "wandb": {
+      "project": "hala-lola-12langs-alpha-max100kdocs"
     }
   }
 }

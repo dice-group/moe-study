@@ -33,11 +33,51 @@ ALLOWED_PROFILE_EXTRA_KEYS = {"run_naming", "logs_dir", "extends"}
 
 
 def _deep_merge(base: Any, override: Any) -> Any:
+    def _should_merge_runs_by_id(override_runs: list[Any]) -> bool:
+        if not isinstance(override_runs, list) or not override_runs:
+            return False
+        if any(not isinstance(item, dict) or not str(item.get("id", "")).strip() for item in override_runs):
+            return False
+        return any("kind" not in item for item in override_runs)
+
+    def _merge_runs_by_id(base_runs: list[Any], override_runs: list[Any]) -> list[Any]:
+        if any(not isinstance(item, dict) or not str(item.get("id", "")).strip() for item in override_runs):
+            return override_runs
+        if any(not isinstance(item, dict) or not str(item.get("id", "")).strip() for item in base_runs):
+            return override_runs
+
+        override_by_id = {str(item["id"]).strip(): item for item in override_runs}
+        merged_runs: list[Any] = []
+        used_ids: set[str] = set()
+
+        for base_item in base_runs:
+            run_id = str(base_item["id"]).strip()
+            if run_id in override_by_id:
+                merged_runs.append(_deep_merge(base_item, override_by_id[run_id]))
+                used_ids.add(run_id)
+            else:
+                merged_runs.append(base_item)
+
+        for override_item in override_runs:
+            run_id = str(override_item["id"]).strip()
+            if run_id in used_ids:
+                continue
+            merged_runs.append(override_item)
+        return merged_runs
+
     if isinstance(base, dict) and isinstance(override, dict):
         merged = dict(base)
         for key, value in override.items():
             if key in merged:
-                merged[key] = _deep_merge(merged[key], value)
+                if (
+                    key == "runs"
+                    and isinstance(merged[key], list)
+                    and isinstance(value, list)
+                    and _should_merge_runs_by_id(value)
+                ):
+                    merged[key] = _merge_runs_by_id(merged[key], value)
+                else:
+                    merged[key] = _deep_merge(merged[key], value)
             else:
                 merged[key] = value
         return merged
