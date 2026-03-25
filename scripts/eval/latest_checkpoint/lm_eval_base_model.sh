@@ -24,7 +24,27 @@ WANDB_GROUP="${WANDB_GROUP:-llama32-1b-base-10langs}"
 WANDB_NAME="${WANDB_NAME:-llama32-1b-base-10langs_$(date +%Y%m%d_%H%M%S)}"
 OUT_ROOT="${OUT_ROOT:-/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/base_model_eval}"
 OUTPUT_DIR="${OUTPUT_DIR:-${OUT_ROOT}/$(date +%Y%m%d_%H%M%S)}"
-INCLUDE_PATH="${LM_EVAL_INCLUDE_PATH:-${HARNESS_ROOT}/lm_eval/tasks/flores_en_perplexity/configs}"
+
+join_include_paths() {
+  local parts=()
+  local item
+  for item in "$@"; do
+    [[ -d "$item" ]] || continue
+    parts+=("$item")
+  done
+  local IFS=:
+  printf '%s' "${parts[*]}"
+}
+
+ensure_external_task_configs() {
+  python "${HARNESS_ROOT}/lm_eval/tasks/generate_local_task_configs.py"
+}
+
+FLORES_CONFIGS="${HARNESS_ROOT}/lm_eval/tasks/flores_en_perplexity/configs"
+SIB200_TASKS="${HARNESS_ROOT}/lm_eval/tasks/sib200/configs"
+TAXI1500_TASKS="${HARNESS_ROOT}/lm_eval/tasks/taxi1500/configs"
+ensure_external_task_configs
+INCLUDE_PATH="${LM_EVAL_INCLUDE_PATH:-$(join_include_paths "${FLORES_CONFIGS}" "${SIB200_TASKS}" "${TAXI1500_TASKS}")}"
 
 if [[ ! -d "${HARNESS_ROOT}" ]]; then
   echo "[ERROR] Harness not found: ${HARNESS_ROOT}" >&2
@@ -72,7 +92,7 @@ CMD=(
   --wandb_args "${WANDB_ARGS}"
 )
 
-if [[ -d "${INCLUDE_PATH}" ]]; then
+if [[ -n "${INCLUDE_PATH}" ]]; then
   CMD+=(--include_path "${INCLUDE_PATH}")
 fi
 if [[ -n "${LIMIT}" ]]; then

@@ -36,8 +36,27 @@ DRY_RUN="${DRY_RUN:-0}"
 
 HARNESS_ROOT="${LM_EVAL_HARNESS_PATH:-${REPO_ROOT}/scripts/eval/latest_checkpoint/lm-evaluation-harness}"
 FLORES_CONFIGS="${HARNESS_ROOT}/lm_eval/tasks/flores_en_perplexity/configs"
-if [[ -z "${LM_EVAL_INCLUDE_PATH:-}" && -d "${FLORES_CONFIGS}" ]]; then
-  LM_EVAL_INCLUDE_PATH="${FLORES_CONFIGS}"
+
+join_include_paths() {
+  local parts=()
+  local item
+  for item in "$@"; do
+    [[ -d "$item" ]] || continue
+    parts+=("$item")
+  done
+  local IFS=:
+  printf '%s' "${parts[*]}"
+}
+
+ensure_external_task_configs() {
+  "${LM_EVAL_PYTHON_BIN}" "${HARNESS_ROOT}/lm_eval/tasks/generate_local_task_configs.py"
+}
+
+SIB200_TASKS="${HARNESS_ROOT}/lm_eval/tasks/sib200/configs"
+TAXI1500_TASKS="${HARNESS_ROOT}/lm_eval/tasks/taxi1500/configs"
+ensure_external_task_configs
+if [[ -z "${LM_EVAL_INCLUDE_PATH:-}" ]]; then
+  LM_EVAL_INCLUDE_PATH="$(join_include_paths "${FLORES_CONFIGS}" "${SIB200_TASKS}" "${TAXI1500_TASKS}")"
 fi
 
 die() {

@@ -19,6 +19,18 @@ def _task_lang_from_belebele(task: str) -> str | None:
     return task.replace("belebele_", "", 1)
 
 
+def _task_lang_from_sib200(task: str) -> str | None:
+    if not task.startswith("sib200_"):
+        return None
+    return task.replace("sib200_", "", 1)
+
+
+def _task_lang_from_taxi1500(task: str) -> str | None:
+    if not task.startswith("taxi1500_"):
+        return None
+    return task.replace("taxi1500_", "", 1)
+
+
 def _task_langs_from_flores(task: str) -> tuple[str, str] | None:
     prefix = "flores_en_perplexity_"
     if not task.startswith(prefix):
@@ -37,6 +49,8 @@ def main() -> int:
     parser.add_argument("--output-file", required=True, help="Output selected task file.")
     parser.add_argument("--summary-json", required=True, help="Output summary JSON.")
     parser.add_argument("--include-belebele", action="store_true")
+    parser.add_argument("--include-sib200", action="store_true")
+    parser.add_argument("--include-taxi1500", action="store_true")
     parser.add_argument("--include-flores", action="store_true")
     parser.add_argument(
         "--flores-mode",
@@ -54,6 +68,18 @@ def main() -> int:
     for task in task_lines:
         if args.include_belebele:
             lang = _task_lang_from_belebele(task)
+            if lang is not None and lang in lang_set:
+                selected.append(task)
+                continue
+
+        if args.include_sib200:
+            lang = _task_lang_from_sib200(task)
+            if lang is not None and lang in lang_set:
+                selected.append(task)
+                continue
+
+        if args.include_taxi1500:
+            lang = _task_lang_from_taxi1500(task)
             if lang is not None and lang in lang_set:
                 selected.append(task)
                 continue
@@ -82,10 +108,14 @@ def main() -> int:
         "tasks_file": str(Path(args.tasks_file).resolve()),
         "output_file": str(output_path.resolve()),
         "include_belebele": bool(args.include_belebele),
+        "include_sib200": bool(args.include_sib200),
+        "include_taxi1500": bool(args.include_taxi1500),
         "include_flores": bool(args.include_flores),
         "flores_mode": args.flores_mode,
         "num_tasks": len(selected),
         "num_belebele": len([t for t in selected if t.startswith("belebele_")]),
+        "num_sib200": len([t for t in selected if t.startswith("sib200_")]),
+        "num_taxi1500": len([t for t in selected if t.startswith("taxi1500_")]),
         "num_flores": len([t for t in selected if t.startswith("flores_en_perplexity_")]),
     }
     summary_path = Path(args.summary_json)

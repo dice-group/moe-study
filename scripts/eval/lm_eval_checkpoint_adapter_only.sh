@@ -15,6 +15,21 @@ LLAMAFACTORY_SRC="${REPO_ROOT}/LLaMA-Factory/src"
 LM_EVAL_HARNESS_SRC="${REPO_ROOT}/scripts/eval/latest_checkpoint/lm-evaluation-harness"
 EXTRA=""
 
+join_include_paths() {
+  local parts=()
+  local item
+  for item in "$@"; do
+    [[ -d "$item" ]] || continue
+    parts+=("$item")
+  done
+  local IFS=:
+  printf '%s' "${parts[*]}"
+}
+
+ensure_external_task_configs() {
+  python3 "${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/generate_local_task_configs.py"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --checkpoint)   CKPT=$2; shift 2;;
@@ -52,6 +67,7 @@ ENABLE_SUMMARY=${LM_EVAL_ENABLE_SUMMARY:-true}
 SUMMARY_UPLOAD=${LM_EVAL_SUMMARY_UPLOAD:-local}
 FORCE_DEVICE=${LM_EVAL_FORCE_DEVICE:-true}
 SUMMARY_SUFFIX=${LM_EVAL_SUMMARY_SUFFIX:-_summary}
+LM_EVAL_ENABLE_WANDB=${LM_EVAL_ENABLE_WANDB:-auto}
 
 [[ -z "${CKPT:-}" || -z "${OUTDIR:-}" ]] && { echo "--checkpoint and --output-dir required"; exit 1; }
 [[ ! -d "$CKPT" ]] && { echo "Checkpoint not found: $CKPT"; exit 1; }
@@ -78,6 +94,18 @@ if [[ -z "$TOK_USE" ]]; then
   TOK_USE=$BASE
 fi
 MODEL_ARGS="pretrained=$BASE,peft=$CKPT,tokenizer=$TOK_USE"
+
+FLORES_CONFIGS="${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/flores_en_perplexity/configs"
+SIB200_TASKS="${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/sib200/configs"
+TAXI1500_TASKS="${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/taxi1500/configs"
+ensure_external_task_configs
+if [[ -z "${LM_EVAL_INCLUDE_PATH:-}" ]]; then
+  LM_EVAL_INCLUDE_PATH="$(join_include_paths "${FLORES_CONFIGS}" "${SIB200_TASKS}" "${TAXI1500_TASKS}")"
+fi
+if [[ -n "${LM_EVAL_INCLUDE_PATH:-}" && "${EXTRA}" != *"--include_path"* && "${EXTRA}" != *"--include-path"* ]]; then
+  EXTRA="${EXTRA} --include_path ${LM_EVAL_INCLUDE_PATH}"
+  EXTRA="$(echo "${EXTRA}" | xargs)"
+fi
 
 DEVICE_MAP=""
 if [[ -n "${EXTRA:-}" ]]; then
@@ -131,21 +159,48 @@ if [[ -z "${WGROUP}" ]]; then
   WGROUP="$(basename "$(dirname "$ORIG_CKPT")")"
 fi
 WANDB_NAME="${PREF}_${LABEL}"
-WANDB_ARGS="project=$WP,name=$WANDB_NAME"
-if [[ -n "${WGROUP}" ]]; then
-  WANDB_ARGS="${WANDB_ARGS},group=${WGROUP}"
+ENABLE_WANDB=1
+case "${LM_EVAL_ENABLE_WANDB,,}" in
+  0|false|no|off|disabled)
+    ENABLE_WANDB=0
+    ;;
+  1|true|yes|on|enabled|""|auto)
+    ENABLE_WANDB=1
+    ;;
+  *)
+    echo "[WARN] Unrecognized LM_EVAL_ENABLE_WANDB=${LM_EVAL_ENABLE_WANDB}; defaulting to enabled" >&2
+    ENABLE_WANDB=1
+    ;;
+esac
+case "${WMODE,,}" in
+  disabled|off|none)
+    ENABLE_WANDB=0
+    ;;
+esac
+if [[ "${ENABLE_WANDB}" == "1" ]] && ! python3 -c "import wandb" >/dev/null 2>&1; then
+  echo "[INFO] W&B logging disabled because the current eval environment does not have the 'wandb' package." >&2
+  ENABLE_WANDB=0
 fi
-if [[ -n "${WID:-}" ]]; then
-  WANDB_ARGS="${WANDB_ARGS},id=${WID}"
-fi
-if [[ -n "${WRESUME:-}" ]]; then
-  WANDB_ARGS="${WANDB_ARGS},resume=${WRESUME}"
-fi
-if [[ -n "${WMODE:-}" ]]; then
-  WANDB_ARGS="${WANDB_ARGS},mode=${WMODE}"
-fi
-if [[ -n "${WJOB:-}" ]]; then
-  WANDB_ARGS="${WANDB_ARGS},job_type=${WJOB}"
+WANDB_ARGS=""
+if [[ "${ENABLE_WANDB}" == "1" ]]; then
+  WANDB_ARGS="project=$WP,name=$WANDB_NAME"
+  if [[ -n "${WGROUP}" ]]; then
+    WANDB_ARGS="${WANDB_ARGS},group=${WGROUP}"
+  fi
+  if [[ -n "${WID:-}" ]]; then
+    WANDB_ARGS="${WANDB_ARGS},id=${WID}"
+  fi
+  if [[ -n "${WRESUME:-}" ]]; then
+    WANDB_ARGS="${WANDB_ARGS},resume=${WRESUME}"
+  fi
+  if [[ -n "${WMODE:-}" ]]; then
+    WANDB_ARGS="${WANDB_ARGS},mode=${WMODE}"
+  fi
+  if [[ -n "${WJOB:-}" ]]; then
+    WANDB_ARGS="${WANDB_ARGS},job_type=${WJOB}"
+  fi
+else
+  echo "[INFO] W&B logging disabled for lm-eval." >&2
 fi
 
 HAS_LANGUAGE_LIST=$(python3 - <<'PY' "$CKPT/adapter_config.json"
@@ -171,8 +226,10 @@ if [[ "$USE_LANG" == "true" ]]; then
     "--output-dir" "$OUTDIR"
     "--mode" "$LANG_MODE"
     "--device" "${LM_EVAL_DEVICE:-cuda}"
-    "--wandb-args" "$WANDB_ARGS"
   )
+  if [[ "${ENABLE_WANDB}" == "1" ]]; then
+    WRAPPER_ARGS+=("--wandb-args" "$WANDB_ARGS")
+  fi
   if [[ -n "$LIMIT" ]]; then
     WRAPPER_ARGS+=("--limit" "$LIMIT")
   fi
@@ -184,18 +241,28 @@ if [[ "$USE_LANG" == "true" ]]; then
   fi
   LM_EVAL_FORCE_DEVICE="${FORCE_DEVICE}" python3 "${REPO_ROOT}/scripts/eval/lm_eval_language_ids.py" "${WRAPPER_ARGS[@]}" $EXTRA
 else
-  lm_eval \
-    --model hf \
-    --model_args "$MODEL_ARGS" \
-    --tasks "$TASKS" \
-    --batch_size "$BS" \
-    ${LIMIT:+--limit "$LIMIT"} \
-    --output_path "$OUTFILE" \
-    --wandb_args "$WANDB_ARGS" \
-    $EXTRA
+  CMD=(
+    lm_eval
+    --model hf
+    --model_args "$MODEL_ARGS"
+    --tasks "$TASKS"
+    --batch_size "$BS"
+    --output_path "$OUTFILE"
+  )
+  if [[ -n "$LIMIT" ]]; then
+    CMD+=(--limit "$LIMIT")
+  fi
+  if [[ "${ENABLE_WANDB}" == "1" ]]; then
+    CMD+=(--wandb_args "$WANDB_ARGS")
+  fi
+  if [[ -n "${EXTRA}" ]]; then
+    EXTRA_ARGS=( ${EXTRA} )
+    CMD+=("${EXTRA_ARGS[@]}")
+  fi
+  "${CMD[@]}"
 fi
 
-if [[ "${ENABLE_SUMMARY}" == "true" ]]; then
+if [[ "${ENABLE_SUMMARY}" == "true" && "${ENABLE_WANDB}" == "1" ]]; then
   if [[ "$(basename "$OUTDIR")" == checkpoint-* ]]; then
     RUN_ROOT="$(basename "$(dirname "$ORIG_CKPT")")"
     SUMMARY_NAME="${LM_EVAL_SUMMARY_NAME:-$RUN_ROOT}"

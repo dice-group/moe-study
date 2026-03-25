@@ -2,8 +2,6 @@
 
 This file is the long-term onboarding and alignment document for agents working in this repository.
 
-It replaces the older working note in `papers/further/AGENTS.md`.
-
 ## Mission
 
 The repository exists to study and operationalize parameter-efficient fine-tuning methods for massively multilingual language model use cases.
@@ -69,8 +67,8 @@ This is the main cluster environment.
 Current assumptions:
 
 - multi-GPU cluster
-- H100 GPUs
-- use the `merlin` conda environment
+- H100 GPU nodes
+- 27 GPU nodes, each consisting of 4x H100 GPUs
 
 Typical profile examples:
 
@@ -84,7 +82,6 @@ This is the GPU VM environment used for local-but-real GPU runs.
 Current assumptions:
 
 - 2x H100 GPUs
-- use the `merlin` conda environment where applicable
 
 Typical profile examples:
 
@@ -94,6 +91,7 @@ Typical profile examples:
 ### 3. Local agent environments
 
 These are sandbox or local development environments used by agents for implementation, smoke tests, and debugging.
+Typically, agents operate in a three-times-isolated environment, separated from sensitive data, with access to the code, limited data, and the ability to make web requests.
 
 These are not the main benchmark environments. They are for:
 

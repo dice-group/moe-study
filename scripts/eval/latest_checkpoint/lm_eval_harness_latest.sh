@@ -24,12 +24,23 @@ LIMIT="${LM_EVAL_LIMIT:-}"
 LOG_ROUTER_METRICS="${LM_EVAL_LOG_ROUTER_METRICS:-true}"
 FORCE_DEVICE="${LM_EVAL_FORCE_DEVICE:-true}"
 FLORES_CONFIGS="${HARNESS_ROOT}/lm_eval/tasks/flores_en_perplexity/configs"
-if [[ -z "${LM_EVAL_INCLUDE_PATH:-}" && -d "${FLORES_CONFIGS}" ]]; then
-  LM_EVAL_INCLUDE_PATH="${FLORES_CONFIGS}"
-fi
-INCLUDE_PATH="${LM_EVAL_INCLUDE_PATH:-}"
 DEVICE="${LM_EVAL_DEVICE:-cuda}"
 PYTHON_BIN="${LM_EVAL_PYTHON_BIN:-python3}"
+
+join_include_paths() {
+  local parts=()
+  local item
+  for item in "$@"; do
+    [[ -d "$item" ]] || continue
+    parts+=("$item")
+  done
+  local IFS=:
+  printf '%s' "${parts[*]}"
+}
+
+ensure_external_task_configs() {
+  "${PYTHON_BIN}" "${HARNESS_ROOT}/lm_eval/tasks/generate_local_task_configs.py"
+}
 
 if [[ "${PYTHON_BIN}" == */* ]]; then
   if [[ ! -x "${PYTHON_BIN}" ]]; then
@@ -77,6 +88,17 @@ if [[ -z "${TASKS}" ]]; then
   echo "[ERROR] no tasks found in ${TASKS_FILE}" >&2
   exit 1
 fi
+
+SIB200_TASKS="${HARNESS_ROOT}/lm_eval/tasks/sib200/configs"
+TAXI1500_TASKS="${HARNESS_ROOT}/lm_eval/tasks/taxi1500/configs"
+ensure_external_task_configs
+if [[ -z "${LM_EVAL_INCLUDE_PATH:-}" ]]; then
+  DEFAULT_INCLUDE_PATH="$(join_include_paths "${FLORES_CONFIGS}" "${SIB200_TASKS}" "${TAXI1500_TASKS}")"
+  if [[ -n "${DEFAULT_INCLUDE_PATH}" ]]; then
+    LM_EVAL_INCLUDE_PATH="${DEFAULT_INCLUDE_PATH}"
+  fi
+fi
+INCLUDE_PATH="${LM_EVAL_INCLUDE_PATH:-}"
 
 mkdir -p "${OUTPUT_DIR}"
 

@@ -28,3 +28,24 @@ flores_en_perplexity_rus_Cyrl-eng_Latn
 flores_en_perplexity_eng_Latn-vie_Latn
 flores_en_perplexity_vie_Latn-eng_Latn
 # END FLORES_EN_PERPLEXITY
+
+# BEGIN SIB200
+sib200_arb_Arab
+sib200_arb_Latn
+sib200_azj_Latn
+sib200_hun_Latn
+sib200_ind_Latn
+sib200_jpn_Jpan
+sib200_kor_Hang
+sib200_rus_Cyrl
+sib200_vie_Latn
+# END SIB200
+
+# BEGIN TAXI1500
+taxi1500_arb_Arab
+taxi1500_hun_Latn
+taxi1500_ind_Latn
+taxi1500_jpn_Jpan
+taxi1500_rus_Cyrl
+taxi1500_vie_Latn
+# END TAXI1500

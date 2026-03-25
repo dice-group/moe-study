@@ -195,6 +195,9 @@ def _parse_task_identity(task: str, metric: str) -> tuple[str, str, str]:
     if task.startswith("sib200_"):
         return "SIB200", task.replace("sib200_", ""), metric_name or "acc"
 
+    if task.startswith("taxi1500_"):
+        return "Taxi1500", task.replace("taxi1500_", ""), metric_name or "acc"
+
     if task.startswith("flores_en_perplexity_"):
         pair = task.replace("flores_en_perplexity_", "")
         if "-" in pair:

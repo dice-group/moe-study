@@ -8,6 +8,8 @@
     "fail_if_no_tasks": false,
     "flores_mode": "both",
     "include_belebele": true,
+    "include_sib200": true,
+    "include_taxi1500": true,
     "include_flores": true,
     "lm_eval_bin": "lm_eval",
     "output_dir": "outputs/pipeline_runs/default/benchmarks",
