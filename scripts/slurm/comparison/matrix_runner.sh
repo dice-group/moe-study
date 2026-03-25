@@ -47,7 +47,7 @@ MATRIX_DEFAULT_CPUS_PER_TASK="${DEFAULT_CPUS_PER_TASK:-32}"
 MATRIX_DEFAULT_MEM="${DEFAULT_MEM:-128G}"
 MATRIX_SBATCH_EXTRA_ARGS="${SBATCH_EXTRA_ARGS:-}"
 
-MATRIX_RUN_APPROACHES="${RUN_APPROACHES:-cola hydralora adamole hmora lora}"
+MATRIX_RUN_APPROACHES="${RUN_APPROACHES:-cola hydralora adamole mixlora hmora lora}"
 
 declare -a MATRIX_LOCAL_JOB_PIDS=()
 
@@ -343,6 +343,7 @@ run_matrix() {
     ["cola"]="cola_job.sh"
     ["hydralora"]="hydralora_job.sh"
     ["adamole"]="adamole_job.sh"
+    ["mixlora"]="mixlora_job.sh"
     ["hmora"]="hmora_job.sh"
     ["lora"]="lora_job.sh"
   )
@@ -351,6 +352,7 @@ run_matrix() {
     ["cola"]="COLA_VARIANTS"
     ["hydralora"]="HYDRALORA_VARIANTS"
     ["adamole"]="ADAMOLE_VARIANTS"
+    ["mixlora"]="MIXLORA_VARIANTS"
     ["hmora"]="HMORA_VARIANTS"
     ["lora"]="LORA_VARIANTS"
   )
@@ -367,7 +369,7 @@ run_matrix() {
     echo "[INFO] Tier ${tier_id}: dataset=${dataset_name} tokenizer=${tokenizer_name} model=${model_name}"
 
     local approach
-    for approach in cola hydralora adamole hmora lora; do
+    for approach in cola hydralora adamole mixlora hmora lora; do
       if ! matrix_is_enabled_approach "${approach}"; then
         continue
       fi

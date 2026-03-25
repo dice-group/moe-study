@@ -57,6 +57,19 @@
           }
         },
         {
+          "id": "mixlora_4exp_k2",
+          "kind": "mixlora",
+          "params": {
+            "num_experts": 4,
+            "top_k": 2,
+            "router_init_range": 0.02,
+            "jitter_noise": 0.0,
+            "router_loss": true,
+            "router_aux_loss_coef": 0.001,
+            "moe_target_modules": "gate_proj,down_proj,up_proj"
+          }
+        },
+        {
           "id": "mola_4exp_k2",
           "kind": "mola",
           "params": {

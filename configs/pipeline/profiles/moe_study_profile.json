@@ -104,6 +104,27 @@
           }
         },
         {
+          "id": "mixlora",
+          "kind": "mixlora",
+          "lora": {
+            "alpha": 256,
+            "rank": 128,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mixlora_num_experts": 4,
+            "mixlora_top_k": 2,
+            "mixlora_router_init_range": 0.02,
+            "mixlora_jitter_noise": 0.0,
+            "mixlora_router_loss": true,
+            "mixlora_router_aux_loss_coef": 0.001,
+            "mixlora_moe_target_modules": "gate_proj,down_proj,up_proj"
+          },
+          "train": {
+            "batch_size": 4
+          }
+        },
+        {
           "id": "adamole",
           "kind": "adamole",
           "params": {

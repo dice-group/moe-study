@@ -175,6 +175,37 @@ def _approach_specific_train_args(
         if bool(_cfg_value(cfg, 'adamole_debug_mode', False, 'debug_mode')):
             approach_args.extend(['--adamole_debug_mode', 'True'])
         return approach_args
+    if kind == 'mixlora':
+        approach_args.extend([
+            '--mixlora_num_experts', str(int(_cfg_value(cfg, 'mixlora_num_experts', experts, 'num_experts'))),
+            '--mixlora_top_k', str(int(_cfg_value(cfg, 'mixlora_top_k', 2, 'top_k'))),
+            '--mixlora_router_init_range', str(float(_cfg_value(cfg, 'mixlora_router_init_range', 0.02, 'router_init_range'))),
+            '--mixlora_jitter_noise', str(float(_cfg_value(cfg, 'mixlora_jitter_noise', 0.0, 'jitter_noise'))),
+            '--mixlora_router_loss', str(bool(_cfg_value(cfg, 'mixlora_router_loss', True, 'router_loss'))),
+            '--mixlora_router_aux_loss_coef', str(float(_cfg_value(cfg, 'mixlora_router_aux_loss_coef', 0.001, 'router_aux_loss_coef'))),
+        ])
+        act_fn = _cfg_value(cfg, 'mixlora_act_fn', None, 'act_fn')
+        if act_fn is not None:
+            approach_args.extend(['--mixlora_act_fn', str(act_fn)])
+        moe_targets = _cfg_value(
+            cfg,
+            'mixlora_moe_target_modules',
+            'gate_proj,down_proj,up_proj',
+            'moe_target_modules',
+        )
+        if isinstance(moe_targets, list):
+            moe_targets = ",".join(str(item) for item in moe_targets)
+        approach_args.extend(['--mixlora_moe_target_modules', str(moe_targets)])
+        expert_rank = _cfg_value(cfg, 'mixlora_expert_lora_rank', None, 'expert_lora_rank')
+        if expert_rank is not None:
+            approach_args.extend(['--mixlora_expert_lora_rank', str(int(expert_rank))])
+        expert_alpha = _cfg_value(cfg, 'mixlora_expert_lora_alpha', None, 'expert_lora_alpha')
+        if expert_alpha is not None:
+            approach_args.extend(['--mixlora_expert_lora_alpha', str(int(expert_alpha))])
+        expert_dropout = _cfg_value(cfg, 'mixlora_expert_lora_dropout', None, 'expert_lora_dropout')
+        if expert_dropout is not None:
+            approach_args.extend(['--mixlora_expert_lora_dropout', str(float(expert_dropout))])
+        return approach_args
     if kind == 'mola':
         approach_args.extend([
             '--mola_num_experts', str(int(_cfg_value(cfg, 'mola_num_experts', 4, 'num_experts'))),

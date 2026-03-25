@@ -232,7 +232,7 @@ def _build_run_label(base_run_label: str, run: dict[str, Any], default_num_exper
                         suffix_parts.append(f"heads{parsed_heads[0]}x{len(parsed_heads)}")
                     else:
                         suffix_parts.append("heads" + "-".join(str(item) for item in parsed_heads))
-    elif run_kind in {"adamole", "mola", "moelpr", "moelora", "movlora", "hmora"}:
+    elif run_kind in {"adamole", "mola", "moelpr", "moelora", "movlora", "mixlora", "hmora"}:
         num_experts_value = _param_value(
             params,
             f"{run_kind}_num_experts",
@@ -372,6 +372,8 @@ def _select_tasks_for_languages(
     tasks_file: Path,
     languages: list[str],
     include_belebele: bool,
+    include_sib200: bool,
+    include_taxi1500: bool,
     include_flores: bool,
     flores_mode: str,
 ) -> list[str]:
@@ -380,6 +382,18 @@ def _select_tasks_for_languages(
     for task in _read_task_lines(tasks_file):
         if include_belebele and task.startswith("belebele_"):
             lang = task.replace("belebele_", "", 1)
+            if lang in lang_set:
+                selected.append(task)
+                continue
+
+        if include_sib200 and task.startswith("sib200_"):
+            lang = task.replace("sib200_", "", 1)
+            if lang in lang_set:
+                selected.append(task)
+                continue
+
+        if include_taxi1500 and task.startswith("taxi1500_"):
+            lang = task.replace("taxi1500_", "", 1)
             if lang in lang_set:
                 selected.append(task)
                 continue

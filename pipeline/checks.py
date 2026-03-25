@@ -229,6 +229,7 @@ _APPROACH_MODULES: dict[str, list[str]] = {
     "COLA":      ["lora_A", "lora_B", "router", "expert_"],
     "HYDRALORA": ["lora_A", "lora_B", "router", "expert_"],
     "ADAMOLE":   ["lora_A", "lora_B", "lora_gating", "lora_threshold"],
+    "MIXLORA":   ["lora_A", "lora_B", "lora_router", "experts"],
     "MOLA":      ["lora_A", "lora_B", "lora_gating", "moe_layer"],
     "MOELPR":    ["moe_experts", "moe_router_embedding"],
     "MOELORA":   ["lora_A", "lora_B", "lora_gate", "lora_task_embedding"],
@@ -346,7 +347,7 @@ def _component_diff(keys: list[str], sd_first: dict[str, Any], sd_last: dict[str
     buckets: dict[str, list[bool]] = collections.defaultdict(list)
     for k in keys:
         changed = not torch.equal(sd_first[k], sd_last[k])
-        if ".router." in k or ".lora_route." in k:
+        if ".router." in k or ".lora_route." in k or ".lora_router." in k:
             buckets["router"].append(changed)
         elif "expert_" in k and "lora_A" in k:
             buckets["expert_lora_A"].append(changed)
@@ -447,7 +448,7 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
             "lora_A", "lora_B", "router", "lora_route", "expert_",
             "lora_gating", "lora_threshold", "moe_layer", "moe_experts",
             "moe_router_embedding", "lora_gate", "lora_task_embedding",
-            "lora_router", "lora_mov_scaling", "lora_router_pool", "lora_task_encoder",
+            "lora_router", "lora_mov_scaling", "lora_router_pool", "lora_task_encoder", "experts",
         ):
             if frag in k:
                 component_counts[frag] += 1
@@ -470,12 +471,18 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
             entry.setdefault("errors", []).append(
                 f"expert count mismatch: config={cfg_num_experts} vs checkpoint={ck_num_experts}"
             )
-    elif approach in ("ADAMOLE", "MOLA", "MOELPR", "MOELORA", "MOVLORA", "HMORA"):
+    elif approach in ("ADAMOLE", "MIXLORA", "MOLA", "MOELPR", "MOELORA", "MOVLORA", "HMORA"):
         acfg = _load_adapter_config(run_dir)
         moe_info: dict[str, Any] = {"approach": approach}
 
         if approach == "ADAMOLE":
             moe_info["num_experts"] = acfg.get("adamole_num_experts")
+        elif approach == "MIXLORA":
+            moe_info["num_experts"] = acfg.get("num_experts", acfg.get("mixlora_num_experts"))
+            moe_info["top_k"] = acfg.get("top_k", acfg.get("mixlora_top_k"))
+            moe_info["router_aux_loss_coef"] = acfg.get(
+                "router_aux_loss_coef", acfg.get("mixlora_router_aux_loss_coef")
+            )
         elif approach == "MOLA":
             moe_info["num_experts"] = acfg.get("mola_num_experts")
             moe_info["top_k"] = acfg.get("mola_top_k")
@@ -519,7 +526,7 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
                 entry["warning"] = "no weights changed between first and last checkpoint"
 
             # --- component-level diff (router vs experts vs lora) ---
-            if approach in ("COLA", "HYDRALORA", "ADAMOLE", "MOLA", "MOELPR", "MOELORA", "MOVLORA", "HMORA"):
+            if approach in ("COLA", "HYDRALORA", "ADAMOLE", "MIXLORA", "MOLA", "MOELPR", "MOELORA", "MOVLORA", "HMORA"):
                 diff_by_component = _component_diff(first_keys, sd_first, sd_last)
                 entry["component_diff"] = diff_by_component
                 # Router must have trained if guidance_scope != "none"
