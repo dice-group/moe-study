@@ -75,6 +75,23 @@
           }
         },
         {
+          "id": "cola",
+          "kind": "cola",
+          "lora": {
+            "alpha": 256,
+            "rank": 128
+          },
+          "params": {
+            "cola_num_A": 2,
+            "cola_num_B": 3,
+            "cola_strategy": "fully",
+            "cola_use_experts": false
+          },
+          "train": {
+            "batch_size": 5
+          }
+        },
+        {
           "id": "hydralora",
           "kind": "hydralora",
           "params": {
