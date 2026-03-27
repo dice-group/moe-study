@@ -82,8 +82,8 @@
             "rank": 2
           },
           "params": {
-            "cola_num_A": 12,
-            "cola_num_B": 18,
+            "cola_num_A": 26,
+            "cola_num_B": 39,
             "cola_strategy": "fully",
             "cola_use_experts": false
           },
@@ -128,8 +128,8 @@
           "id": "mixlora",
           "kind": "mixlora",
           "lora": {
-            "alpha": 128,
-            "rank": 64,
+            "alpha": 4,
+            "rank": 2,
             "target": "q_proj,k_proj,v_proj,o_proj"
           },
           "params": {
@@ -211,8 +211,9 @@
             "hmora_dropout": 0.1,
             "hmora_top_k_routing_strategy": true,
             "hmora_top_k": 2,
-            "hmora_use_task_router": false,
+            "hmora_use_task_router": true,
             "hmora_task_router_only": false,
+            "hmora_use_language_ids_as_task_ids": true,
             "hmora_share_router_for_qkv": true,
             "hmora_share_router_for_w_i": true,
             "hmora_num_router_mlp_layers": 1,

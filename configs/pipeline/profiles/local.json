@@ -126,6 +126,7 @@
             "top_k": 2,
             "use_task_router": true,
             "task_router_only": false,
+            "use_language_ids_as_task_ids": true,
             "share_router_for_qkv": true,
             "share_router_for_w_i": true,
             "num_router_mlp_layers": 1,

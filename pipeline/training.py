@@ -292,6 +292,7 @@ def _approach_specific_train_args(
             '--hmora_lambda_lm', str(float(_cfg_value(cfg, 'hmora_lambda_lm', 1.0, 'lambda_lm'))),
             '--hmora_use_hydra_lora', str(bool(_cfg_value(cfg, 'hmora_use_hydra_lora', False, 'use_hydra_lora'))),
             '--hmora_eta_b', str(float(_cfg_value(cfg, 'hmora_eta_b', 1.0, 'eta_b'))),
+            '--hmora_use_language_ids_as_task_ids', str(bool(_cfg_value(cfg, 'hmora_use_language_ids_as_task_ids', False, 'use_language_ids_as_task_ids'))),
             '--hmora_task_token', str(_cfg_value(cfg, 'hmora_task_token', '?', 'task_token')),
             '--hmora_num_encoder_layer', str(int(_cfg_value(cfg, 'hmora_num_encoder_layer', 1, 'num_encoder_layer'))),
         ])

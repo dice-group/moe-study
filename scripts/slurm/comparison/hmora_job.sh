@@ -176,6 +176,7 @@ echo "[INFO] Running HMoRA training into ${OUTPUT_DIR}"
   --hmora_lambda_lm "${HMORA_LAMBDA_LM:-1.0}" \
   --hmora_use_hydra_lora "${HMORA_USE_HYDRA_LORA:-False}" \
   --hmora_eta_b "${HMORA_ETA_B:-1.0}" \
+  --hmora_use_language_ids_as_task_ids "${HMORA_USE_LANGUAGE_IDS_AS_TASK_IDS:-True}" \
   --hmora_task_token "${HMORA_TASK_TOKEN:-?}" \
   --hmora_num_encoder_layer "${HMORA_NUM_ENCODER_LAYER:-1}" \
   "${HMORA_TARGET_MODULES_LORA_ARG[@]}" \
