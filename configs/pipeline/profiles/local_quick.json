@@ -35,6 +35,25 @@
           }
         },
         {
+          "id": "movlora_8exp",
+          "kind": "movlora",
+          "lora": {
+            "target": "k_proj,v_proj,down_proj"
+          },
+          "params": {
+            "num_experts": 8,
+            "top_k": 0,
+            "router_temperature": 1.0,
+            "router_jitter_noise": 0.0,
+            "router_bias": false,
+            "router_init_std": 0.02,
+            "router_ignore_padding_tokens": false
+          },
+          "train": {
+            "learning_rate": "3e-4"
+          }
+        },
+        {
           "id": "hmora_8exp_k2",
           "kind": "hmora",
           "params": {

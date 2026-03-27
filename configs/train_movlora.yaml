@@ -35,8 +35,8 @@ output_dir: ./outputs/movlora-llama3.2-1b
 overwrite_output_dir: true
 
 # --- Target modules ---
-# For full-scope comparisons, use the same target-module scope as LoRA-family baselines.
-lora_target: "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+# Paper-faithful MoV scope: key/value attention activations plus feed-forward intermediate activations.
+lora_target: "k_proj,v_proj,down_proj"
 
 # --- MoV specific params ---
 # Paper setting often uses 30 experts with soft routing (top_k=0) and no jitter.

@@ -1,0 +1,42 @@
+{
+  "group_0": {
+    "group": "arabic_script",
+    "languages": ["arb_Arab"]
+  },
+  "group_1": {
+    "group": "arabic_latin",
+    "languages": ["arb_Latn"]
+  },
+  "group_2": {
+    "group": "azerbaijani",
+    "languages": ["azj_Latn"]
+  },
+  "group_3": {
+    "group": "english",
+    "languages": ["eng_Latn"]
+  },
+  "group_4": {
+    "group": "uralic",
+    "languages": ["hun_Latn"]
+  },
+  "group_5": {
+    "group": "austronesian",
+    "languages": ["ind_Latn"]
+  },
+  "group_6": {
+    "group": "japanese",
+    "languages": ["jpn_Jpan"]
+  },
+  "group_7": {
+    "group": "koreanic",
+    "languages": ["kor_Hang"]
+  },
+  "group_8": {
+    "group": "slavic",
+    "languages": ["rus_Cyrl"]
+  },
+  "group_9": {
+    "group": "vietic",
+    "languages": ["vie_Latn"]
+  }
+}

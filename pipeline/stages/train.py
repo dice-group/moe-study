@@ -21,6 +21,37 @@ _TRAINABLE_RE = re.compile(
     r"trainable params:\s*([\d,]+)\s*\|\|\s*all params:\s*([\d,]+)\s*\|\|\s*trainable%:\s*([0-9.]+)"
 )
 
+_LARGE_TRAIN_ARTIFACT_NAMES = {
+    "adapter_model.bin",
+    "adapter_model.safetensors",
+    "chat_template.jinja",
+    "pytorch_model.bin",
+    "pytorch_model.safetensors",
+    "special_tokens_map.json",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "training_args.bin",
+}
+
+
+def _cleanup_large_train_artifacts(train_root: Path, runs: list[dict]) -> None:
+    for run in runs:
+        run_id = str(run["id"])
+        run_dir = train_root / run_id
+        if not run_dir.exists():
+            continue
+        for child in run_dir.iterdir():
+            if child.is_file() and child.name in _LARGE_TRAIN_ARTIFACT_NAMES:
+                child.unlink(missing_ok=True)
+            elif child.is_dir() and child.name.startswith("checkpoint-"):
+                for nested in child.rglob("*"):
+                    if nested.is_file():
+                        nested.unlink(missing_ok=True)
+                for nested in sorted(child.rglob("*"), reverse=True):
+                    if nested.is_dir():
+                        nested.rmdir()
+                child.rmdir()
+
 
 def _extract_trainable_param_stats(log_path: Path) -> dict[str, object]:
     if not log_path.exists():
@@ -185,3 +216,5 @@ def stage_train(ctx: PipelineContext) -> None:
                         _dump_json(output_dir / "trainable_params.json", trainable_stats)
                 _save_stage_state(ctx.state_path, "train", signature, [str(path) for path in expected])
                 check_train(ctx.train_root, runs, dry_run=ctx.args.dry_run)
+                if bool(train_cfg_for_stage.get("cleanup_large_artifacts_after_train", False)):
+                    _cleanup_large_train_artifacts(ctx.train_root, runs)

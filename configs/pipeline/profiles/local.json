@@ -103,6 +103,9 @@
         {
           "id": "movlora_8exp",
           "kind": "movlora",
+          "lora": {
+            "target": "k_proj,v_proj,down_proj"
+          },
           "params": {
             "num_experts": 8,
             "top_k": 0,

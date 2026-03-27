@@ -122,10 +122,131 @@
           }
         },
         {
+          "id": "cola_e2",
+          "kind": "cola",
+          "lora": {
+            "alpha": 4,
+            "rank": 2
+          },
+          "params": {
+            "cola_num_A": 2,
+            "cola_num_B": 3,
+            "cola_strategy": "fully",
+            "use_cola_pissa_init": false,
+            "cola_use_experts": false
+          }
+        },
+        {
+          "id": "cola_e4",
+          "kind": "cola",
+          "lora": {
+            "alpha": 4,
+            "rank": 2
+          },
+          "params": {
+            "cola_num_A": 2,
+            "cola_num_B": 3,
+            "cola_strategy": "fully",
+            "use_cola_pissa_init": false,
+            "cola_use_experts": false
+          }
+        },
+        {
+          "id": "cola_e8",
+          "kind": "cola",
+          "lora": {
+            "alpha": 4,
+            "rank": 2
+          },
+          "params": {
+            "cola_num_A": 4,
+            "cola_num_B": 6,
+            "cola_strategy": "fully",
+            "use_cola_pissa_init": false,
+            "cola_use_experts": false
+          }
+        },
+        {
+          "id": "cola_e16",
+          "kind": "cola",
+          "lora": {
+            "alpha": 4,
+            "rank": 2
+          },
+          "params": {
+            "cola_num_A": 6,
+            "cola_num_B": 9,
+            "cola_strategy": "fully",
+            "use_cola_pissa_init": false,
+            "cola_use_experts": false
+          }
+        },
+        {
+          "id": "cola_e32",
+          "kind": "cola",
+          "lora": {
+            "alpha": 4,
+            "rank": 2
+          },
+          "params": {
+            "cola_num_A": 12,
+            "cola_num_B": 18,
+            "cola_strategy": "fully",
+            "use_cola_pissa_init": false,
+            "cola_use_experts": false
+          }
+        },
+        {
+          "id": "cola_e64",
+          "kind": "cola",
+          "lora": {
+            "alpha": 4,
+            "rank": 2
+          },
+          "params": {
+            "cola_num_A": 26,
+            "cola_num_B": 39,
+            "cola_strategy": "fully",
+            "use_cola_pissa_init": false,
+            "cola_use_experts": false
+          }
+        },
+        {
+          "id": "cola_e128",
+          "kind": "cola",
+          "lora": {
+            "alpha": 4,
+            "rank": 2
+          },
+          "params": {
+            "cola_num_A": 52,
+            "cola_num_B": 78,
+            "cola_strategy": "fully",
+            "use_cola_pissa_init": false,
+            "cola_use_experts": false
+          }
+        },
+        {
+          "id": "cola_e256",
+          "kind": "cola",
+          "lora": {
+            "alpha": 4,
+            "rank": 2
+          },
+          "params": {
+            "cola_num_A": 102,
+            "cola_num_B": 153,
+            "cola_strategy": "fully",
+            "use_cola_pissa_init": false,
+            "cola_use_experts": false
+          }
+        },
+        {
           "id": "adamoe_1_e2",
           "kind": "mola",
           "params": {
             "mola_num_experts": 2,
+            "mola_num_null_experts": 4,
             "mola_top_k": 2,
             "mola_router_aux_loss_coef": 0.01
           }
@@ -135,6 +256,7 @@
           "kind": "mola",
           "params": {
             "mola_num_experts": 4,
+            "mola_num_null_experts": 8,
             "mola_top_k": 2,
             "mola_router_aux_loss_coef": 0.01
           }
@@ -144,6 +266,7 @@
           "kind": "mola",
           "params": {
             "mola_num_experts": 8,
+            "mola_num_null_experts": 16,
             "mola_top_k": 2,
             "mola_router_aux_loss_coef": 0.01
           }
@@ -153,6 +276,7 @@
           "kind": "mola",
           "params": {
             "mola_num_experts": 16,
+            "mola_num_null_experts": 32,
             "mola_top_k": 2,
             "mola_router_aux_loss_coef": 0.01
           }
@@ -162,6 +286,7 @@
           "kind": "mola",
           "params": {
             "mola_num_experts": 32,
+            "mola_num_null_experts": 64,
             "mola_top_k": 2,
             "mola_router_aux_loss_coef": 0.01
           }
@@ -171,6 +296,7 @@
           "kind": "mola",
           "params": {
             "mola_num_experts": 64,
+            "mola_num_null_experts": 128,
             "mola_top_k": 2,
             "mola_router_aux_loss_coef": 0.01
           }
@@ -180,6 +306,7 @@
           "kind": "mola",
           "params": {
             "mola_num_experts": 128,
+            "mola_num_null_experts": 256,
             "mola_top_k": 2,
             "mola_router_aux_loss_coef": 0.01
           }
@@ -189,6 +316,7 @@
           "kind": "mola",
           "params": {
             "mola_num_experts": 256,
+            "mola_num_null_experts": 512,
             "mola_top_k": 2,
             "mola_router_aux_loss_coef": 0.01
           }
@@ -516,6 +644,10 @@
         {
           "id": "hydralora_e2",
           "kind": "hydralora",
+          "lora": {
+            "alpha": 8,
+            "rank": 4
+          },
           "params": {
             "hydralora_use_experts": false,
             "hydralora_lora_num": 2,
@@ -526,6 +658,10 @@
         {
           "id": "hydralora_e4",
           "kind": "hydralora",
+          "lora": {
+            "alpha": 8,
+            "rank": 4
+          },
           "params": {
             "hydralora_use_experts": false,
             "hydralora_lora_num": 4,
@@ -536,6 +672,10 @@
         {
           "id": "hydralora_e8",
           "kind": "hydralora",
+          "lora": {
+            "alpha": 8,
+            "rank": 4
+          },
           "params": {
             "hydralora_use_experts": false,
             "hydralora_lora_num": 8,
@@ -546,6 +686,10 @@
         {
           "id": "hydralora_e16",
           "kind": "hydralora",
+          "lora": {
+            "alpha": 8,
+            "rank": 4
+          },
           "params": {
             "hydralora_use_experts": false,
             "hydralora_lora_num": 16,
@@ -556,6 +700,10 @@
         {
           "id": "hydralora_e32",
           "kind": "hydralora",
+          "lora": {
+            "alpha": 8,
+            "rank": 4
+          },
           "params": {
             "hydralora_use_experts": false,
             "hydralora_lora_num": 32,
@@ -566,6 +714,10 @@
         {
           "id": "hydralora_e64",
           "kind": "hydralora",
+          "lora": {
+            "alpha": 8,
+            "rank": 4
+          },
           "params": {
             "hydralora_use_experts": false,
             "hydralora_lora_num": 64,
@@ -576,6 +728,10 @@
         {
           "id": "hydralora_e128",
           "kind": "hydralora",
+          "lora": {
+            "alpha": 8,
+            "rank": 4
+          },
           "params": {
             "hydralora_use_experts": false,
             "hydralora_lora_num": 128,
@@ -586,6 +742,10 @@
         {
           "id": "hydralora_e256",
           "kind": "hydralora",
+          "lora": {
+            "alpha": 8,
+            "rank": 4
+          },
           "params": {
             "hydralora_use_experts": false,
             "hydralora_lora_num": 256,
@@ -816,6 +976,166 @@
             "movlora_router_init_std": 0.02,
             "movlora_router_ignore_padding_tokens": false
           }
+        },
+        {
+          "id": "mixlora_e2",
+          "kind": "mixlora",
+          "lora": {
+            "alpha": 128,
+            "rank": 64,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mixlora_num_experts": 2,
+            "mixlora_top_k": 2,
+            "mixlora_router_init_range": 0.02,
+            "mixlora_jitter_noise": 0.0,
+            "mixlora_router_loss": true,
+            "mixlora_router_aux_loss_coef": 0.001,
+            "mixlora_moe_target_modules": "gate_proj,down_proj,up_proj",
+            "mixlora_expert_lora_rank": 2,
+            "mixlora_expert_lora_alpha": 4
+          }
+        },
+        {
+          "id": "mixlora_e4",
+          "kind": "mixlora",
+          "lora": {
+            "alpha": 128,
+            "rank": 64,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mixlora_num_experts": 4,
+            "mixlora_top_k": 2,
+            "mixlora_router_init_range": 0.02,
+            "mixlora_jitter_noise": 0.0,
+            "mixlora_router_loss": true,
+            "mixlora_router_aux_loss_coef": 0.001,
+            "mixlora_moe_target_modules": "gate_proj,down_proj,up_proj",
+            "mixlora_expert_lora_rank": 2,
+            "mixlora_expert_lora_alpha": 4
+          }
+        },
+        {
+          "id": "mixlora_e8",
+          "kind": "mixlora",
+          "lora": {
+            "alpha": 128,
+            "rank": 64,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mixlora_num_experts": 8,
+            "mixlora_top_k": 2,
+            "mixlora_router_init_range": 0.02,
+            "mixlora_jitter_noise": 0.0,
+            "mixlora_router_loss": true,
+            "mixlora_router_aux_loss_coef": 0.001,
+            "mixlora_moe_target_modules": "gate_proj,down_proj,up_proj",
+            "mixlora_expert_lora_rank": 2,
+            "mixlora_expert_lora_alpha": 4
+          }
+        },
+        {
+          "id": "mixlora_e16",
+          "kind": "mixlora",
+          "lora": {
+            "alpha": 128,
+            "rank": 64,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mixlora_num_experts": 16,
+            "mixlora_top_k": 2,
+            "mixlora_router_init_range": 0.02,
+            "mixlora_jitter_noise": 0.0,
+            "mixlora_router_loss": true,
+            "mixlora_router_aux_loss_coef": 0.001,
+            "mixlora_moe_target_modules": "gate_proj,down_proj,up_proj",
+            "mixlora_expert_lora_rank": 2,
+            "mixlora_expert_lora_alpha": 4
+          }
+        },
+        {
+          "id": "mixlora_e32",
+          "kind": "mixlora",
+          "lora": {
+            "alpha": 128,
+            "rank": 64,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mixlora_num_experts": 32,
+            "mixlora_top_k": 2,
+            "mixlora_router_init_range": 0.02,
+            "mixlora_jitter_noise": 0.0,
+            "mixlora_router_loss": true,
+            "mixlora_router_aux_loss_coef": 0.001,
+            "mixlora_moe_target_modules": "gate_proj,down_proj,up_proj",
+            "mixlora_expert_lora_rank": 2,
+            "mixlora_expert_lora_alpha": 4
+          }
+        },
+        {
+          "id": "mixlora_e64",
+          "kind": "mixlora",
+          "lora": {
+            "alpha": 128,
+            "rank": 64,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mixlora_num_experts": 64,
+            "mixlora_top_k": 2,
+            "mixlora_router_init_range": 0.02,
+            "mixlora_jitter_noise": 0.0,
+            "mixlora_router_loss": true,
+            "mixlora_router_aux_loss_coef": 0.001,
+            "mixlora_moe_target_modules": "gate_proj,down_proj,up_proj",
+            "mixlora_expert_lora_rank": 2,
+            "mixlora_expert_lora_alpha": 4
+          }
+        },
+        {
+          "id": "mixlora_e128",
+          "kind": "mixlora",
+          "lora": {
+            "alpha": 128,
+            "rank": 64,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mixlora_num_experts": 128,
+            "mixlora_top_k": 2,
+            "mixlora_router_init_range": 0.02,
+            "mixlora_jitter_noise": 0.0,
+            "mixlora_router_loss": true,
+            "mixlora_router_aux_loss_coef": 0.001,
+            "mixlora_moe_target_modules": "gate_proj,down_proj,up_proj",
+            "mixlora_expert_lora_rank": 2,
+            "mixlora_expert_lora_alpha": 4
+          }
+        },
+        {
+          "id": "mixlora_e256",
+          "kind": "mixlora",
+          "lora": {
+            "alpha": 128,
+            "rank": 64,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mixlora_num_experts": 256,
+            "mixlora_top_k": 2,
+            "mixlora_router_init_range": 0.02,
+            "mixlora_jitter_noise": 0.0,
+            "mixlora_router_loss": true,
+            "mixlora_router_aux_loss_coef": 0.001,
+            "mixlora_moe_target_modules": "gate_proj,down_proj,up_proj",
+            "mixlora_expert_lora_rank": 2,
+            "mixlora_expert_lora_alpha": 4
+          }
         }
       ],
       "seed": 42,
@@ -823,6 +1143,7 @@
       "train": {
         "batch_size": 1,
         "bf16": true,
+        "cleanup_large_artifacts_after_train": true,
         "flash_attn": "fa2",
         "fp16": false,
         "grad_accum": 2,
@@ -877,5 +1198,64 @@
       "train_prefix": "train"
     },
     "wandb_mode": "disabled"
+  },
+  "moe_trainable_params_sweep_lola_gpuvm": {
+    "extends": "moe_trainable_params_sweep_otus_cluster",
+    "output_root": "outputs/pipeline_runs/moe_trainable_params_sweep_lola_gpuvm",
+    "language_map_path": "configs/pipeline_10lang_map.json",
+    "logs_dir": "outputs/pipeline_runs/moe_trainable_params_sweep_lola_gpuvm/logs",
+    "executor": {
+      "type": "local",
+      "cuda_visible_devices": "0"
+    },
+    "sample": {
+      "enabled": true,
+      "source_type": "fineweb_datatrove",
+      "languages": [
+        "arb_Arab",
+        "arb_Latn",
+        "azj_Latn",
+        "hun_Latn",
+        "ind_Latn",
+        "jpn_Jpan",
+        "kor_Hang",
+        "rus_Cyrl",
+        "vie_Latn"
+      ],
+      "max_languages": 9,
+      "target_docs_per_language": 200,
+      "fairness_policy": "equal_documents",
+      "auto_adjust_target_to_min_available": false,
+      "allow_upsample": true,
+      "upsample_cap_factor": 1.0,
+      "fail_on_missing": true,
+      "availability_csv": "result_analysis/l2v_nested_samples/fineweb2-language-distribution.csv",
+      "availability_split": "train",
+      "output_dir": "outputs/pipeline_runs/moe_trainable_params_sweep_lola_gpuvm/sampled",
+      "shard_subdir": "samples"
+    },
+    "tokenization": {
+      "enabled": true,
+      "eval_fraction": 0.02,
+      "max_length": 1024,
+      "model_name": "meta-llama/Llama-3.1-8B",
+      "num_proc": 8,
+      "mask_pad_labels": true,
+      "output_dir": "outputs/pipeline_runs/moe_trainable_params_sweep_lola_gpuvm/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_trainable_params_sweep_lola_gpuvm/runs"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_trainable_params_sweep_lola_gpuvm/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_trainable_params_sweep_lola_gpuvm/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_trainable_params_sweep_lola_gpuvm/summary.csv"
+    },
+    "report": {
+      "enabled": true,
+      "output_xlsx": "outputs/pipeline_runs/moe_trainable_params_sweep_lola_gpuvm/report.xlsx"
+    }
   }
 }

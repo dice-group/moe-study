@@ -95,11 +95,11 @@
           "id": "hydralora",
           "kind": "hydralora",
           "lora": {
-            "alpha": 4,
-            "rank": 2
+            "alpha": 8,
+            "rank": 4
           },
           "params": {
-            "hydralora_lora_num": 42,
+            "hydralora_lora_num": 32,
             "hydralora_use_experts": false
           },
           "train": {
@@ -121,7 +121,7 @@
             "moelora_task_num": 1
           },
           "train": {
-            "batch_size": 74
+            "batch_size": 6
           }
         },
         {
@@ -144,7 +144,7 @@
             "mixlora_expert_lora_alpha": 4
           },
           "train": {
-            "batch_size": 256
+            "batch_size": 24
           }
         },
         {
@@ -184,10 +184,10 @@
           "id": "mov",
           "kind": "movlora",
           "lora": {
-            "target": "q_proj,k_proj,v_proj,o_proj"
+            "target": "k_proj,v_proj,down_proj"
           },
           "params": {
-            "movlora_num_experts": 64,
+            "movlora_num_experts": 164,
             "movlora_router_bias": false,
             "movlora_router_ignore_padding_tokens": false,
             "movlora_router_init_std": 0.02,
@@ -308,6 +308,7 @@
   "moe_study_profile_lola_gpuvm": {
     "extends": "moe_study_profile_otus_cluster",
     "output_root": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm",
+    "language_map_path": "configs/pipeline_10lang_map.json",
     "logs_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/logs",
     "run_naming": {
       "experiment_tag": "moe-study-lola-gpuvm-local-gpu1-seq",
@@ -315,11 +316,42 @@
     },
     "executor": {
       "type": "local",
-      "cuda_visible_devices": "1"
+      "cuda_visible_devices": "0"
+    },
+    "sample": {
+      "enabled": true,
+      "source_type": "fineweb_datatrove",
+      "languages": [
+        "arb_Arab",
+        "arb_Latn",
+        "azj_Latn",
+        "hun_Latn",
+        "ind_Latn",
+        "jpn_Jpan",
+        "kor_Hang",
+        "rus_Cyrl",
+        "vie_Latn"
+      ],
+      "max_languages": 10,
+      "target_docs_per_language": 1000,
+      "fairness_policy": "equal_documents",
+      "auto_adjust_target_to_min_available": false,
+      "allow_upsample": true,
+      "upsample_cap_factor": 1.0,
+      "fail_on_missing": true,
+      "availability_csv": "result_analysis/l2v_nested_samples/fineweb2-language-distribution.csv",
+      "availability_split": "train",
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/sampled",
+      "shard_subdir": "samples"
     },
     "tokenization": {
-      "enabled": false,
-      "output_dir": "outputs/pipeline_runs/hala_lola/tokenized"
+      "enabled": true,
+      "eval_fraction": 0.02,
+      "max_length": 1024,
+      "model_name": "meta-llama/Llama-3.1-8B",
+      "num_proc": 8,
+      "mask_pad_labels": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/tokenized"
     },
     "training": {
       "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/runs",

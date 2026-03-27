@@ -12,7 +12,7 @@ TRAINABLE_RE = re.compile(
 
 
 def safe_json_load(path: Path) -> dict[str, Any]:
-    if not path.exists():
+    if not path.exists() or not path.is_file():
         return {}
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))

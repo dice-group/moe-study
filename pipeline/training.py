@@ -142,6 +142,12 @@ def _approach_specific_train_args(
             '--cola_top_k', str(int(_cfg_value(cfg, 'cola_top_k', 1, 'top_k'))),
             *_lpr_args(cfg, common, language_map_path, experts, prefix='cola'),
         ])
+        use_cola_pissa_init = _cfg_value(cfg, 'use_cola_pissa_init', None, 'use_cola_pissa_init')
+        if use_cola_pissa_init is not None:
+            approach_args.extend(['--use_cola_pissa_init', str(bool(use_cola_pissa_init))])
+        cola_init_lora_weights = _cfg_value(cfg, 'cola_init_lora_weights', None, 'init_lora_weights')
+        if cola_init_lora_weights is not None:
+            approach_args.extend(['--cola_init_lora_weights', str(cola_init_lora_weights)])
         return approach_args
     if kind == 'hydralora':
         use_experts = bool(_cfg_value(cfg, 'hydralora_use_experts', True, 'use_experts'))
