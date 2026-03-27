@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from .runtime import (
@@ -14,6 +15,32 @@ from .runtime import (
 from ..checks import check_train
 from ..context import PipelineContext
 from ..training import build_training_cmd, run_training_variant
+
+
+_TRAINABLE_RE = re.compile(
+    r"trainable params:\s*([\d,]+)\s*\|\|\s*all params:\s*([\d,]+)\s*\|\|\s*trainable%:\s*([0-9.]+)"
+)
+
+
+def _extract_trainable_param_stats(log_path: Path) -> dict[str, object]:
+    if not log_path.exists():
+        return {}
+    last_match = None
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        match = _TRAINABLE_RE.search(line)
+        if match:
+            last_match = match
+    if last_match is None:
+        return {}
+    trainable_params = int(last_match.group(1).replace(",", ""))
+    all_params = int(last_match.group(2).replace(",", ""))
+    trainable_pct = float(last_match.group(3))
+    return {
+        "trainable_params": trainable_params,
+        "all_params": all_params,
+        "trainable_pct": trainable_pct,
+        "source_log": str(log_path),
+    }
 
 
 def stage_train(ctx: PipelineContext) -> None:
@@ -153,5 +180,8 @@ def stage_train(ctx: PipelineContext) -> None:
                             "additional_target": str(ctx.embedding_training_cfg.get("additional_target", "")),
                         },
                     )
+                    trainable_stats = _extract_trainable_param_stats(_log_path)
+                    if trainable_stats:
+                        _dump_json(output_dir / "trainable_params.json", trainable_stats)
                 _save_stage_state(ctx.state_path, "train", signature, [str(path) for path in expected])
                 check_train(ctx.train_root, runs, dry_run=ctx.args.dry_run)

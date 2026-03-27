@@ -360,6 +360,7 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                         "selected_tasks_file": str(selected_tasks_file.resolve()),
                         "selected_tasks_summary": str(selected_tasks_summary.resolve()),
                         "resolved_eval_tokenizer": tokenizer,
+                        "lm_eval_limit": str(ctx.env.get("LM_EVAL_LIMIT", "")).strip(),
                         "embedding_init_manifest": (
                             str(ctx.embedding_init_manifest_path.resolve()) if ctx.embedding_init_manifest_path.exists() else ""
                         ),

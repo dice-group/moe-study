@@ -187,7 +187,9 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     run_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     env = os.environ.copy()
-    python_exec = Path(sys.executable).resolve()
+    # Preserve virtualenv interpreter paths; resolving symlinks here can strip
+    # the venv context and cause stage subprocesses to miss installed packages.
+    python_exec = Path(sys.executable)
     env["PYTHON_EXECUTABLE"] = str(python_exec)
     env["PATH"] = f"{python_exec.parent}:{env.get('PATH', '')}"
     env["PYTHONPATH"] = f"{repo_root}:{repo_root / 'LLaMA-Factory' / 'src'}:{env.get('PYTHONPATH', '')}"

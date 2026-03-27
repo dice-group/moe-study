@@ -27,7 +27,12 @@ join_include_paths() {
 }
 
 ensure_external_task_configs() {
-  python3 "${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/generate_local_task_configs.py"
+  local generator="${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/generate_local_task_configs.py"
+  if [[ -f "${generator}" ]]; then
+    python3 "${generator}"
+  else
+    echo "[INFO] Skipping external task config generation; generator not found: ${generator}" >&2
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -98,7 +103,9 @@ MODEL_ARGS="pretrained=$BASE,peft=$CKPT,tokenizer=$TOK_USE"
 FLORES_CONFIGS="${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/flores_en_perplexity/configs"
 SIB200_TASKS="${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/sib200/configs"
 TAXI1500_TASKS="${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/taxi1500/configs"
-ensure_external_task_configs
+if [[ "${TASKS}" == *"sib200_"* || "${TASKS}" == *"taxi1500_"* ]]; then
+  ensure_external_task_configs
+fi
 if [[ -z "${LM_EVAL_INCLUDE_PATH:-}" ]]; then
   LM_EVAL_INCLUDE_PATH="$(join_include_paths "${FLORES_CONFIGS}" "${SIB200_TASKS}" "${TAXI1500_TASKS}")"
 fi
@@ -119,7 +126,7 @@ if [[ -n "${DEVICE_MAP}" && "${MODEL_ARGS}" != *"device_map="* ]]; then
   MODEL_ARGS="${MODEL_ARGS},device_map=${DEVICE_MAP}"
 fi
 
-mkdir -p "$OUTDIR" logs
+mkdir -p "$OUTDIR"
 
 if [[ -n "${MODULE_INIT:-}" ]]; then
   eval "${MODULE_INIT}"

@@ -67,19 +67,19 @@
           "id": "lora",
           "kind": "lora",
           "lora": {
-            "alpha": 256,
-            "rank": 128
+            "alpha": 128,
+            "rank": 64
           },
           "train": {
-            "batch_size": 5
+            "batch_size": 58
           }
         },
         {
           "id": "cola",
           "kind": "cola",
           "lora": {
-            "alpha": 256,
-            "rank": 128
+            "alpha": 4,
+            "rank": 2
           },
           "params": {
             "cola_num_A": 12,
@@ -88,36 +88,40 @@
             "cola_use_experts": false
           },
           "train": {
-            "batch_size": 5
+            "batch_size": 58
           }
         },
         {
           "id": "hydralora",
           "kind": "hydralora",
+          "lora": {
+            "alpha": 4,
+            "rank": 2
+          },
           "params": {
             "hydralora_lora_num": 42,
             "hydralora_use_experts": false
           },
           "train": {
-            "batch_size": 4
+            "batch_size": 58
           }
         },
         {
           "id": "moelora",
           "kind": "moelora",
           "lora": {
-            "alpha": 256,
-            "rank": 128
+            "alpha": 128,
+            "rank": 64
           },
           "params": {
             "moelora_gate_temperature": 1.0,
-            "moelora_num_experts": 4,
+            "moelora_num_experts": 32,
             "moelora_sparse_top_k": 2,
             "moelora_task_embedding_dim": 64,
             "moelora_task_num": 1
           },
           "train": {
-            "batch_size": 4
+            "batch_size": 74
           }
         },
         {
@@ -140,7 +144,7 @@
             "mixlora_expert_lora_alpha": 4
           },
           "train": {
-            "batch_size": 4
+            "batch_size": 256
           }
         },
         {
@@ -156,7 +160,7 @@
             "adamole_num_experts": 32
           },
           "train": {
-            "batch_size": 3
+            "batch_size": 96
           }
         },
         {
@@ -168,12 +172,12 @@
           },
           "params": {
             "mola_num_experts": 32,
-            "mola_num_null_experts": 0,
+            "mola_num_null_experts": 64,
             "mola_router_aux_loss_coef": 0.01,
-            "mola_top_k": 3
+            "mola_top_k": 24
           },
           "train": {
-            "batch_size": 4
+            "batch_size": 148
           }
         },
         {
@@ -192,7 +196,7 @@
             "movlora_top_k": 0
           },
           "train": {
-            "batch_size": 4
+            "batch_size": 32
           }
         },
         {
@@ -231,7 +235,7 @@
             "hmora_num_encoder_layer": 1
           },
           "train": {
-            "batch_size": 4
+            "batch_size": 58
           }
         }
       ],
@@ -320,7 +324,7 @@
     "training": {
       "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/runs",
       "train": {
-        "flash_attn": "sdpa"
+        "flash_attn": "fa2"
       }
     },
     "benchmark": {

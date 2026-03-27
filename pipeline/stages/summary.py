@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import csv
+import json
+import re
 
 from .runtime import (
     _dump_json,
@@ -12,6 +14,52 @@ from .runtime import (
     _stage_signature,
 )
 from ..context import PipelineContext
+
+
+_TRAINABLE_RE = re.compile(
+    r"trainable params:\s*([\d,]+)\s*\|\|\s*all params:\s*([\d,]+)\s*\|\|\s*trainable%:\s*([0-9.]+)"
+)
+
+
+def _latest_metric_from_log_jsonl(path, metric: str):
+    if not path.exists():
+        return None
+    latest = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        raw = line.strip()
+        if not raw:
+            continue
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        value = payload.get(metric)
+        if isinstance(value, (int, float)):
+            latest = value
+    return latest
+
+
+def _load_trainable_stats(run_id: str, output_dir, logs_root) -> dict[str, object]:
+    artifact_path = output_dir / "trainable_params.json"
+    if artifact_path.exists():
+        return _load_json(artifact_path)
+    run_log_dir = logs_root / "train_runs" / run_id
+    if not run_log_dir.exists():
+        return {}
+    candidates = sorted(run_log_dir.glob("*.train.log"), key=lambda path: path.stat().st_mtime, reverse=True)
+    for candidate in candidates:
+        last_match = None
+        for line in candidate.read_text(encoding="utf-8").splitlines():
+            match = _TRAINABLE_RE.search(line)
+            if match:
+                last_match = match
+        if last_match is not None:
+            return {
+                "trainable_params": int(last_match.group(1).replace(",", "")),
+                "all_params": int(last_match.group(2).replace(",", "")),
+                "trainable_pct": float(last_match.group(3)),
+            }
+    return {}
 
 
 def stage_summary(ctx: PipelineContext) -> None:
@@ -49,7 +97,11 @@ def stage_summary(ctx: PipelineContext) -> None:
                 output_dir = ctx.train_root / run_id
                 train_results = _load_json(output_dir / "train_results.json") if (output_dir / "train_results.json").exists() else {}
                 trainer_state = _load_json(output_dir / "trainer_state.json") if (output_dir / "trainer_state.json").exists() else {}
+                trainable_stats = _load_trainable_stats(run_id, output_dir, ctx.logs_root)
                 history = trainer_state.get("log_history", [])
+                eval_loss = _latest_metric(history, "eval_loss")
+                if eval_loss is None:
+                    eval_loss = _latest_metric_from_log_jsonl(output_dir / "trainer_log.jsonl", "eval_loss")
                 rows.append(
                     {
                         "run_id": run_id,
@@ -57,7 +109,11 @@ def stage_summary(ctx: PipelineContext) -> None:
                         "train_loss": train_results.get("train_loss"),
                         "train_runtime": train_results.get("train_runtime"),
                         "effective_tokens_per_sec": train_results.get("effective_tokens_per_sec"),
-                        "eval_loss": _latest_metric(history, "eval_loss"),
+                        "num_input_tokens_seen": train_results.get("num_input_tokens_seen"),
+                        "trainable_params": trainable_stats.get("trainable_params"),
+                        "all_params": trainable_stats.get("all_params"),
+                        "trainable_pct": trainable_stats.get("trainable_pct"),
+                        "eval_loss": eval_loss,
                         "language_prior_loss": _latest_metric(history, "language_prior_loss"),
                         "router_grad_present_frac": _latest_metric(history, "router_grad_present_frac"),
                         "expert_load_cv": _latest_metric(history, "expert_load_cv"),

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .runtime import (
     _abs,
+    _dump_json,
     _load_json,
     _missing_modules,
     _run_stage_cmd,
@@ -37,6 +38,8 @@ def stage_report(ctx: PipelineContext) -> None:
         ):
             ctx.logger.info("[SKIP] report stage (cache hit)")
         else:
+            resolved_profile_path = ctx.output_root / "state" / "resolved_profile.json"
+            _dump_json(resolved_profile_path, ctx.profile)
             cmd = [
                 "python3",
                 str(ctx.repo_root / "pipeline_tools" / "export_proof_results_to_excel.py"),
@@ -56,6 +59,18 @@ def stage_report(ctx: PipelineContext) -> None:
                     if ctx.embedding_init_manifest_path.exists()
                     else ctx.train_cfg.get("model_name_or_path", "")
                 ),
+                "--sample-manifest",
+                str(ctx.sampled_manifest),
+                "--tokenized-dir",
+                str(ctx.tokenized_dir),
+                "--profile-json",
+                str(resolved_profile_path),
+                "--repo-root",
+                str(ctx.repo_root),
+                "--profile-name",
+                str(ctx.args.profile),
+                "--logs-root",
+                str(ctx.logs_root),
                 "--output-xlsx",
                 str(ctx.report_xlsx),
             ]

@@ -96,6 +96,13 @@ def check_tokenize(tokenized_dir: Path, *, dry_run: bool) -> None:
     # Splits
     splits = collections.Counter(ds["split"])
     out["splits"] = dict(splits)
+    split_langs: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
+    split_tokens: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
+    for split_name, lang, ids in zip(ds["split"], ds["language"], ds["input_ids"]):
+        split_langs[str(split_name)][str(lang)] += 1
+        split_tokens[str(split_name)][str(lang)] += len(ids)
+    out["samples_per_language_by_split"] = {split: dict(counts) for split, counts in split_langs.items()}
+    out["tokens_per_language_by_split"] = {split: dict(counts) for split, counts in split_tokens.items()}
 
     # Language counts
     langs = collections.Counter(ds["language"])
