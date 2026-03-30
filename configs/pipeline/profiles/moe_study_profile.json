@@ -53,9 +53,9 @@
       "eval_dataset_name": "identity",
       "language_column": "language",
       "lora": {
-        "alpha": 64,
+        "alpha": 4,
         "dropout": 0.05,
-        "rank": 32,
+        "rank": 2,
         "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
       },
       "model_name_or_path": "meta-llama/Llama-3.1-8B",
@@ -71,7 +71,8 @@
             "rank": 64
           },
           "train": {
-            "batch_size": 58
+            "batch_size": 24,
+            "grad_accum": 2
           }
         },
         {
@@ -85,25 +86,27 @@
             "cola_num_A": 26,
             "cola_num_B": 39,
             "cola_strategy": "fully",
-            "cola_use_experts": false
+            "cola_use_experts": false,
+            "use_cola_pissa_init": false
           },
           "train": {
-            "batch_size": 58
+            "batch_size": 24,
+            "grad_accum": 2
           }
         },
         {
           "id": "hydralora",
           "kind": "hydralora",
           "lora": {
-            "alpha": 8,
-            "rank": 4
+            "alpha": 4,
+            "rank": 2
           },
           "params": {
             "hydralora_lora_num": 32,
             "hydralora_use_experts": false
           },
           "train": {
-            "batch_size": 58
+            "batch_size": 168
           }
         },
         {
@@ -121,30 +124,8 @@
             "moelora_task_num": 1
           },
           "train": {
-            "batch_size": 6
-          }
-        },
-        {
-          "id": "mixlora",
-          "kind": "mixlora",
-          "lora": {
-            "alpha": 4,
-            "rank": 2,
-            "target": "q_proj,k_proj,v_proj,o_proj"
-          },
-          "params": {
-            "mixlora_num_experts": 32,
-            "mixlora_top_k": 2,
-            "mixlora_router_init_range": 0.02,
-            "mixlora_jitter_noise": 0.0,
-            "mixlora_router_loss": true,
-            "mixlora_router_aux_loss_coef": 0.001,
-            "mixlora_moe_target_modules": "gate_proj,down_proj,up_proj",
-            "mixlora_expert_lora_rank": 2,
-            "mixlora_expert_lora_alpha": 4
-          },
-          "train": {
-            "batch_size": 24
+            "batch_size": 24,
+            "grad_accum": 2
           }
         },
         {
@@ -160,7 +141,7 @@
             "adamole_num_experts": 32
           },
           "train": {
-            "batch_size": 96
+            "batch_size": 166
           }
         },
         {
@@ -187,7 +168,7 @@
             "target": "k_proj,v_proj,down_proj"
           },
           "params": {
-            "movlora_num_experts": 164,
+            "movlora_num_experts": 32,
             "movlora_router_bias": false,
             "movlora_router_ignore_padding_tokens": false,
             "movlora_router_init_std": 0.02,
@@ -236,7 +217,8 @@
             "hmora_num_encoder_layer": 1
           },
           "train": {
-            "batch_size": 58
+            "batch_size": 22,
+            "grad_accum": 16
           }
         }
       ],
@@ -252,10 +234,9 @@
         "grad_accum": 2,
         "learning_rate": "2e-4",
         "logging_steps": 1,
-        "max_steps": 5,
         "num_train_epochs": 1.0,
-        "save_steps": 5,
-        "save_total_limit": 1,
+        "save_steps": 0.2,
+        "save_total_limit": 5,
         "use_reentrant_gc": true,
         "weight_decay": 0.0
       }
@@ -369,99 +350,6 @@
     },
     "report": {
       "output_xlsx": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/report.xlsx"
-    }
-  },
-  "moe_study_profile_lola_gpuvm_mixlora_smoke": {
-    "extends": "moe_study_profile_lola_gpuvm",
-    "language_map_path": "configs/pipeline_4lang_map.json",
-    "output_root": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_mixlora_smoke",
-    "logs_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_mixlora_smoke/logs",
-    "run_naming": {
-      "experiment_tag": "moe-study-lola-moelora-8b-smoke",
-      "language_count_hint": 4
-    },
-    "sample": {
-      "enabled": true,
-      "data_files": "sample_data/fixtures/multilingual_4lang/arb_Arab.jsonl,sample_data/fixtures/multilingual_4lang/hun_Latn.jsonl,sample_data/fixtures/multilingual_4lang/xho_Latn.jsonl,sample_data/fixtures/multilingual_4lang/zul_Latn.jsonl",
-      "languages": ["arb_Arab", "hun_Latn", "xho_Latn", "zul_Latn"],
-      "max_scan": 5000,
-      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_mixlora_smoke/sampled",
-      "per_language_target": 16,
-      "source_type": "json"
-    },
-    "tokenization": {
-      "enabled": true,
-      "model_name": "meta-llama/Llama-3.1-8B",
-      "num_proc": 1,
-      "eval_fraction": 0.02,
-      "max_length": 256,
-      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_mixlora_smoke/tokenized"
-    },
-    "training": {
-      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_mixlora_smoke/runs",
-      "runs": [
-        {
-          "id": "moelora",
-          "kind": "moelora",
-          "lora": {
-            "alpha": 256,
-            "rank": 128,
-            "target": "q_proj,k_proj,v_proj,o_proj"
-          },
-          "params": {
-            "moelora_num_experts": 12,
-            "moelora_sparse_top_k": 2,
-            "moelora_task_embedding_dim": 64,
-            "moelora_task_num": 1,
-            "moelora_gate_temperature": 1.0
-          },
-          "train": {
-            "batch_size": 1
-          }
-        }
-      ],
-      "eval": {
-        "enabled": false,
-        "eval_steps": 0.2,
-        "strategy": "no"
-      },
-      "train": {
-        "batch_size": 5,
-        "bf16": true,
-        "disable_gradient_checkpointing": false,
-        "flash_attn": "fa2",
-        "fp16": false,
-        "grad_accum": 2,
-        "learning_rate": "2e-4",
-        "logging_steps": 5,
-        "max_steps": 100,
-        "num_train_epochs": 1.0,
-        "save_steps": 0.5,
-        "save_total_limit": 1,
-        "use_reentrant_gc": true,
-        "weight_decay": 0.0
-      }
-    },
-    "benchmark": {
-      "enabled": false,
-      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_mixlora_smoke/benchmarks"
-    },
-    "baseline_eval": {
-      "enabled": false
-    },
-    "summary": {
-      "baseline_id": "moelora",
-      "gate_json": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_mixlora_smoke/gate.json",
-      "min_relative_improvement": 0.02,
-      "primary_metric": "eval_loss",
-      "summary_csv": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_mixlora_smoke/summary.csv"
-    },
-    "report": {
-      "enabled": true,
-      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_mixlora_smoke/report.xlsx"
-    },
-    "wandb": {
-      "enabled": false
     }
   }
 }
