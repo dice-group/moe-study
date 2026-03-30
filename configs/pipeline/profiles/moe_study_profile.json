@@ -144,7 +144,7 @@
             "adamole_num_experts": 32
           },
           "train": {
-            "batch_size": 8,
+            "batch_size": 9,
             "grad_accum": 2
           }
         },
@@ -162,7 +162,7 @@
             "mola_top_k": 24
           },
           "train": {
-            "batch_size": 12,
+            "batch_size": 20,
             "grad_accum": 2
           }
         },
@@ -182,7 +182,8 @@
             "movlora_top_k": 0
           },
           "train": {
-            "batch_size": 32
+            "batch_size": 26,
+            "grad_accum": 2
           }
         },
         {
@@ -204,10 +205,10 @@
             "hmora_share_router_for_w_i": true,
             "hmora_num_router_mlp_layers": 1,
             "hmora_router_hidden_dim": 32,
-            "hmora_epsilon_alpha": 4.0,
-            "hmora_alpha_shift": -2.0,
-            "hmora_alpha_low_bound": 0.2,
-            "hmora_alpha_up_bound": 0.8,
+            "hmora_epsilon_alpha": 2.0,
+            "hmora_alpha_shift": 0.0,
+            "hmora_alpha_low_bound": 0.0,
+            "hmora_alpha_up_bound": 1.0,
             "hmora_use_load_balancing_loss": false,
             "hmora_use_div_loss": true,
             "hmora_gamma_div_certain_t": 0.4,
@@ -216,8 +217,8 @@
             "hmora_gamma_div_balance_s": 1.0,
             "hmora_lambda_auxiliary": 0.003,
             "hmora_lambda_lm": 1.0,
-            "hmora_use_hydra_lora": false,
-            "hmora_eta_b": 1.0,
+            "hmora_use_hydra_lora": true,
+            "hmora_eta_b": 1.2,
             "hmora_task_token": "?",
             "hmora_num_encoder_layer": 1
           },
