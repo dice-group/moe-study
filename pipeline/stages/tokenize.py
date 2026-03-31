@@ -10,10 +10,12 @@ from .runtime import (
     _run_stage_cmd,
     _save_stage_state,
     _should_skip_stage,
+    _stage_log_path,
     _stage_signature,
 )
 from ..checks import check_tokenize
 from ..context import PipelineContext
+from ..executor import SlurmExecutor, build_executor
 
 
 def _resolve_languages_for_tokenize(ctx: PipelineContext) -> list[str]:
@@ -209,6 +211,108 @@ def _build_language_rates_for_tokenize(ctx: PipelineContext, languages: list[str
     return output_path
 
 
+def _submit_tokenize_slurm_array(
+    ctx: PipelineContext,
+    *,
+    languages: list[str],
+    rates_path: Path | None,
+    tokenize_model_name: str,
+) -> None:
+    token_cfg = ctx.tokenize_cfg
+    executor = ctx.executor
+    if not isinstance(executor, SlurmExecutor):
+        stage_cfg = dict(token_cfg)
+        stage_executors = ctx.profile.get("stage_executors", {})
+        if isinstance(stage_executors, dict):
+            stage_exec = stage_executors.get("tokenize")
+            if isinstance(stage_exec, dict):
+                merged_exec = dict(stage_exec)
+                if isinstance(stage_cfg.get("executor"), dict):
+                    merged_exec.update(stage_cfg["executor"])
+                stage_cfg["executor"] = merged_exec
+        profile_copy = dict(ctx.profile)
+        profile_copy["executor"] = dict(ctx.profile.get("executor", {}))
+        profile_copy["executor"]["type"] = "slurm"
+        executor = build_executor(profile_copy, stage_cfg)
+    if not isinstance(executor, SlurmExecutor):
+        raise SystemExit("tokenization.slurm_array_enabled requires a Slurm executor")
+
+    array_ranks = int(token_cfg.get("slurm_array_ranks", 0) or 0)
+    if array_ranks <= 0:
+        array_ranks = len(languages)
+    if array_ranks <= 0:
+        raise SystemExit("tokenization.slurm_array_ranks must be set when no languages list is available")
+
+    rank_output_dir = ctx.tokenized_dir.parent / f"{ctx.tokenized_dir.name}_ranks"
+    cmd = [
+        "python3",
+        str(ctx.repo_root / "data_prep" / "merlin_data_prep" / "distributed_data_processor" / "src" / "tokenize_slurm.py"),
+        "--shard_dir",
+        str(ctx.sample_shard_dir),
+        "--save_tokenized_data_dir",
+        str(rank_output_dir),
+        "--model_name",
+        tokenize_model_name,
+        "--num_proc",
+        str(int(token_cfg.get("num_proc", 1))),
+        "--eval_fraction",
+        str(float(token_cfg.get("eval_fraction", 0.02))),
+        "--eval_seed",
+        str(int(token_cfg.get("eval_seed", 42))),
+        "--sample_fraction",
+        str(float(token_cfg.get("sample_fraction", 1.0))),
+        "--sample_seed",
+        str(int(token_cfg.get("sample_seed", 42))),
+        "--max_length",
+        str(int(token_cfg.get("max_length", 1024))),
+        "--language-map",
+        str(ctx.language_map_path),
+        "--mask_pad_labels",
+        "true" if bool(token_cfg.get("mask_pad_labels", True)) else "false",
+    ]
+    if languages:
+        cmd.extend(["--languages", *languages])
+    if rates_path is not None:
+        cmd.extend(["--language_rates_json", str(rates_path)])
+    max_samples = int(token_cfg.get("max_samples", 0))
+    if max_samples > 0:
+        cmd.extend(["--max_samples", str(max_samples)])
+
+    stage_log = _stage_log_path(ctx.logs_root, ctx.env, "tokenize", "array")
+    slurm_output = ctx.logs_root / "tokenize_array_%A_%a.log"
+    array_spec = f"0-{array_ranks - 1}"
+    array_job_id = executor.submit_array(
+        cmd,
+        ctx.env,
+        ctx.args.dry_run,
+        stage_log,
+        array=array_spec,
+        slurm_output=str(slurm_output),
+    )
+    if ctx.args.dry_run or not array_job_id:
+        return
+
+    merge_cmd = [
+        "python3",
+        str(ctx.repo_root / "data_prep" / "merlin_data_prep" / "distributed_data_processor" / "src" / "merge_tokenized_ranks.py"),
+        "--tokenized_root",
+        str(rank_output_dir),
+        "--output_path",
+        str(ctx.tokenized_dir),
+        "--overwrite",
+    ]
+    merge_log = _stage_log_path(ctx.logs_root, ctx.env, "tokenize", "merge")
+    merge_job_id = executor.submit(
+        merge_cmd,
+        ctx.env,
+        ctx.args.dry_run,
+        merge_log,
+        dependency=f"afterok:{array_job_id}",
+    )
+    if merge_job_id:
+        executor.wait_for_jobs([(merge_job_id, merge_log)], ctx.args.dry_run)
+
+
 def stage_tokenize(ctx: PipelineContext) -> None:
     if "tokenize" in ctx.active_stages and bool(ctx.tokenize_cfg.get("enabled", True)):
         missing = _missing_modules(["datasets", "transformers"])
@@ -239,40 +343,48 @@ def stage_tokenize(ctx: PipelineContext) -> None:
         else:
             languages = _resolve_languages_for_tokenize(ctx)
             rates_path = _build_language_rates_for_tokenize(ctx, languages)
-            cmd = [
-                "python3",
-                str(ctx.repo_root / "data_prep" / "merlin_data_prep" / "distributed_data_processor" / "src" / "tokenize_slurm.py"),
-                "--shard_dir",
-                str(ctx.sample_shard_dir),
-                "--save_tokenized_data_dir",
-                str(ctx.tokenized_dir),
-                "--model_name",
-                tokenize_model_name,
-                "--num_proc",
-                str(int(ctx.tokenize_cfg.get("num_proc", 1))),
-                "--eval_fraction",
-                str(float(ctx.tokenize_cfg.get("eval_fraction", 0.02))),
-                "--eval_seed",
-                str(int(ctx.tokenize_cfg.get("eval_seed", 42))),
-                "--sample_fraction",
-                str(float(ctx.tokenize_cfg.get("sample_fraction", 1.0))),
-                "--sample_seed",
-                str(int(ctx.tokenize_cfg.get("sample_seed", 42))),
-                "--max_length",
-                str(int(ctx.tokenize_cfg.get("max_length", 1024))),
-                "--language-map",
-                str(ctx.language_map_path),
-                "--mask_pad_labels",
-                "true" if bool(ctx.tokenize_cfg.get("mask_pad_labels", True)) else "false",
-            ]
-            if languages:
-                cmd.extend(["--languages", *languages])
-            if rates_path is not None:
-                cmd.extend(["--language_rates_json", str(rates_path)])
-            max_samples = int(ctx.tokenize_cfg.get("max_samples", 0))
-            if max_samples > 0:
-                cmd.extend(["--max_samples", str(max_samples)])
-            _run_stage_cmd(cmd=cmd, env=ctx.env, dry_run=ctx.args.dry_run, logs_root=ctx.logs_root, stage="tokenize", executor=ctx.executor)
+            if bool(ctx.tokenize_cfg.get("slurm_array_enabled", False)):
+                _submit_tokenize_slurm_array(
+                    ctx,
+                    languages=languages,
+                    rates_path=rates_path,
+                    tokenize_model_name=tokenize_model_name,
+                )
+            else:
+                cmd = [
+                    "python3",
+                    str(ctx.repo_root / "data_prep" / "merlin_data_prep" / "distributed_data_processor" / "src" / "tokenize_slurm.py"),
+                    "--shard_dir",
+                    str(ctx.sample_shard_dir),
+                    "--save_tokenized_data_dir",
+                    str(ctx.tokenized_dir),
+                    "--model_name",
+                    tokenize_model_name,
+                    "--num_proc",
+                    str(int(ctx.tokenize_cfg.get("num_proc", 1))),
+                    "--eval_fraction",
+                    str(float(ctx.tokenize_cfg.get("eval_fraction", 0.02))),
+                    "--eval_seed",
+                    str(int(ctx.tokenize_cfg.get("eval_seed", 42))),
+                    "--sample_fraction",
+                    str(float(ctx.tokenize_cfg.get("sample_fraction", 1.0))),
+                    "--sample_seed",
+                    str(int(ctx.tokenize_cfg.get("sample_seed", 42))),
+                    "--max_length",
+                    str(int(ctx.tokenize_cfg.get("max_length", 1024))),
+                    "--language-map",
+                    str(ctx.language_map_path),
+                    "--mask_pad_labels",
+                    "true" if bool(ctx.tokenize_cfg.get("mask_pad_labels", True)) else "false",
+                ]
+                if languages:
+                    cmd.extend(["--languages", *languages])
+                if rates_path is not None:
+                    cmd.extend(["--language_rates_json", str(rates_path)])
+                max_samples = int(ctx.tokenize_cfg.get("max_samples", 0))
+                if max_samples > 0:
+                    cmd.extend(["--max_samples", str(max_samples)])
+                _run_stage_cmd(cmd=cmd, env=ctx.env, dry_run=ctx.args.dry_run, logs_root=ctx.logs_root, stage="tokenize", executor=ctx.executor)
             if not ctx.args.dry_run:
                 _save_stage_state(ctx.state_path, "tokenize", signature, [str(ctx.tokenized_dir)])
             check_tokenize(

@@ -205,6 +205,32 @@ class SlurmExecutor:
         """Submit a single job, optionally with a dependency (e.g. afterok:<jobid>)."""
         return self._sbatch_submit(cmd, env, dry_run, log_path, dependency=dependency)
 
+    def submit_array(
+        self,
+        cmd: list[str],
+        env: dict[str, str],
+        dry_run: bool,
+        log_path: Path,
+        *,
+        array: str,
+        dependency: str | None = None,
+        slurm_output: str | Path | None = None,
+    ) -> str | None:
+        """Submit a SLURM array job. Array should be a spec like '0-31'."""
+        return self._sbatch_submit(
+            cmd,
+            env,
+            dry_run,
+            log_path,
+            dependency=dependency,
+            array=array,
+            slurm_output=slurm_output,
+        )
+
+    def wait_for_jobs(self, jobs: list[tuple[str, Path]], dry_run: bool = False) -> None:
+        """Wait for jobs to finish, streaming Slurm logs into the provided paths."""
+        self._wait_for_jobs(jobs, dry_run)
+
     def _sbatch_submit(
         self,
         cmd: list[str],
@@ -212,6 +238,8 @@ class SlurmExecutor:
         dry_run: bool,
         log_path: Path,
         dependency: str | None = None,
+        array: str | None = None,
+        slurm_output: str | Path | None = None,
     ) -> str | None:
         """Write a job script and submit it.  Returns the Slurm job ID."""
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -226,7 +254,10 @@ class SlurmExecutor:
             return None
 
         job_name = _job_name_from_log(log_path)
-        slurm_log = log_path.with_suffix(".slurm.log")
+        if slurm_output is None:
+            slurm_log = str(log_path.with_suffix(".slurm.log"))
+        else:
+            slurm_log = str(slurm_output)
         script = self._build_job_script(cmd, env, job_name, slurm_log)
 
         # Write the job script to a temp file next to the log.
@@ -236,6 +267,8 @@ class SlurmExecutor:
         LOGGER.info("[SBATCH] Submitting %s", script_path)
         try:
             submit_cmd = ["sbatch", "--parsable"]
+            if array:
+                submit_cmd.append(f"--array={array}")
             if dependency:
                 submit_cmd.append(f"--dependency={dependency}")
             submit_cmd.append(str(script_path))
@@ -274,7 +307,7 @@ class SlurmExecutor:
         cmd: list[str],
         env: dict[str, str],
         job_name: str,
-        slurm_log: Path,
+        slurm_log: str,
     ) -> str:
         """Produce a complete sbatch shell script."""
         extra_sbatch_flags = list(self.extra_sbatch_flags)
