@@ -199,7 +199,7 @@
             "mola_top_k": 2
           },
           "train": {
-            "batch_size": 20,
+            "batch_size": 1,
             "grad_accum": 2
           }
         },
@@ -217,7 +217,7 @@
             "mola_top_k": 4
           },
           "train": {
-            "batch_size": 20,
+            "batch_size": 1,
             "grad_accum": 2
           }
         },
@@ -235,7 +235,7 @@
             "mola_top_k": 8
           },
           "train": {
-            "batch_size": 16,
+            "batch_size": 1,
             "grad_accum": 2
           }
         },
@@ -253,7 +253,7 @@
             "mola_top_k": 16
           },
           "train": {
-            "batch_size": 10,
+            "batch_size": 1,
             "grad_accum": 2
           }
         },
@@ -271,7 +271,7 @@
             "mola_top_k": 24
           },
           "train": {
-            "batch_size": 6,
+            "batch_size": 1,
             "grad_accum": 2
           }
         },
@@ -412,7 +412,7 @@
             "hmora_num_encoder_layer": 1
           },
           "train": {
-            "batch_size": 24,
+            "batch_size": 16,
             "grad_accum": 2
           }
         },
@@ -453,7 +453,7 @@
             "hmora_num_encoder_layer": 1
           },
           "train": {
-            "batch_size": 24,
+            "batch_size": 16,
             "grad_accum": 2
           }
         },
@@ -494,7 +494,7 @@
             "hmora_num_encoder_layer": 1
           },
           "train": {
-            "batch_size": 24,
+            "batch_size": 16,
             "grad_accum": 2
           }
         },
@@ -535,7 +535,7 @@
             "hmora_num_encoder_layer": 1
           },
           "train": {
-            "batch_size": 24,
+            "batch_size": 16,
             "grad_accum": 2
           }
         },
@@ -587,7 +587,7 @@
       "output_dir": "outputs/pipeline_runs/moe_study_profile_topk_sweep/benchmarks"
     },
     "wandb": {
-      "enabled": false
+      "enabled": true
     },
     "summary": {
       "gate_json": "outputs/pipeline_runs/moe_study_profile_topk_sweep/gate.json",
