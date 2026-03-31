@@ -26,6 +26,7 @@ from .runtime import (
     build_executor,
 )
 from .context import PipelineContext
+from .executor import SlurmExecutor
 from .data_stages import DATA_STAGE_HANDLERS
 from .model_eval_stages import MODEL_STAGE_HANDLERS
 
@@ -76,6 +77,20 @@ def _stage_profile_cfg(profile: dict[str, Any], stage: str) -> dict[str, Any]:
     key = stage_to_profile_key.get(stage, "")
     cfg = profile.get(key, {})
     return cfg if isinstance(cfg, dict) else {}
+
+
+def _resolve_stage_cfg(profile: dict[str, Any], stage: str) -> dict[str, Any]:
+    cfg = _stage_profile_cfg(profile, stage)
+    stage_executors = profile.get("stage_executors", {})
+    if isinstance(stage_executors, dict):
+        stage_exec = stage_executors.get(stage)
+        if isinstance(stage_exec, dict):
+            merged = dict(cfg) if isinstance(cfg, dict) else {}
+            exec_override = dict(stage_exec)
+            exec_override.update(merged.get("executor", {}) if isinstance(merged.get("executor"), dict) else {})
+            merged["executor"] = exec_override
+            return merged
+    return cfg
 
 
 def _build_language_map_from_csv(
@@ -162,6 +177,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--start-at", choices=STAGES, default="sample")
     parser.add_argument("--stop-after", choices=STAGES, default="summary")
     parser.add_argument("--run-id", action="append", default=[], help="Run only selected training run ids (e.g hmora, cola)")
+    parser.add_argument("--submit-chain", action="store_true", help="Submit stage-wise Slurm jobs with dependencies.")
     parser.add_argument("--executor-type", choices=["local", "slurm"], default="", help="Override executor type from profile.")
     parser.add_argument("--cuda-visible-devices", default="", help="Override CUDA_VISIBLE_DEVICES for pipeline subprocesses.",)
     parser.add_argument("--pycharm-debug", action="store_true", help="Attach train subprocesses to a PyCharm debug server.",)
@@ -398,6 +414,79 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     )
 
 
+def _submit_chain(args: argparse.Namespace) -> int:
+    repo_root = Path(__file__).resolve().parents[1]
+    config = _load_pipeline_config(_abs(repo_root, args.config))
+    profile = dict(_resolve_profile(config, args.profile))
+    run_ids = _parse_run_ids(args.run_id)
+
+    executor_cfg_raw = profile.get("executor", {})
+    executor_cfg = dict(executor_cfg_raw) if isinstance(executor_cfg_raw, dict) else {}
+    executor_overridden = False
+    if args.executor_type:
+        executor_cfg["type"] = args.executor_type
+        executor_overridden = True
+    if str(args.cuda_visible_devices).strip():
+        executor_cfg["cuda_visible_devices"] = str(args.cuda_visible_devices).strip()
+        executor_overridden = True
+    if executor_overridden:
+        profile["executor"] = executor_cfg
+
+    stage_start_idx = STAGES.index(args.start_at)
+    stage_stop_idx = STAGES.index(args.stop_after)
+    if stage_stop_idx < stage_start_idx:
+        raise SystemExit("--stop-after must come after --start-at")
+    active_stages = STAGES[stage_start_idx: stage_stop_idx + 1]
+
+    output_root = _abs(repo_root, profile.get("output_root", f"outputs/proof_runs/{args.profile}"))
+    logs_root = _abs(repo_root, profile.get("logs_dir", str(output_root / "logs")))
+    logs_root.mkdir(parents=True, exist_ok=True)
+
+    chain_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    dependency: str | None = None
+    submitted: list[str] = []
+
+    for stage in active_stages:
+        stage_cfg = _resolve_stage_cfg(profile, stage)
+        if isinstance(stage_cfg, dict) and stage_cfg.get("enabled") is False:
+            continue
+        executor = build_executor(profile, stage_cfg)
+        if not isinstance(executor, SlurmExecutor):
+            raise SystemExit(f"submit-chain requires Slurm executor for stage '{stage}'")
+        cmd = [
+            sys.executable,
+            "-m",
+            "pipeline.run",
+            "--config",
+            args.config,
+            "--profile",
+            args.profile,
+            "--start-at",
+            stage,
+            "--stop-after",
+            stage,
+            "--force-stage",
+            stage,
+            "--executor-type",
+            "local",
+        ]
+        if args.dry_run:
+            cmd.append("--dry-run")
+        for run_id in run_ids:
+            cmd.extend(["--run-id", run_id])
+        log_path = logs_root / f"chain_{stage}.{chain_timestamp}.log"
+        job_id = executor.submit(cmd, os.environ.copy(), args.dry_run, log_path, dependency=dependency)
+        if job_id:
+            dependency = f"afterok:{job_id}"
+            submitted.append(job_id)
+
+    if submitted:
+        print(f"Submitted {len(submitted)} job(s): {' -> '.join(submitted)}")
+    else:
+        print("No stages submitted (all disabled or dry-run).")
+    return 0
+
+
 def main() -> int:
     args = _parse_args()
     if args.list_profiles:
@@ -411,6 +500,8 @@ def main() -> int:
             suffix = f"  (extends: {extends})" if extends else ""
             print(f"  {name}{suffix}")
         return 0
+    if args.submit_chain:
+        return _submit_chain(args)
     ctx = _build_context(args)
     stage_handlers = {**DATA_STAGE_HANDLERS, **MODEL_STAGE_HANDLERS}
     run_started_perf = time.perf_counter()
@@ -445,7 +536,7 @@ def main() -> int:
         handler = stage_handlers.get(stage)
         if handler is None:
             raise SystemExit(f"No stage handler configured for: {stage}")
-        stage_cfg = _stage_profile_cfg(ctx.profile, stage)
+        stage_cfg = _resolve_stage_cfg(ctx.profile, stage)
         ctx.executor = build_executor(ctx.profile, stage_cfg)
         stage_started_perf = time.perf_counter()
         ctx.logger.info("[STAGE_START] %s", stage)

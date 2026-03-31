@@ -193,12 +193,25 @@ class SlurmExecutor:
                 submitted.append((job_id, log_path))
         return submitted
 
+    def submit(
+        self,
+        cmd: list[str],
+        env: dict[str, str],
+        dry_run: bool,
+        log_path: Path,
+        *,
+        dependency: str | None = None,
+    ) -> str | None:
+        """Submit a single job, optionally with a dependency (e.g. afterok:<jobid>)."""
+        return self._sbatch_submit(cmd, env, dry_run, log_path, dependency=dependency)
+
     def _sbatch_submit(
         self,
         cmd: list[str],
         env: dict[str, str],
         dry_run: bool,
         log_path: Path,
+        dependency: str | None = None,
     ) -> str | None:
         """Write a job script and submit it.  Returns the Slurm job ID."""
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -222,8 +235,12 @@ class SlurmExecutor:
 
         LOGGER.info("[SBATCH] Submitting %s", script_path)
         try:
+            submit_cmd = ["sbatch", "--parsable"]
+            if dependency:
+                submit_cmd.append(f"--dependency={dependency}")
+            submit_cmd.append(str(script_path))
             result = subprocess.run(
-                ["sbatch", "--parsable", str(script_path)],
+                submit_cmd,
                 capture_output=True,
                 text=True,
                 check=True,

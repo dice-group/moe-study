@@ -291,13 +291,60 @@
       "project": "moe-study-otus-cluster-5step",
       "train_prefix": "train"
     },
-    "wandb_mode": "disabled"
+    "wandb_mode": "disabled",
+    "stage_executors": {
+      "sample": {
+        "partition": "normal",
+        "gres": "cpu"
+      },
+      "tokenizer_extend": {
+        "partition": "normal",
+        "gres": "cpu"
+      },
+      "embedding_init": {
+        "partition": "normal",
+        "gres": "cpu"
+      },
+      "tokenize": {
+        "partition": "normal",
+        "gres": "cpu"
+      },
+      "audit": {
+        "partition": "normal",
+        "gres": "cpu"
+      },
+      "embedding_verify": {
+        "partition": "normal",
+        "gres": "cpu"
+      },
+      "summary": {
+        "partition": "normal",
+        "gres": "cpu"
+      },
+      "report": {
+        "partition": "normal",
+        "gres": "cpu"
+      },
+      "train": {
+        "partition": "gpu",
+        "gres": "gpu:h100:1"
+      },
+      "benchmark": {
+        "partition": "gpu",
+        "gres": "gpu:h100:1"
+      },
+      "baseline_eval": {
+        "partition": "gpu",
+        "gres": "gpu:h100:1"
+      }
+    }
   },
   "moe_study_profile_lola_gpuvm": {
     "extends": "moe_study_profile_otus_cluster",
     "output_root": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm",
     "language_map_path": "configs/pipeline_10lang_map.json",
     "logs_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/logs",
+    "stage_executors": {},
     "run_naming": {
       "experiment_tag": "moe-study-lola-gpuvm-local-gpu1-seq",
       "language_count_hint": 10
@@ -580,7 +627,8 @@
       "summary_csv": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/summary.csv"
     },
     "report": {
-      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/report.xlsx"
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/report.xlsx",
+      "enabled": true
     },
     "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
     "sample": {
@@ -822,7 +870,8 @@
       "summary_csv": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/summary.csv"
     },
     "report": {
-      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/report.xlsx"
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/report.xlsx",
+      "enabled": true
     },
     "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
     "sample": {
@@ -1054,7 +1103,8 @@
       "summary_csv": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/summary.csv"
     },
     "report": {
-      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/report.xlsx"
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/report.xlsx",
+      "enabled": true
     },
     "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
     "sample": {
