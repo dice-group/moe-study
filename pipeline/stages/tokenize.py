@@ -80,6 +80,17 @@ def _build_language_rates_for_tokenize(ctx: PipelineContext, languages: list[str
     split_column = str(token_cfg.get("language_rates_csv_split_column", "split")).strip() or "split"
     docs_column = str(token_cfg.get("language_rates_csv_documents_column", "documents")).strip() or "documents"
     english_key = str(token_cfg.get("language_rates_english_key", "english")).strip() or "english"
+    english_override = token_cfg.get("language_rates_english_docs_override")
+    english_docs_count = token_cfg.get("language_rates_english_docs_count")
+    english_divisor = token_cfg.get("language_rates_english_undersample_divisor", 1)
+    counts_tsv = str(token_cfg.get("language_rates_counts_tsv", "")).strip()
+    counts_lang_col = str(token_cfg.get("language_rates_counts_tsv_language_column", "language")).strip() or "language"
+    counts_val_col = str(token_cfg.get("language_rates_counts_tsv_count_column", "count")).strip() or "count"
+    counts_has_header = bool(token_cfg.get("language_rates_counts_tsv_has_header", False))
+    require_positive = bool(token_cfg.get("language_rates_require_positive_counts", True))
+
+    if english_key not in languages:
+        return None
 
     docs: dict[str, float] = {}
     with open(csv_path, newline="", encoding="utf-8") as handle:
@@ -106,17 +117,86 @@ def _build_language_rates_for_tokenize(ctx: PipelineContext, languages: list[str
                 value = 0.0
             docs[subset] = max(0.0, value)
 
-    if english_key not in docs:
-        raise SystemExit(f"language_rates_csv missing '{english_key}' in column '{subset_column}': {csv_path}")
+    counts: dict[str, float] = {}
+    if counts_tsv:
+        with open(counts_tsv, newline="", encoding="utf-8") as handle:
+            if counts_has_header:
+                reader = csv.DictReader(handle, delimiter="\t")
+                if not reader.fieldnames:
+                    raise SystemExit(f"language_rates_counts_tsv is missing a header: {counts_tsv}")
+                if counts_lang_col not in reader.fieldnames or counts_val_col not in reader.fieldnames:
+                    raise SystemExit(
+                        f"language_rates_counts_tsv missing columns '{counts_lang_col}', '{counts_val_col}'. "
+                        f"Found: {reader.fieldnames}"
+                    )
+                for row in reader:
+                    lang = str(row.get(counts_lang_col, "")).strip()
+                    if not lang:
+                        continue
+                    raw = row.get(counts_val_col, 0)
+                    try:
+                        value = float(raw)
+                    except (TypeError, ValueError):
+                        value = 0.0
+                    counts[lang] = max(0.0, value)
+            else:
+                for line in handle:
+                    parts = line.strip().split("\t")
+                    if len(parts) < 2:
+                        continue
+                    lang = parts[0].strip()
+                    if not lang:
+                        continue
+                    try:
+                        value = float(parts[1])
+                    except (TypeError, ValueError):
+                        value = 0.0
+                    counts[lang] = max(0.0, value)
 
-    other_docs = [docs.get(lang, 0.0) for lang in languages if lang != english_key and docs.get(lang, 0.0) > 0.0]
-    if not other_docs:
-        raise SystemExit(f"language_rates_csv has no positive docs for non-english languages: {csv_path}")
+    if english_override is not None:
+        try:
+            target_map = counts if counts_tsv else docs
+            target_map[english_key] = float(english_override)
+        except (TypeError, ValueError):
+            raise SystemExit(f"language_rates_english_docs_override must be numeric, got {english_override}")
+    elif english_key not in docs:
+        if english_docs_count is None and not counts_tsv:
+            raise SystemExit(f"language_rates_csv missing '{english_key}' in column '{subset_column}': {csv_path}")
+        try:
+            base = float(english_docs_count)
+        except (TypeError, ValueError):
+            raise SystemExit(f"language_rates_english_docs_count must be numeric, got {english_docs_count}")
+        try:
+            divisor = float(english_divisor) if english_divisor is not None else 1.0
+        except (TypeError, ValueError):
+            divisor = 1.0
+        if divisor <= 0:
+            divisor = 1.0
+        if not counts_tsv:
+            docs[english_key] = base / divisor
 
-    median_docs = float(statistics.median(other_docs))
-    english_docs = float(docs.get(english_key, 0.0))
+    if counts_tsv:
+        missing_counts = [lang for lang in languages if lang not in counts]
+        if missing_counts:
+            raise SystemExit(f"language_rates_counts_tsv missing languages: {missing_counts}")
+        if require_positive:
+            non_positive = [lang for lang in languages if counts.get(lang, 0.0) <= 0.0]
+            if non_positive:
+                raise SystemExit(f"language_rates_counts_tsv has non-positive counts for languages: {non_positive}")
+        other_docs = [counts.get(lang, 0.0) for lang in languages if lang != english_key and counts.get(lang, 0.0) > 0.0]
+        if not other_docs:
+            raise SystemExit(f"language_rates_counts_tsv has no positive counts for non-english languages: {counts_tsv}")
+        median_docs = float(statistics.median(other_docs))
+        english_docs = float(counts.get(english_key, 0.0))
+    else:
+        other_docs = [docs.get(lang, 0.0) for lang in languages if lang != english_key and docs.get(lang, 0.0) > 0.0]
+        if not other_docs:
+            raise SystemExit(f"language_rates_csv has no positive docs for non-english languages: {csv_path}")
+        median_docs = float(statistics.median(other_docs))
+        english_docs = float(docs.get(english_key, 0.0))
     if english_docs <= 0:
-        raise SystemExit(f"language_rates_csv has non-positive docs for '{english_key}': {csv_path}")
+        source = counts_tsv if counts_tsv else csv_path
+        raise SystemExit(f"language_rates source has non-positive docs for '{english_key}': {source}")
 
     base_rate = float(token_cfg.get("sample_fraction", 1.0))
     english_rate = base_rate * median_docs / english_docs

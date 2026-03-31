@@ -376,15 +376,19 @@
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
       "languages_csv_column": "subset",
       "languages_csv_split": "train",
-      "languages_extra": [
-        "english"
-      ],
+      "languages_extra": [],
       "language_rates_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
       "language_rates_csv_column": "subset",
       "language_rates_csv_split": "train",
       "language_rates_csv_documents_column": "documents",
       "language_rates_english_key": "english",
-      "english_median_check": true
+      "english_median_check": false,
+      "language_rates_english_docs_count": 25900000000,
+      "language_rates_english_undersample_divisor": 50,
+      "language_rates_counts_tsv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv",
+      "language_rates_counts_tsv_has_header": false,
+      "language_rates_counts_tsv_language_column": "language",
+      "language_rates_counts_tsv_count_column": "count"
     },
     "training": {
       "num_experts": 2,
@@ -591,9 +595,7 @@
     "language_map_csv_family_column": "family",
     "language_map_csv_split_column": "split",
     "language_map_csv_split": "train",
-    "language_map_extra_languages": {
-      "english": "English"
-    },
+    "language_map_extra_languages": {},
     "language_map_extra_family": "English"
   },
   "moe_study_profile_otus_cluster_96_langs": {
@@ -622,7 +624,13 @@
       "language_rates_csv_split": "train",
       "language_rates_csv_documents_column": "documents",
       "language_rates_english_key": "english",
-      "english_median_check": true
+      "english_median_check": true,
+      "language_rates_english_docs_count": 25900000000,
+      "language_rates_english_undersample_divisor": 50,
+      "language_rates_counts_tsv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv",
+      "language_rates_counts_tsv_has_header": false,
+      "language_rates_counts_tsv_language_column": "language",
+      "language_rates_counts_tsv_count_column": "count"
     },
     "training": {
       "num_experts": 32,
@@ -860,7 +868,13 @@
       "language_rates_csv_split": "train",
       "language_rates_csv_documents_column": "documents",
       "language_rates_english_key": "english",
-      "english_median_check": true
+      "english_median_check": true,
+      "language_rates_english_docs_count": 25900000000,
+      "language_rates_english_undersample_divisor": 50,
+      "language_rates_counts_tsv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv",
+      "language_rates_counts_tsv_has_header": false,
+      "language_rates_counts_tsv_language_column": "language",
+      "language_rates_counts_tsv_count_column": "count"
     },
     "training": {
       "num_experts": 32,
