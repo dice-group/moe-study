@@ -12,6 +12,7 @@ import json
 import logging
 import math
 import re
+import statistics
 from pathlib import Path
 from typing import Any
 
@@ -80,7 +81,15 @@ def check_sample(sampled_dir: Path, shard_dir: Path, *, dry_run: bool) -> None:
 # tokenize
 # ---------------------------------------------------------------------------
 
-def check_tokenize(tokenized_dir: Path, *, dry_run: bool) -> None:
+def check_tokenize(
+    tokenized_dir: Path,
+    *,
+    dry_run: bool,
+    expected_languages: list[str] | None = None,
+    english_median_check: bool = False,
+    english_key: str = "english",
+    english_median_tolerance: float = 0.05,
+) -> None:
     """Verify tokenized dataset: row counts, token counts, splits, language IDs, example."""
 
     if dry_run:
@@ -166,6 +175,39 @@ def check_tokenize(tokenized_dir: Path, *, dry_run: bool) -> None:
         out["pass"] = False
         _write_check(tokenized_dir / "_check.json", out)
         raise SystemExit("[CHECK FAIL] tokenize: missing 'language_ids' column")
+
+    if expected_languages:
+        expected = sorted({str(item) for item in expected_languages if str(item).strip()})
+        missing = [lang for lang in expected if lang not in langs]
+        if missing:
+            out["pass"] = False
+            out["missing_languages"] = missing
+            _write_check(tokenized_dir / "_check.json", out)
+            raise SystemExit(f"[CHECK FAIL] tokenize: missing languages in tokenized data: {missing}")
+
+    if english_median_check and expected_languages:
+        english_key = str(english_key or "english").strip()
+        if english_key not in langs:
+            out["pass"] = False
+            out["english_missing"] = english_key
+            _write_check(tokenized_dir / "_check.json", out)
+            raise SystemExit(f"[CHECK FAIL] tokenize: english key '{english_key}' missing from tokenized data")
+        expected_set = {str(item) for item in expected_languages if str(item).strip()}
+        other_counts = [langs[lang] for lang in expected_set if lang != english_key and lang in langs]
+        if other_counts:
+            median_count = int(statistics.median(other_counts))
+            english_count = int(langs.get(english_key, 0))
+            tolerance = max(1, int(median_count * float(english_median_tolerance)))
+            if abs(english_count - median_count) > tolerance:
+                out["pass"] = False
+                out["english_median_expected"] = median_count
+                out["english_median_actual"] = english_count
+                out["english_median_tolerance"] = tolerance
+                _write_check(tokenized_dir / "_check.json", out)
+                raise SystemExit(
+                    "[CHECK FAIL] tokenize: english sample count is not near median of other languages "
+                    f"(expected ~{median_count} ±{tolerance}, got {english_count})"
+                )
 
     _write_check(tokenized_dir / "_check.json", out)
 
@@ -286,7 +328,12 @@ def _find_checkpoints(run_dir: Path) -> list[Path]:
 
 def _adapter_file(d: Path) -> Path | None:
     """Return the adapter weight file inside a directory, or None."""
-    for name in ("adapter_model.safetensors", "adapter_model.bin"):
+    for name in (
+        "adapter_model.safetensors",
+        "adapter_model.bin",
+        "pytorch_model.bin",
+        "model.safetensors",
+    ):
         p = d / name
         if p.exists():
             return p

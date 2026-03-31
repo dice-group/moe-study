@@ -365,7 +365,26 @@
       "time": "03:36:00"
     },
     "tokenization": {
-      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_labeled/llama-3.1-8B_tokenizer/10_langs"
+      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_0p5pct/llama-3.1-8B_tokenizer/10_langs",
+      "enabled": true,
+      "model_name": "meta-llama/Llama-3.1-8B",
+      "num_proc": 32,
+      "max_length": 1024,
+      "eval_fraction": 0.02,
+      "mask_pad_labels": true,
+      "sample_fraction": 0.005,
+      "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
+      "languages_csv_column": "subset",
+      "languages_csv_split": "train",
+      "languages_extra": [
+        "english"
+      ],
+      "language_rates_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
+      "language_rates_csv_column": "subset",
+      "language_rates_csv_split": "train",
+      "language_rates_csv_documents_column": "documents",
+      "language_rates_english_key": "english",
+      "english_median_check": true
     },
     "training": {
       "num_experts": 2,
@@ -558,7 +577,24 @@
     },
     "report": {
       "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/report.xlsx"
-    }
+    },
+    "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
+    "sample": {
+      "enabled": false,
+      "output_dir": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/sharded_samples"
+    },
+    "run_naming": {
+      "language_count_hint": 10
+    },
+    "language_map_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
+    "language_map_csv_subset_column": "subset",
+    "language_map_csv_family_column": "family",
+    "language_map_csv_split_column": "split",
+    "language_map_csv_split": "train",
+    "language_map_extra_languages": {
+      "english": "English"
+    },
+    "language_map_extra_family": "English"
   },
   "moe_study_profile_otus_cluster_96_langs": {
     "extends": "moe_study_profile_otus_cluster",
@@ -567,7 +603,26 @@
       "time": "34:30:00"
     },
     "tokenization": {
-      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison/llama-3.1-8B_tokenizer/96_langs"
+      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_0p5pct/llama-3.1-8B_tokenizer/96_langs",
+      "enabled": true,
+      "model_name": "meta-llama/Llama-3.1-8B",
+      "num_proc": 32,
+      "max_length": 1024,
+      "eval_fraction": 0.02,
+      "mask_pad_labels": true,
+      "sample_fraction": 0.005,
+      "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/96.csv",
+      "languages_csv_column": "subset",
+      "languages_csv_split": "train",
+      "languages_extra": [
+        "english"
+      ],
+      "language_rates_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/96.csv",
+      "language_rates_csv_column": "subset",
+      "language_rates_csv_split": "train",
+      "language_rates_csv_documents_column": "documents",
+      "language_rates_english_key": "english",
+      "english_median_check": true
     },
     "training": {
       "num_experts": 32,
@@ -760,7 +815,24 @@
     },
     "report": {
       "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/report.xlsx"
-    }
+    },
+    "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
+    "sample": {
+      "enabled": false,
+      "output_dir": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/sharded_samples"
+    },
+    "run_naming": {
+      "language_count_hint": 96
+    },
+    "language_map_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/96.csv",
+    "language_map_csv_subset_column": "subset",
+    "language_map_csv_family_column": "family",
+    "language_map_csv_split_column": "split",
+    "language_map_csv_split": "train",
+    "language_map_extra_languages": {
+      "english": "English"
+    },
+    "language_map_extra_family": "English"
   },
   "moe_study_profile_otus_cluster_200_langs": {
     "extends": "moe_study_profile_otus_cluster",
@@ -769,7 +841,26 @@
       "time": "72:00:00"
     },
     "tokenization": {
-      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison/llama-3.1-8B_tokenizer/200_langs"
+      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_0p5pct/llama-3.1-8B_tokenizer/200_langs",
+      "enabled": true,
+      "model_name": "meta-llama/Llama-3.1-8B",
+      "num_proc": 32,
+      "max_length": 1024,
+      "eval_fraction": 0.02,
+      "mask_pad_labels": true,
+      "sample_fraction": 0.005,
+      "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/200.csv",
+      "languages_csv_column": "subset",
+      "languages_csv_split": "train",
+      "languages_extra": [
+        "english"
+      ],
+      "language_rates_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/200.csv",
+      "language_rates_csv_column": "subset",
+      "language_rates_csv_split": "train",
+      "language_rates_csv_documents_column": "documents",
+      "language_rates_english_key": "english",
+      "english_median_check": true
     },
     "training": {
       "num_experts": 32,
@@ -950,6 +1041,23 @@
     },
     "report": {
       "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/report.xlsx"
-    }
+    },
+    "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
+    "sample": {
+      "enabled": false,
+      "output_dir": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/sharded_samples"
+    },
+    "run_naming": {
+      "language_count_hint": 200
+    },
+    "language_map_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/200.csv",
+    "language_map_csv_subset_column": "subset",
+    "language_map_csv_family_column": "family",
+    "language_map_csv_split_column": "split",
+    "language_map_csv_split": "train",
+    "language_map_extra_languages": {
+      "english": "English"
+    },
+    "language_map_extra_family": "English"
   }
 }

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import json
 import logging
@@ -77,6 +78,62 @@ def _stage_profile_cfg(profile: dict[str, Any], stage: str) -> dict[str, Any]:
     return cfg if isinstance(cfg, dict) else {}
 
 
+def _build_language_map_from_csv(
+    *,
+    csv_path: Path,
+    output_path: Path,
+    subset_column: str = "subset",
+    family_column: str = "family",
+    split_column: str = "split",
+    split_value: str = "train",
+    extra_languages: dict[str, str] | None = None,
+) -> Path:
+    rows: dict[str, str] = {}
+    with csv_path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        if not reader.fieldnames:
+            raise SystemExit(f"language_map_csv is missing a header: {csv_path}")
+        if subset_column not in reader.fieldnames:
+            raise SystemExit(f"language_map_csv missing column '{subset_column}'. Found: {reader.fieldnames}")
+        if family_column not in reader.fieldnames:
+            raise SystemExit(f"language_map_csv missing column '{family_column}'. Found: {reader.fieldnames}")
+        if split_value and split_column not in reader.fieldnames:
+            raise SystemExit(f"language_map_csv missing split column '{split_column}'. Found: {reader.fieldnames}")
+
+        for row in reader:
+            if split_value and str(row.get(split_column, "")).strip() != split_value:
+                continue
+            subset = str(row.get(subset_column, "")).strip()
+            if not subset:
+                continue
+            family = str(row.get(family_column, "")).strip() or "unknown"
+            rows.setdefault(subset, family)
+
+    if extra_languages:
+        for lang, family in extra_languages.items():
+            if not str(lang).strip():
+                continue
+            rows.setdefault(str(lang).strip(), str(family).strip() or "unknown")
+
+    if not rows:
+        raise SystemExit(f"No languages resolved from language_map_csv: {csv_path}")
+
+    grouped: dict[str, list[str]] = {}
+    for lang, family in rows.items():
+        grouped.setdefault(family, []).append(lang)
+
+    payload: dict[str, dict[str, Any]] = {}
+    for idx, family in enumerate(sorted(grouped.keys())):
+        payload[str(idx)] = {
+            "group": family,
+            "languages": sorted(grouped[family]),
+        }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return output_path
+
+
 def _configure_pipeline_logger(logs_root: Path, run_timestamp: str) -> logging.Logger:
     logger = logging.getLogger("proof_pipeline")
     logger.setLevel(logging.INFO)
@@ -146,7 +203,30 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     output_root.mkdir(parents=True, exist_ok=True)
 
     # stage wise config resolution
-    language_map_path = _abs(repo_root, profile["language_map_path"])
+    language_map_csv = profile.get("language_map_csv")
+    if isinstance(language_map_csv, str) and language_map_csv.strip():
+        csv_path = _abs(repo_root, language_map_csv)
+        extra_raw = profile.get("language_map_extra_languages", {})
+        extra: dict[str, str] = {}
+        if isinstance(extra_raw, dict):
+            extra = {str(k): str(v) for k, v in extra_raw.items() if str(k).strip()}
+        elif isinstance(extra_raw, list):
+            fallback_family = str(profile.get("language_map_extra_family", "unknown")).strip() or "unknown"
+            for item in extra_raw:
+                if str(item).strip():
+                    extra[str(item).strip()] = fallback_family
+        output_map_path = output_root / "language_map_from_csv.json"
+        language_map_path = _build_language_map_from_csv(
+            csv_path=csv_path,
+            output_path=output_map_path,
+            subset_column=str(profile.get("language_map_csv_subset_column", "subset")).strip() or "subset",
+            family_column=str(profile.get("language_map_csv_family_column", "family")).strip() or "family",
+            split_column=str(profile.get("language_map_csv_split_column", "split")).strip() or "split",
+            split_value=str(profile.get("language_map_csv_split", "train")).strip(),
+            extra_languages=extra,
+        )
+    else:
+        language_map_path = _abs(repo_root, profile["language_map_path"])
     sample_cfg = profile.get("sample", {})
     tokenize_cfg = profile.get("tokenization", {})
     audit_cfg = profile.get("audit", {})

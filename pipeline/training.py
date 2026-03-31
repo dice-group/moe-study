@@ -394,6 +394,9 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         '--include_effective_tokens_per_second', 'true',
         '--include_num_input_tokens_seen', 'true',
     ]
+    save_strategy = train.get('save_strategy')
+    if save_strategy is not None:
+        train_args.extend(['--save_strategy', str(save_strategy)])
     save_total_limit = train.get('save_total_limit')
     if save_total_limit is not None:
         save_total_limit_value = int(save_total_limit)
