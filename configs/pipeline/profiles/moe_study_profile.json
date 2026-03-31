@@ -412,7 +412,7 @@
       "time": "03:36:00"
     },
     "tokenization": {
-      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_0p5pct/llama-3.1-8B_tokenizer/10_langs",
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized",
       "enabled": true,
       "model_name": "meta-llama/Llama-3.1-8B",
       "num_proc": 32,
@@ -655,7 +655,7 @@
       "time": "34:30:00"
     },
     "tokenization": {
-      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_0p5pct/llama-3.1-8B_tokenizer/96_langs",
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/tokenized",
       "enabled": true,
       "model_name": "meta-llama/Llama-3.1-8B",
       "num_proc": 32,
@@ -902,7 +902,7 @@
       "time": "72:00:00"
     },
     "tokenization": {
-      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_0p5pct/llama-3.1-8B_tokenizer/200_langs",
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/tokenized",
       "enabled": true,
       "model_name": "meta-llama/Llama-3.1-8B",
       "num_proc": 32,
