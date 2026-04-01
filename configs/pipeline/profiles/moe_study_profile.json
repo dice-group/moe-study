@@ -64,7 +64,7 @@
       "report_to": "none",
       "runs": [
         {
-          "id": "lora",
+          "id": "lora_r64",
           "kind": "lora",
           "lora": {
             "alpha": 128,
@@ -72,6 +72,18 @@
           },
           "train": {
             "batch_size": 24,
+            "grad_accum": 2
+          }
+        },
+        {
+          "id": "lora_r8",
+          "kind": "lora",
+          "lora": {
+            "alpha": 16,
+            "rank": 8
+          },
+          "train": {
+            "batch_size": 26,
             "grad_accum": 2
           }
         },
@@ -456,7 +468,7 @@
           }
         },
         {
-          "id": "lora",
+          "id": "lora_r8",
           "kind": "lora",
           "lora": {
             "alpha": 16,
