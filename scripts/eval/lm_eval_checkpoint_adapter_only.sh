@@ -82,7 +82,16 @@ if [[ ! -f "$CKPT/adapter_config.json" && -f "${CKPT}_adapter/adapter_config.jso
   CKPT="${CKPT}_adapter"
 fi
 if [[ ! -f "$CKPT/adapter_config.json" ]]; then
-  echo "[ERROR] Adapter config not found in $CKPT (or ${CKPT}_adapter)." >&2
+  # Fall back to latest checkpoint-*_adapter inside the run dir.
+  if [[ -d "${ORIG_CKPT}" ]]; then
+    latest_adapter=$(ls -d "${ORIG_CKPT}"/checkpoint-*_adapter 2>/dev/null | sort -V | tail -n 1)
+    if [[ -n "${latest_adapter}" && -f "${latest_adapter}/adapter_config.json" ]]; then
+      CKPT="${latest_adapter}"
+    fi
+  fi
+fi
+if [[ ! -f "$CKPT/adapter_config.json" ]]; then
+  echo "[ERROR] Adapter config not found in $CKPT (or ${ORIG_CKPT}_adapter or ${ORIG_CKPT}/checkpoint-*_adapter)." >&2
   exit 1
 fi
 
@@ -99,6 +108,10 @@ if [[ -z "$TOK_USE" ]]; then
   TOK_USE=$BASE
 fi
 MODEL_ARGS="pretrained=$BASE,peft=$CKPT,tokenizer=$TOK_USE"
+MODEL_DTYPE="${LM_EVAL_MODEL_DTYPE:-bfloat16}"
+if [[ -n "${MODEL_DTYPE}" && "${MODEL_ARGS}" != *"dtype="* ]]; then
+  MODEL_ARGS="${MODEL_ARGS},dtype=${MODEL_DTYPE}"
+fi
 
 FLORES_CONFIGS="${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/flores_en_perplexity/configs"
 SIB200_TASKS="${LM_EVAL_HARNESS_SRC}/lm_eval/tasks/sib200/configs"
@@ -210,6 +223,10 @@ else
   echo "[INFO] W&B logging disabled for lm-eval." >&2
 fi
 
+if [[ -d "${LM_EVAL_HARNESS_SRC}" ]]; then
+  cd "${LM_EVAL_HARNESS_SRC}"
+fi
+
 HAS_LANGUAGE_LIST=$(python3 - <<'PY' "$CKPT/adapter_config.json"
 import json, sys
 cfg = json.load(open(sys.argv[1]))
@@ -234,6 +251,9 @@ if [[ "$USE_LANG" == "true" ]]; then
     "--mode" "$LANG_MODE"
     "--device" "${LM_EVAL_DEVICE:-cuda}"
   )
+  if [[ -n "${MODEL_DTYPE}" ]]; then
+    WRAPPER_ARGS+=("--torch-dtype" "${MODEL_DTYPE}")
+  fi
   if [[ "${ENABLE_WANDB}" == "1" ]]; then
     WRAPPER_ARGS+=("--wandb-args" "$WANDB_ARGS")
   fi
@@ -246,7 +266,7 @@ if [[ "$USE_LANG" == "true" ]]; then
   if [[ "$LOG_ROUTER_METRICS" == "true" ]]; then
     WRAPPER_ARGS+=("--log-router-metrics")
   fi
-  LM_EVAL_FORCE_DEVICE="${FORCE_DEVICE}" python3 "${REPO_ROOT}/scripts/eval/lm_eval_language_ids.py" "${WRAPPER_ARGS[@]}" $EXTRA
+  LM_EVAL_FORCE_DEVICE="${FORCE_DEVICE}" LM_EVAL_TORCH_DTYPE="${MODEL_DTYPE}" python3 "${REPO_ROOT}/scripts/eval/lm_eval_language_ids.py" "${WRAPPER_ARGS[@]}" $EXTRA
 else
   CMD=(
     lm_eval

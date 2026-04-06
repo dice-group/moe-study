@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import shlex
 import shutil
@@ -100,6 +101,17 @@ def _extract_test_data_file(config_path: Path) -> str | None:
     return None
 
 
+def _resolve_lm_eval_relative_path(include_path: Path, rel_path: Path) -> Path | None:
+    if not rel_path.parts or rel_path.parts[0] != "lm_eval":
+        return None
+    current = include_path
+    while current.name != "lm_eval" and current.parent != current:
+        current = current.parent
+    if current.name != "lm_eval":
+        return None
+    return current.parent / rel_path
+
+
 def _validate_flores_task_data_paths(repo_root: Path, include_path: Path, selected_tasks: list[str]) -> None:
     for task in selected_tasks:
         if not task.startswith("flores_en_perplexity_"):
@@ -112,7 +124,8 @@ def _validate_flores_task_data_paths(repo_root: Path, include_path: Path, select
             raise SystemExit(f"FLORES task config missing dataset test path: {task_yaml}")
         data_path = Path(data_file)
         if not data_path.is_absolute():
-            data_path = repo_root / data_path
+            resolved = _resolve_lm_eval_relative_path(include_path, data_path)
+            data_path = resolved if resolved is not None else (repo_root / data_path)
         if not data_path.exists():
             raise SystemExit(
                 f"FLORES dataset path not found for task '{task}': {data_path}. "
@@ -157,6 +170,56 @@ def _default_lm_eval_include_dirs(repo_root: Path, selected_tasks: list[str]) ->
     return include_dirs
 
 
+def _resolve_benchmark_languages(ctx: PipelineContext) -> list[str]:
+    langs = _resolve_profile_languages(
+        sample_cfg=ctx.sample_cfg,
+        sample_manifest_path=ctx.sampled_manifest,
+        sampled_dir=ctx.sampled_dir,
+    )
+    if langs:
+        return langs
+
+    check_path = ctx.tokenized_dir / "_check.json"
+    if check_path.exists():
+        try:
+            payload = json.loads(check_path.read_text(encoding="utf-8"))
+            samples = payload.get("samples_per_language", {})
+            if isinstance(samples, dict) and samples:
+                return sorted({str(k) for k in samples.keys() if str(k).strip()})
+        except Exception:
+            pass
+
+    token_cfg = ctx.tokenize_cfg
+    csv_path = str(token_cfg.get("languages_csv", "")).strip()
+    if csv_path:
+        column = str(token_cfg.get("languages_csv_column", "subset")).strip() or "subset"
+        split_value = str(token_cfg.get("languages_csv_split", "train")).strip()
+        split_column = str(token_cfg.get("languages_csv_split_column", "split")).strip() or "split"
+        languages: set[str] = set()
+        try:
+            with open(csv_path, newline="", encoding="utf-8") as handle:
+                reader = csv.DictReader(handle)
+                if reader.fieldnames and column in reader.fieldnames:
+                    for row in reader:
+                        if split_value:
+                            if str(row.get(split_column, "")).strip() != split_value:
+                                continue
+                        value = str(row.get(column, "")).strip()
+                        if value:
+                            languages.add(value)
+        except Exception:
+            languages = set()
+        extras = token_cfg.get("languages_extra", [])
+        if isinstance(extras, list):
+            for item in extras:
+                if isinstance(item, str) and item.strip():
+                    languages.add(item.strip())
+        if languages:
+            return sorted(languages)
+
+    return []
+
+
 def stage_benchmark(ctx: PipelineContext) -> None:
     if "benchmark" in ctx.active_stages and bool(ctx.benchmark_cfg.get("enabled", False)):
         resolved_eval_tokenizer = str(ctx.benchmark_cfg.get("tokenizer", "")).strip()
@@ -178,7 +241,12 @@ def stage_benchmark(ctx: PipelineContext) -> None:
         selected_tasks_file = ctx.benchmark_root / "selected_tasks.txt"
         selected_tasks_summary = ctx.benchmark_root / "selected_tasks_summary.json"
         benchmark_summary_path = ctx.benchmark_root / "benchmark_summary.json"
-        runs = ctx.train_cfg.get("runs", [])
+        all_runs = ctx.train_cfg.get("runs", [])
+        if ctx.args.run_id:
+            run_id_set = {str(rid) for rid in ctx.args.run_id}
+            runs = [run for run in all_runs if str(run.get("id")) in run_id_set]
+        else:
+            runs = all_runs
         expected = [selected_tasks_file, selected_tasks_summary, benchmark_summary_path]
         expected.extend([ctx.benchmark_root / str(run["id"]) for run in runs])
         if _should_skip_stage(
@@ -193,11 +261,7 @@ def stage_benchmark(ctx: PipelineContext) -> None:
         else:
             ensure_lm_eval_layout(ctx.repo_root, ctx.logger)
             tasks_file = _abs(ctx.repo_root, str(ctx.benchmark_cfg["tasks_file"]))
-            langs = _resolve_profile_languages(
-                sample_cfg=ctx.sample_cfg,
-                sample_manifest_path=ctx.sampled_manifest,
-                sampled_dir=ctx.sampled_dir,
-            )
+            langs = _resolve_benchmark_languages(ctx)
             print(f"[INFO] Resolved benchmark languages, Eval is only performed in those languages: {langs}")
             if not langs:
                 raise SystemExit("Benchmark stage could not resolve trained language list.")
