@@ -31,3 +31,17 @@ nohup bash -lc '
 
 tail -f /local/joeldag/repos/moe-study/outputs/pipeline_runs/moe_study_profile_lola_gpuvm_mixlora_smoke/nohup.out
 ```
+
+
+## for otus cluster
+for quick verification, run two approaches from tokenization -> until report to see a full gothrough of the pipeline
+
+```
+HALA_MAX_STEPS_OVERRIDE=10 LM_EVAL_LIMIT=10 \
+python -m pipeline.run --config configs/pipeline \
+  --profile moe_study_profile_otus_cluster_96_langs \
+  --run-id hmora \
+  --run-id lora_r64 \
+  --start-at tokenize --stop-after report \
+  --submit-chain
+```

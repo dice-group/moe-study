@@ -156,7 +156,7 @@
             "adamole_num_experts": 32
           },
           "train": {
-            "batch_size": 9,
+            "batch_size": 6,
             "grad_accum": 2
           }
         },
@@ -171,10 +171,10 @@
             "mola_num_experts": 32,
             "mola_num_null_experts": 64,
             "mola_router_aux_loss_coef": 0.01,
-            "mola_top_k": 24
+            "mola_top_k": 4
           },
           "train": {
-            "batch_size": 20,
+            "batch_size": 18,
             "grad_accum": 2
           }
         },
@@ -284,7 +284,7 @@
       "enabled": false
     },
     "summary": {
-      "baseline_id": "lora",
+      "baseline_id": "lora_r64",
       "gate_json": "outputs/pipeline_runs/moe_study_profile_otus_cluster/gate.json",
       "min_relative_improvement": 0.02,
       "primary_metric": "eval_loss",
@@ -307,35 +307,51 @@
     "stage_executors": {
       "sample": {
         "partition": "normal",
-        "gres": "cpu"
+        "gres": "cpu",
+        "cpus_per_task": 4,
+        "mem": "16G"
       },
       "tokenizer_extend": {
         "partition": "normal",
-        "gres": "cpu"
+        "gres": "cpu",
+        "cpus_per_task": 4,
+        "mem": "16G"
       },
       "embedding_init": {
         "partition": "normal",
-        "gres": "cpu"
+        "gres": "cpu",
+        "cpus_per_task": 4,
+        "mem": "16G"
       },
       "tokenize": {
         "partition": "normal",
-        "gres": "cpu"
+        "gres": "cpu",
+        "cpus_per_task": 2,
+        "mem": "16G"
       },
       "audit": {
         "partition": "normal",
-        "gres": "cpu"
+        "gres": "cpu",
+        "cpus_per_task": 4,
+        "mem": "16G"
       },
       "embedding_verify": {
         "partition": "normal",
-        "gres": "cpu"
+        "gres": "cpu",
+        "cpus_per_task": 4,
+        "mem": "16G"
       },
       "summary": {
         "partition": "normal",
-        "gres": "cpu"
+        "gres": "cpu",
+        "cpus_per_task": 2,
+        "mem": "8G"
       },
       "report": {
         "partition": "normal",
-        "gres": "cpu"
+        "gres": "cpu",
+        "cpus_per_task": 2,
+        "mem": "8G"
       },
       "train": {
         "partition": "gpu",
@@ -343,11 +359,15 @@
       },
       "benchmark": {
         "partition": "gpu",
-        "gres": "gpu:h100:1"
+        "gres": "gpu:h100:1",
+        "cpus_per_task": 8,
+        "mem": "64G"
       },
       "baseline_eval": {
         "partition": "gpu",
-        "gres": "gpu:h100:1"
+        "gres": "gpu:h100:1",
+        "cpus_per_task": 8,
+        "mem": "64G"
       }
     }
   },
@@ -427,13 +447,13 @@
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized",
       "enabled": true,
       "model_name": "meta-llama/Llama-3.1-8B",
-      "num_proc": 32,
+      "num_proc": 2,
       "max_length": 1024,
       "eval_fraction": 0.02,
       "mask_pad_labels": true,
       "sample_fraction": 0.005,
       "slurm_array_enabled": true,
-      "slurm_array_ranks": 10,
+      "slurm_array_ranks": 25,
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
       "languages_csv_column": "subset",
       "languages_csv_split": "train",
@@ -548,7 +568,7 @@
             "adamole_num_experts": 2
           },
           "train": {
-            "batch_size": 9,
+            "batch_size": 1,
             "grad_accum": 2
           }
         },
@@ -634,6 +654,12 @@
       ]
     },
     "benchmark": {
+      "enabled": true,
+      "tasks_file": "configs/lm_eval_tasks_10_langs.txt",
+      "include_belebele": true,
+      "include_sib200": true,
+      "include_taxi1500": true,
+      "include_flores": true,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/benchmarks"
     },
     "summary": {
@@ -670,13 +696,13 @@
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/tokenized",
       "enabled": true,
       "model_name": "meta-llama/Llama-3.1-8B",
-      "num_proc": 32,
+      "num_proc": 2,
       "max_length": 1024,
       "eval_fraction": 0.02,
       "mask_pad_labels": true,
       "sample_fraction": 0.005,
       "slurm_array_enabled": true,
-      "slurm_array_ranks": 96,
+      "slurm_array_ranks": 25,
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/96.csv",
       "languages_csv_column": "subset",
       "languages_csv_split": "train",
@@ -879,6 +905,12 @@
       ]
     },
     "benchmark": {
+      "enabled": true,
+      "tasks_file": "configs/lm_eval_tasks_96_langs.txt",
+      "include_belebele": true,
+      "include_sib200": true,
+      "include_taxi1500": true,
+      "include_flores": true,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/benchmarks"
     },
     "summary": {
@@ -917,13 +949,13 @@
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/tokenized",
       "enabled": true,
       "model_name": "meta-llama/Llama-3.1-8B",
-      "num_proc": 32,
+      "num_proc": 2,
       "max_length": 1024,
       "eval_fraction": 0.02,
       "mask_pad_labels": true,
       "sample_fraction": 0.005,
       "slurm_array_enabled": true,
-      "slurm_array_ranks": 200,
+      "slurm_array_ranks": 25,
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/200.csv",
       "languages_csv_column": "subset",
       "languages_csv_split": "train",
@@ -1114,6 +1146,12 @@
       ]
     },
     "benchmark": {
+      "enabled": true,
+      "tasks_file": "configs/lm_eval_tasks_200_langs.txt",
+      "include_belebele": true,
+      "include_sib200": true,
+      "include_taxi1500": true,
+      "include_flores": true,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/benchmarks"
     },
     "summary": {

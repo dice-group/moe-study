@@ -340,6 +340,8 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
 
     logs_root = _abs(repo_root, profile.get("logs_dir", str(output_root / "logs")))
     logs_root.mkdir(parents=True, exist_ok=True)
+    chain_logs_root = logs_root / "chain"
+    chain_logs_root.mkdir(parents=True, exist_ok=True)
 
     naming_languages = _resolve_profile_languages(
         sample_cfg=sample_cfg,
@@ -504,7 +506,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
             cmd.append("--dry-run")
         for run_id in run_ids:
             cmd.extend(["--run-id", run_id])
-        log_path = logs_root / f"chain_{stage}.{chain_timestamp}.log"
+        log_path = chain_logs_root / f"chain_{stage}.{chain_timestamp}.log"
         stage_tag = stage_short.get(stage, stage)
         if stage in {"train", "benchmark", "baseline_eval"}:
             if len(run_ids) == 1:
