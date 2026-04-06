@@ -442,6 +442,36 @@ def _submit_chain(args: argparse.Namespace) -> int:
     logs_root = _abs(repo_root, profile.get("logs_dir", str(output_root / "logs")))
     logs_root.mkdir(parents=True, exist_ok=True)
 
+    sample_cfg = profile.get("sample", {}) if isinstance(profile.get("sample", {}), dict) else {}
+    sampled_dir = _abs(repo_root, sample_cfg.get("output_dir", str(output_root / "sampled")))
+    sampled_manifest = sampled_dir / "sampling_manifest.json"
+    naming_languages = _resolve_profile_languages(
+        sample_cfg=sample_cfg,
+        sample_manifest_path=sampled_manifest,
+        sampled_dir=sampled_dir,
+    )
+    run_naming_cfg = profile.get("run_naming", {}) if isinstance(profile.get("run_naming", {}), dict) else {}
+    lang_count = (
+        len(naming_languages)
+        if naming_languages
+        else int(run_naming_cfg.get("language_count_hint", len(sample_cfg.get("languages", [])) or 0) or 0)
+    )
+    lang_tag = f"{max(1, lang_count)}l" if lang_count else "xl"
+
+    stage_short = {
+        "sample": "samp",
+        "tokenizer_extend": "tokx",
+        "embedding_init": "embi",
+        "tokenize": "tok",
+        "audit": "audit",
+        "embedding_verify": "embv",
+        "summary": "sum",
+        "report": "rpt",
+        "train": "train",
+        "benchmark": "bench",
+        "baseline_eval": "beval",
+    }
+
     chain_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     dependency: str | None = None
     submitted: list[str] = []
@@ -475,7 +505,25 @@ def _submit_chain(args: argparse.Namespace) -> int:
         for run_id in run_ids:
             cmd.extend(["--run-id", run_id])
         log_path = logs_root / f"chain_{stage}.{chain_timestamp}.log"
-        job_id = executor.submit(cmd, os.environ.copy(), args.dry_run, log_path, dependency=dependency)
+        stage_tag = stage_short.get(stage, stage)
+        if stage in {"train", "benchmark", "baseline_eval"}:
+            if len(run_ids) == 1:
+                approach = run_ids[0]
+            elif run_ids:
+                approach = "multi"
+            else:
+                approach = "all"
+        else:
+            approach = "all"
+        job_name = f"{stage_tag}{lang_tag}_{approach}"
+        job_id = executor.submit(
+            cmd,
+            os.environ.copy(),
+            args.dry_run,
+            log_path,
+            dependency=dependency,
+            job_name=job_name,
+        )
         if job_id:
             dependency = f"afterok:{job_id}"
             submitted.append(job_id)

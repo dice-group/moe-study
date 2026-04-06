@@ -201,9 +201,10 @@ class SlurmExecutor:
         log_path: Path,
         *,
         dependency: str | None = None,
+        job_name: str | None = None,
     ) -> str | None:
         """Submit a single job, optionally with a dependency (e.g. afterok:<jobid>)."""
-        return self._sbatch_submit(cmd, env, dry_run, log_path, dependency=dependency)
+        return self._sbatch_submit(cmd, env, dry_run, log_path, dependency=dependency, job_name=job_name)
 
     def submit_array(
         self,
@@ -215,6 +216,7 @@ class SlurmExecutor:
         array: str,
         dependency: str | None = None,
         slurm_output: str | Path | None = None,
+        job_name: str | None = None,
     ) -> str | None:
         """Submit a SLURM array job. Array should be a spec like '0-31'."""
         return self._sbatch_submit(
@@ -225,6 +227,7 @@ class SlurmExecutor:
             dependency=dependency,
             array=array,
             slurm_output=slurm_output,
+            job_name=job_name,
         )
 
     def wait_for_jobs(self, jobs: list[tuple[str, Path]], dry_run: bool = False) -> None:
@@ -240,6 +243,7 @@ class SlurmExecutor:
         dependency: str | None = None,
         array: str | None = None,
         slurm_output: str | Path | None = None,
+        job_name: str | None = None,
     ) -> str | None:
         """Write a job script and submit it.  Returns the Slurm job ID."""
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -253,7 +257,7 @@ class SlurmExecutor:
                 fh.write("[END] dry_run=true exit_code=0 duration_seconds=0.000\n")
             return None
 
-        job_name = _job_name_from_log(log_path)
+        job_name = _sanitize_job_name(job_name) if job_name else _job_name_from_log(log_path)
         if slurm_output is None:
             slurm_log = str(log_path.with_suffix(".slurm.log"))
         else:
@@ -563,9 +567,12 @@ def _job_name_from_log(log_path: Path) -> str:
     else:
         name = f"{approach}_{model_tag}"
 
-    name = re.sub(r"[^a-zA-Z0-9_.-]+", "_", name)
-    # Keep short and readable in default squeue output.
-    return name[:64]
+    return _sanitize_job_name(name)
+
+
+def _sanitize_job_name(name: str) -> str:
+    sanitized = re.sub(r"[^a-zA-Z0-9_.-]+", "_", name)
+    return sanitized[:64]
 
 
 def _shell_quote(s: str) -> str:

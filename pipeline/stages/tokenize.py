@@ -278,9 +278,11 @@ def _submit_tokenize_slurm_array(
     if max_samples > 0:
         cmd.extend(["--max_samples", str(max_samples)])
 
+    lang_count = max(1, int(getattr(ctx, "lang_count", len(languages) or 0) or 0))
     stage_log = _stage_log_path(ctx.logs_root, ctx.env, "tokenize", "array")
     slurm_output = ctx.logs_root / "tokenize_array_%A_%a.log"
     array_spec = f"0-{array_ranks - 1}"
+    job_name = f"tok{lang_count}l_all"
     array_job_id = executor.submit_array(
         cmd,
         ctx.env,
@@ -288,6 +290,7 @@ def _submit_tokenize_slurm_array(
         stage_log,
         array=array_spec,
         slurm_output=str(slurm_output),
+        job_name=job_name,
     )
     if ctx.args.dry_run or not array_job_id:
         return
@@ -302,12 +305,14 @@ def _submit_tokenize_slurm_array(
         "--overwrite",
     ]
     merge_log = _stage_log_path(ctx.logs_root, ctx.env, "tokenize", "merge")
+    merge_job_name = f"tokm{lang_count}l_all"
     merge_job_id = executor.submit(
         merge_cmd,
         ctx.env,
         ctx.args.dry_run,
         merge_log,
         dependency=f"afterok:{array_job_id}",
+        job_name=merge_job_name,
     )
     if merge_job_id:
         executor.wait_for_jobs([(merge_job_id, merge_log)], ctx.args.dry_run)
