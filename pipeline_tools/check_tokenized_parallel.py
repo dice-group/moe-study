@@ -5,8 +5,10 @@ import os
 from pathlib import Path
 from typing import Any
 
+import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.dataset as ds
+import pyarrow.ipc as ipc
 
 """
 I Seperated checks for data into parallel execution to match slurm requirements for tokenized dataset checks for rank_* datasets.
@@ -24,6 +26,24 @@ def _discover_rank_dirs(tokenized_dir: Path) -> list[Path]:
 
 def _assign_ranks(rank_dirs: list[Path], rank: int, world_size: int) -> list[Path]:
     return [d for i, d in enumerate(rank_dirs) if i % world_size == rank]
+
+
+def _iter_ipc_batches(path: Path):
+    source = pa.memory_map(str(path))
+    try:
+        reader = ipc.open_file(source)
+        for idx in range(reader.num_record_batches):
+            yield reader.get_batch(idx), reader.schema
+        return
+    except pa.ArrowInvalid as exc:
+        first_err = exc
+    source = pa.memory_map(str(path))
+    try:
+        reader = ipc.open_stream(source)
+        for batch in reader:
+            yield batch, reader.schema
+    except pa.ArrowInvalid as exc:
+        raise RuntimeError(f"Failed to read IPC data from {path}: {exc}") from first_err
 
 
 def _scan_rank(rank_dir: Path) -> dict[str, Any]:
@@ -46,11 +66,9 @@ def _scan_rank(rank_dir: Path) -> dict[str, Any]:
             "example": None,
         }
 
-    dataset = ds.dataset([str(p) for p in arrow_files], format="ipc")
-    available = set(dataset.schema.names)
-    columns = [c for c in ["language", "split", "input_ids", "language_ids", "family_ids"] if c in available]
-    if "language" not in available:
-        raise RuntimeError(f"Missing 'language' column in {rank_dir}")
+    available: set[str] = set()
+    columns: list[str] = []
+    schema_checked = False
 
     split_langs: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
     split_tokens: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
@@ -65,8 +83,33 @@ def _scan_rank(rank_dir: Path) -> dict[str, Any]:
     has_family_ids = "family_ids" in available
     example = None
 
-    scanner = dataset.scanner(columns=columns, batch_size=8192)
-    for batch in scanner.to_batches():
+    try:
+        dataset = ds.dataset([str(p) for p in arrow_files], format="ipc")
+        available = set(dataset.schema.names)
+        columns = [c for c in ["language", "split", "input_ids", "language_ids", "family_ids"] if c in available]
+        if "language" not in available:
+            raise RuntimeError(f"Missing 'language' column in {rank_dir}")
+        scanner = dataset.scanner(columns=columns, batch_size=8192)
+        batches_iter = scanner.to_batches()
+    except pa.ArrowInvalid:
+        # Fallback for IPC stream-formatted shards.
+        def _stream_batches():
+            nonlocal available, columns, schema_checked
+            for path in arrow_files:
+                for batch, schema in _iter_ipc_batches(path):
+                    if not schema_checked:
+                        available = set(schema.names)
+                        columns = [c for c in ["language", "split", "input_ids", "language_ids", "family_ids"] if c in available]
+                        if "language" not in available:
+                            raise RuntimeError(f"Missing 'language' column in {rank_dir}")
+                        schema_checked = True
+                    if columns:
+                        batch = batch.select(columns)
+                    yield batch
+
+        batches_iter = _stream_batches()
+
+    for batch in batches_iter:
         batch_rows = batch.num_rows
         total_rows += batch_rows
         lang_list = batch.column("language").to_pylist()

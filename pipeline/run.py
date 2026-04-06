@@ -480,7 +480,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
     }
 
     chain_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-    dependency: str | None = None
+    dependency_ids: list[str] = []
     submitted: list[str] = []
 
     for stage in active_stages:
@@ -490,53 +490,98 @@ def _submit_chain(args: argparse.Namespace) -> int:
         executor = build_executor(profile, stage_cfg)
         if not isinstance(executor, SlurmExecutor):
             raise SystemExit(f"submit-chain requires Slurm executor for stage '{stage}'")
-        cmd = [
-            sys.executable,
-            "-m",
-            "pipeline.run",
-            "--config",
-            args.config,
-            "--profile",
-            args.profile,
-            "--start-at",
-            stage,
-            "--stop-after",
-            stage,
-            "--force-stage",
-            stage,
-            "--executor-type",
-            "local",
-        ]
-        if args.dry_run:
-            cmd.append("--dry-run")
-        for run_id in run_ids:
-            cmd.extend(["--run-id", run_id])
-        log_path = chain_logs_root / f"chain_{stage}.{chain_timestamp}.log"
-        slurm_output = chain_slurm_root / f"chain_{stage}.{chain_timestamp}.slurm.log"
         stage_tag = stage_short.get(stage, stage)
-        if stage in {"train", "benchmark", "baseline_eval"}:
-            if len(run_ids) == 1:
-                approach = run_ids[0]
-            elif run_ids:
-                approach = "multi"
+        dependency = f"afterok:{':'.join(dependency_ids)}" if dependency_ids else None
+        stage_job_ids: list[str] = []
+
+        if stage == "train" and len(run_ids) > 1:
+            for run_id in run_ids:
+                cmd = [
+                    sys.executable,
+                    "-m",
+                    "pipeline.run",
+                    "--config",
+                    args.config,
+                    "--profile",
+                    args.profile,
+                    "--start-at",
+                    stage,
+                    "--stop-after",
+                    stage,
+                    "--force-stage",
+                    stage,
+                    "--executor-type",
+                    "local",
+                    "--run-id",
+                    run_id,
+                ]
+                if args.dry_run:
+                    cmd.append("--dry-run")
+                log_path = chain_logs_root / f"chain_{stage}.{run_id}.{chain_timestamp}.log"
+                slurm_output = chain_slurm_root / f"chain_{stage}.{run_id}.{chain_timestamp}.slurm.log"
+                job_name = f"{stage_tag}{lang_tag}_{run_id}"
+                job_id = executor.submit(
+                    cmd,
+                    os.environ.copy(),
+                    args.dry_run,
+                    log_path,
+                    dependency=dependency,
+                    job_name=job_name,
+                    script_dir=chain_sbatch_root,
+                    slurm_output=slurm_output,
+                )
+                if job_id:
+                    stage_job_ids.append(job_id)
+                    submitted.append(job_id)
+        else:
+            cmd = [
+                sys.executable,
+                "-m",
+                "pipeline.run",
+                "--config",
+                args.config,
+                "--profile",
+                args.profile,
+                "--start-at",
+                stage,
+                "--stop-after",
+                stage,
+                "--force-stage",
+                stage,
+                "--executor-type",
+                "local",
+            ]
+            if args.dry_run:
+                cmd.append("--dry-run")
+            for run_id in run_ids:
+                cmd.extend(["--run-id", run_id])
+            log_path = chain_logs_root / f"chain_{stage}.{chain_timestamp}.log"
+            slurm_output = chain_slurm_root / f"chain_{stage}.{chain_timestamp}.slurm.log"
+            if stage in {"train", "benchmark", "baseline_eval"}:
+                if len(run_ids) == 1:
+                    approach = run_ids[0]
+                elif run_ids:
+                    approach = "multi"
+                else:
+                    approach = "all"
             else:
                 approach = "all"
-        else:
-            approach = "all"
-        job_name = f"{stage_tag}{lang_tag}_{approach}"
-        job_id = executor.submit(
-            cmd,
-            os.environ.copy(),
-            args.dry_run,
-            log_path,
-            dependency=dependency,
-            job_name=job_name,
-            script_dir=chain_sbatch_root,
-            slurm_output=slurm_output,
-        )
-        if job_id:
-            dependency = f"afterok:{job_id}"
-            submitted.append(job_id)
+            job_name = f"{stage_tag}{lang_tag}_{approach}"
+            job_id = executor.submit(
+                cmd,
+                os.environ.copy(),
+                args.dry_run,
+                log_path,
+                dependency=dependency,
+                job_name=job_name,
+                script_dir=chain_sbatch_root,
+                slurm_output=slurm_output,
+            )
+            if job_id:
+                stage_job_ids.append(job_id)
+                submitted.append(job_id)
+
+        dependency_ids = stage_job_ids if stage_job_ids else dependency_ids
 
     if submitted:
         print(f"Submitted {len(submitted)} job(s): {' -> '.join(submitted)}")

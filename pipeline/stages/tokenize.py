@@ -475,7 +475,12 @@ def stage_tokenize(ctx: PipelineContext) -> None:
         else:
             languages = _resolve_languages_for_tokenize(ctx)
             rates_path = _build_language_rates_for_tokenize(ctx, languages)
-            if bool(ctx.tokenize_cfg.get("slurm_array_enabled", False)):
+            skip_if_exists = bool(ctx.tokenize_cfg.get("skip_if_output_exists", False))
+            existing_artifacts = [ctx.tokenized_dir / "dataset_info.json", ctx.tokenized_dir / "state.json"]
+            has_existing = all(p.exists() for p in existing_artifacts)
+            if skip_if_exists and has_existing:
+                ctx.logger.info("[SKIP] tokenize stage (output exists)")
+            elif bool(ctx.tokenize_cfg.get("slurm_array_enabled", False)):
                 _submit_tokenize_slurm_array(
                     ctx,
                     languages=languages,
