@@ -202,9 +202,20 @@ class SlurmExecutor:
         *,
         dependency: str | None = None,
         job_name: str | None = None,
+        script_dir: Path | None = None,
+        slurm_output: str | Path | None = None,
     ) -> str | None:
         """Submit a single job, optionally with a dependency (e.g. afterok:<jobid>)."""
-        return self._sbatch_submit(cmd, env, dry_run, log_path, dependency=dependency, job_name=job_name)
+        return self._sbatch_submit(
+            cmd,
+            env,
+            dry_run,
+            log_path,
+            dependency=dependency,
+            job_name=job_name,
+            script_dir=script_dir,
+            slurm_output=slurm_output,
+        )
 
     def submit_array(
         self,
@@ -217,6 +228,7 @@ class SlurmExecutor:
         dependency: str | None = None,
         slurm_output: str | Path | None = None,
         job_name: str | None = None,
+        script_dir: Path | None = None,
     ) -> str | None:
         """Submit a SLURM array job. Array should be a spec like '0-31'."""
         return self._sbatch_submit(
@@ -228,6 +240,7 @@ class SlurmExecutor:
             array=array,
             slurm_output=slurm_output,
             job_name=job_name,
+            script_dir=script_dir,
         )
 
     def wait_for_jobs(self, jobs: list[tuple[str, Path]], dry_run: bool = False) -> None:
@@ -244,6 +257,7 @@ class SlurmExecutor:
         array: str | None = None,
         slurm_output: str | Path | None = None,
         job_name: str | None = None,
+        script_dir: Path | None = None,
     ) -> str | None:
         """Write a job script and submit it.  Returns the Slurm job ID."""
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -265,7 +279,9 @@ class SlurmExecutor:
         script = self._build_job_script(cmd, env, job_name, slurm_log)
 
         # Write the job script to a temp file next to the log.
-        script_path = log_path.with_suffix(".sbatch.sh")
+        script_root = script_dir if script_dir is not None else log_path.parent
+        script_root.mkdir(parents=True, exist_ok=True)
+        script_path = script_root / log_path.with_suffix(".sbatch.sh").name
         script_path.write_text(script, encoding="utf-8")
 
         LOGGER.info("[SBATCH] Submitting %s", script_path)

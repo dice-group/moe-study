@@ -340,8 +340,6 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
 
     logs_root = _abs(repo_root, profile.get("logs_dir", str(output_root / "logs")))
     logs_root.mkdir(parents=True, exist_ok=True)
-    chain_logs_root = logs_root / "chain"
-    chain_logs_root.mkdir(parents=True, exist_ok=True)
 
     naming_languages = _resolve_profile_languages(
         sample_cfg=sample_cfg,
@@ -443,6 +441,13 @@ def _submit_chain(args: argparse.Namespace) -> int:
     output_root = _abs(repo_root, profile.get("output_root", f"outputs/proof_runs/{args.profile}"))
     logs_root = _abs(repo_root, profile.get("logs_dir", str(output_root / "logs")))
     logs_root.mkdir(parents=True, exist_ok=True)
+    chain_root = logs_root / "chain"
+    chain_logs_root = chain_root / "logs"
+    chain_sbatch_root = chain_root / "sbatch"
+    chain_slurm_root = chain_root / "slurm"
+    chain_logs_root.mkdir(parents=True, exist_ok=True)
+    chain_sbatch_root.mkdir(parents=True, exist_ok=True)
+    chain_slurm_root.mkdir(parents=True, exist_ok=True)
 
     sample_cfg = profile.get("sample", {}) if isinstance(profile.get("sample", {}), dict) else {}
     sampled_dir = _abs(repo_root, sample_cfg.get("output_dir", str(output_root / "sampled")))
@@ -507,6 +512,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
         for run_id in run_ids:
             cmd.extend(["--run-id", run_id])
         log_path = chain_logs_root / f"chain_{stage}.{chain_timestamp}.log"
+        slurm_output = chain_slurm_root / f"chain_{stage}.{chain_timestamp}.slurm.log"
         stage_tag = stage_short.get(stage, stage)
         if stage in {"train", "benchmark", "baseline_eval"}:
             if len(run_ids) == 1:
@@ -525,6 +531,8 @@ def _submit_chain(args: argparse.Namespace) -> int:
             log_path,
             dependency=dependency,
             job_name=job_name,
+            script_dir=chain_sbatch_root,
+            slurm_output=slurm_output,
         )
         if job_id:
             dependency = f"afterok:{job_id}"

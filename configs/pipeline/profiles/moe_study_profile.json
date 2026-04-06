@@ -454,6 +454,7 @@
       "sample_fraction": 0.005,
       "slurm_array_enabled": true,
       "slurm_array_ranks": 25,
+      "check_parallel_enabled": true,
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
       "languages_csv_column": "subset",
       "languages_csv_split": "train",
@@ -476,7 +477,7 @@
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/runs",
       "runs": [
         {
-          "id": "lora",
+          "id": "lora_r64",
           "kind": "lora",
           "lora": {
             "alpha": 128,
@@ -703,6 +704,7 @@
       "sample_fraction": 0.005,
       "slurm_array_enabled": true,
       "slurm_array_ranks": 25,
+      "check_parallel_enabled": true,
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/96.csv",
       "languages_csv_column": "subset",
       "languages_csv_split": "train",
@@ -727,7 +729,7 @@
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/runs",
       "runs": [
         {
-          "id": "lora",
+          "id": "lora_r64",
           "kind": "lora",
           "lora": {
             "alpha": 128,
@@ -739,7 +741,7 @@
           }
         },
         {
-          "id": "lora",
+          "id": "lora_r8",
           "kind": "lora",
           "lora": {
             "alpha": 16,
@@ -956,6 +958,7 @@
       "sample_fraction": 0.005,
       "slurm_array_enabled": true,
       "slurm_array_ranks": 25,
+      "check_parallel_enabled": true,
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/200.csv",
       "languages_csv_column": "subset",
       "languages_csv_split": "train",
@@ -980,11 +983,23 @@
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/runs",
       "runs": [
         {
-          "id": "lora",
+          "id": "lora_r64",
           "kind": "lora",
           "lora": {
             "alpha": 128,
             "rank": 64
+          },
+          "train": {
+            "batch_size": 24,
+            "grad_accum": 2
+          }
+        },
+        {
+          "id": "lora_r8",
+          "kind": "lora",
+          "lora": {
+            "alpha": 16,
+            "rank": 8
           },
           "train": {
             "batch_size": 24,

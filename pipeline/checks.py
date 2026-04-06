@@ -96,71 +96,181 @@ def check_tokenize(
         return
 
     from datasets import load_from_disk
+    import pyarrow.dataset as ds
+    import pyarrow.compute as pc
 
-    ds = load_from_disk(str(tokenized_dir))
+    rank_dirs = sorted(
+        p for p in tokenized_dir.iterdir() if p.is_dir() and p.name.startswith("rank_")
+    )
+
     out: dict[str, Any] = {"stage": "tokenize", "pass": True}
-    out["num_rows"] = len(ds)
-    out["columns"] = ds.column_names
 
-    # Splits
-    splits = collections.Counter(ds["split"])
-    out["splits"] = dict(splits)
-    split_langs: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
-    split_tokens: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
-    for split_name, lang, ids in zip(ds["split"], ds["language"], ds["input_ids"]):
-        split_langs[str(split_name)][str(lang)] += 1
-        split_tokens[str(split_name)][str(lang)] += len(ids)
-    out["samples_per_language_by_split"] = {split: dict(counts) for split, counts in split_langs.items()}
-    out["tokens_per_language_by_split"] = {split: dict(counts) for split, counts in split_tokens.items()}
+    if rank_dirs:
+        # Stream through rank_* shards to avoid loading the entire merged dataset at once.
+        split_langs: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
+        split_tokens: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
+        langs = collections.Counter()
+        tokens_by_lang: dict[str, int] = collections.Counter()
+        total_tokens = 0
+        total_rows = 0
+        unique_lids: set[int] = set()
+        unique_fids: set[int] = set()
+        pad_count = 0
+        has_lang_ids = False
+        has_family_ids = False
+        columns_seen: set[str] = set()
+        example: dict[str, Any] | None = None
 
-    # Language counts
-    langs = collections.Counter(ds["language"])
-    out["samples_per_language"] = dict(langs)
-    out["num_languages"] = len(langs)
+        for rank_dir in rank_dirs:
+            arrow_files = sorted(rank_dir.glob("data-*.arrow"))
+            if not arrow_files:
+                continue
+            dataset = ds.dataset([str(p) for p in arrow_files], format="ipc")
+            available = set(dataset.schema.names)
+            columns_seen.update(available)
+            required = ["language", "split", "input_ids", "language_ids", "family_ids"]
+            columns = [col for col in required if col in available]
+            if "language" not in available:
+                out["pass"] = False
+                _write_check(tokenized_dir / "_check.json", out)
+                raise SystemExit("[CHECK FAIL] tokenize: missing 'language' column in tokenized data")
 
-    # Token counts
-    total_tokens = sum(len(ids) for ids in ds["input_ids"])
-    out["total_tokens"] = total_tokens
-    tokens_by_lang: dict[str, int] = collections.Counter()
-    for lang, ids in zip(ds["language"], ds["input_ids"]):
-        tokens_by_lang[lang] += len(ids)
-    out["tokens_per_language"] = dict(tokens_by_lang)
+            scanner = dataset.scanner(columns=columns, batch_size=8192)
+            for batch in scanner.to_batches():
+                batch_rows = batch.num_rows
+                total_rows += batch_rows
+                lang_list = batch.column("language").to_pylist()
+                split_list = batch.column("split").to_pylist() if "split" in batch.column_names else ["train"] * batch_rows
 
-    # Language IDs
-    has_lang_ids = "language_ids" in ds.column_names
-    out["has_language_ids"] = has_lang_ids
-    if has_lang_ids:
-        all_lids = ds["language_ids"]
-        unique_lids = sorted(set(all_lids))
-        out["unique_language_ids"] = unique_lids
-        out["num_unique_language_ids"] = len(unique_lids)
-        # Check for invalid pad IDs (-1)
-        pad_count = sum(1 for lid in all_lids if lid < 0)
-        out["language_ids_pad_count"] = pad_count
-        if pad_count > 0:
-            out["language_ids_warning"] = (
-                f"{pad_count} samples have pad language_id (<0) — "
-                "these will be ignored by LPR guidance"
-            )
+                if "input_ids" in batch.column_names:
+                    lengths = pc.list_value_length(batch.column("input_ids")).to_pylist()
+                else:
+                    lengths = [0] * batch_rows
 
-    # Family IDs (cluster/expert mapping for LPR)
-    has_family_ids = "family_ids" in ds.column_names
-    out["has_family_ids"] = has_family_ids
-    if has_family_ids:
-        unique_fids = sorted(set(ds["family_ids"]))
-        out["unique_family_ids"] = unique_fids
-        out["num_unique_family_ids"] = len(unique_fids)
+                for split_name, lang, length in zip(split_list, lang_list, lengths):
+                    lang_key = str(lang)
+                    split_key = str(split_name)
+                    langs[lang_key] += 1
+                    tokens_by_lang[lang_key] += int(length)
+                    split_langs[split_key][lang_key] += 1
+                    split_tokens[split_key][lang_key] += int(length)
+                    total_tokens += int(length)
 
-    # Example (first row, truncated)
-    ex = ds[0]
-    out["example"] = {
-        "language": ex.get("language"),
-        "split": ex.get("split"),
-        "input_ids_len": len(ex.get("input_ids", [])),
-        "input_ids_head": ex.get("input_ids", [])[:10],
-        "language_ids": ex.get("language_ids"),
-        "family_ids": ex.get("family_ids"),
-    }
+                if "language_ids" in batch.column_names:
+                    has_lang_ids = True
+                    lids = batch.column("language_ids").to_pylist()
+                    for lid in lids:
+                        lid_int = int(lid)
+                        unique_lids.add(lid_int)
+                        if lid_int < 0:
+                            pad_count += 1
+
+                if "family_ids" in batch.column_names:
+                    has_family_ids = True
+                    fids = batch.column("family_ids").to_pylist()
+                    for fid in fids:
+                        unique_fids.add(int(fid))
+
+                if example is None and batch_rows > 0:
+                    idx = 0
+                    example = {
+                        "language": lang_list[idx],
+                        "split": split_list[idx],
+                        "input_ids_len": int(lengths[idx]) if lengths else 0,
+                        "input_ids_head": [],
+                        "language_ids": int(batch.column("language_ids")[idx]) if "language_ids" in batch.column_names else None,
+                        "family_ids": int(batch.column("family_ids")[idx]) if "family_ids" in batch.column_names else None,
+                    }
+
+        out["num_rows"] = total_rows
+        out["columns"] = sorted(columns_seen)
+        out["splits"] = {k: sum(v.values()) for k, v in split_langs.items()}
+        out["samples_per_language_by_split"] = {split: dict(counts) for split, counts in split_langs.items()}
+        out["tokens_per_language_by_split"] = {split: dict(counts) for split, counts in split_tokens.items()}
+        out["samples_per_language"] = dict(langs)
+        out["num_languages"] = len(langs)
+        out["total_tokens"] = total_tokens
+        out["tokens_per_language"] = dict(tokens_by_lang)
+        out["has_language_ids"] = has_lang_ids
+        if has_lang_ids:
+            out["unique_language_ids"] = sorted(unique_lids)
+            out["num_unique_language_ids"] = len(unique_lids)
+            out["language_ids_pad_count"] = pad_count
+            if pad_count > 0:
+                out["language_ids_warning"] = (
+                    f"{pad_count} samples have pad language_id (<0) — "
+                    "these will be ignored by LPR guidance"
+                )
+        out["has_family_ids"] = has_family_ids
+        if has_family_ids:
+            out["unique_family_ids"] = sorted(unique_fids)
+            out["num_unique_family_ids"] = len(unique_fids)
+        if example is not None:
+            out["example"] = example
+    else:
+        ds = load_from_disk(str(tokenized_dir))
+        out["num_rows"] = len(ds)
+        out["columns"] = ds.column_names
+
+        # Splits
+        splits = collections.Counter(ds["split"])
+        out["splits"] = dict(splits)
+        split_langs: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
+        split_tokens: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
+        for split_name, lang, ids in zip(ds["split"], ds["language"], ds["input_ids"]):
+            split_langs[str(split_name)][str(lang)] += 1
+            split_tokens[str(split_name)][str(lang)] += len(ids)
+        out["samples_per_language_by_split"] = {split: dict(counts) for split, counts in split_langs.items()}
+        out["tokens_per_language_by_split"] = {split: dict(counts) for split, counts in split_tokens.items()}
+
+        # Language counts
+        langs = collections.Counter(ds["language"])
+        out["samples_per_language"] = dict(langs)
+        out["num_languages"] = len(langs)
+
+        # Token counts
+        total_tokens = sum(len(ids) for ids in ds["input_ids"])
+        out["total_tokens"] = total_tokens
+        tokens_by_lang: dict[str, int] = collections.Counter()
+        for lang, ids in zip(ds["language"], ds["input_ids"]):
+            tokens_by_lang[lang] += len(ids)
+        out["tokens_per_language"] = dict(tokens_by_lang)
+
+        # Language IDs
+        has_lang_ids = "language_ids" in ds.column_names
+        out["has_language_ids"] = has_lang_ids
+        if has_lang_ids:
+            all_lids = ds["language_ids"]
+            unique_lids = sorted(set(all_lids))
+            out["unique_language_ids"] = unique_lids
+            out["num_unique_language_ids"] = len(unique_lids)
+            # Check for invalid pad IDs (-1)
+            pad_count = sum(1 for lid in all_lids if lid < 0)
+            out["language_ids_pad_count"] = pad_count
+            if pad_count > 0:
+                out["language_ids_warning"] = (
+                    f"{pad_count} samples have pad language_id (<0) — "
+                    "these will be ignored by LPR guidance"
+                )
+
+        # Family IDs (cluster/expert mapping for LPR)
+        has_family_ids = "family_ids" in ds.column_names
+        out["has_family_ids"] = has_family_ids
+        if has_family_ids:
+            unique_fids = sorted(set(ds["family_ids"]))
+            out["unique_family_ids"] = unique_fids
+            out["num_unique_family_ids"] = len(unique_fids)
+
+        # Example (first row, truncated)
+        ex = ds[0]
+        out["example"] = {
+            "language": ex.get("language"),
+            "split": ex.get("split"),
+            "input_ids_len": len(ex.get("input_ids", [])),
+            "input_ids_head": ex.get("input_ids", [])[:10],
+            "language_ids": ex.get("language_ids"),
+            "family_ids": ex.get("family_ids"),
+        }
 
     # Fail conditions
     if len(ds) == 0:

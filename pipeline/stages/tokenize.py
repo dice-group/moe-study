@@ -323,6 +323,128 @@ def _submit_tokenize_slurm_array(
         executor.wait_for_jobs([(merge_job_id, merge_log)], ctx.args.dry_run)
 
 
+def _submit_tokenize_parallel_check(ctx: PipelineContext, *, languages: list[str]) -> bool:
+    token_cfg = ctx.tokenize_cfg
+    if not bool(token_cfg.get("check_parallel_enabled", False)):
+        return False
+    if ctx.args.dry_run:
+        return False
+
+    rank_dirs = sorted(
+        p for p in ctx.tokenized_dir.iterdir() if p.is_dir() and p.name.startswith("rank_")
+    )
+    if not rank_dirs:
+        return False
+
+    executor = ctx.executor
+    if not isinstance(executor, SlurmExecutor):
+        stage_cfg = dict(token_cfg)
+        stage_executors = ctx.profile.get("stage_executors", {})
+        if isinstance(stage_executors, dict):
+            stage_exec = stage_executors.get("tokenize_check") or stage_executors.get("tokenize")
+            if isinstance(stage_exec, dict):
+                merged_exec = dict(stage_exec)
+                if isinstance(stage_cfg.get("executor"), dict):
+                    merged_exec.update(stage_cfg["executor"])
+                stage_cfg["executor"] = merged_exec
+        profile_copy = dict(ctx.profile)
+        profile_copy["executor"] = dict(ctx.profile.get("executor", {}))
+        profile_copy["executor"]["type"] = "slurm"
+        executor = build_executor(profile_copy, stage_cfg)
+    if not isinstance(executor, SlurmExecutor):
+        return False
+
+    check_ranks = int(token_cfg.get("check_parallel_ranks", 0) or 0)
+    if check_ranks <= 0:
+        check_ranks = int(token_cfg.get("slurm_array_ranks", 0) or 0)
+    if check_ranks <= 0:
+        check_ranks = len(rank_dirs)
+    check_ranks = max(1, min(check_ranks, len(rank_dirs)))
+
+    parts_dir = ctx.tokenized_dir / "_check_parts"
+    parts_dir.mkdir(parents=True, exist_ok=True)
+    for part_file in parts_dir.glob("part_*.json"):
+        part_file.unlink()
+
+    array_logs_root = ctx.logs_root / "tokenize" / "check" / "array"
+    merge_logs_root = ctx.logs_root / "tokenize" / "check" / "merge"
+    array_logs_root.mkdir(parents=True, exist_ok=True)
+    merge_logs_root.mkdir(parents=True, exist_ok=True)
+    array_sbatch_root = array_logs_root / "sbatch"
+    merge_sbatch_root = merge_logs_root / "sbatch"
+    array_slurm_root = array_logs_root / "slurm"
+    merge_slurm_root = merge_logs_root / "slurm"
+    array_sbatch_root.mkdir(parents=True, exist_ok=True)
+    merge_sbatch_root.mkdir(parents=True, exist_ok=True)
+    array_slurm_root.mkdir(parents=True, exist_ok=True)
+    merge_slurm_root.mkdir(parents=True, exist_ok=True)
+
+    stage_log = _stage_log_path(array_logs_root, ctx.env, "tokenize_check", "array")
+    array_spec = f"0-{check_ranks - 1}"
+    lang_count = max(1, int(getattr(ctx, "lang_count", len(languages) or 0) or 0))
+    job_name = f"tokc{lang_count}l"
+    array_cmd = [
+        "python3",
+        str(ctx.repo_root / "pipeline_tools" / "check_tokenized_parallel.py"),
+        "--tokenized-dir",
+        str(ctx.tokenized_dir),
+        "--output-dir",
+        str(parts_dir),
+        "--mode",
+        "worker",
+    ]
+    array_job_id = executor.submit_array(
+        array_cmd,
+        ctx.env,
+        ctx.args.dry_run,
+        stage_log,
+        array=array_spec,
+        slurm_output=str(array_slurm_root / "tokenize_check_array_%A_%a.log"),
+        job_name=job_name,
+        script_dir=array_sbatch_root,
+    )
+    if ctx.args.dry_run or not array_job_id:
+        return True
+
+    merge_log = _stage_log_path(merge_logs_root, ctx.env, "tokenize_check", "merge")
+    merge_job_name = f"tokcm{lang_count}l"
+    merge_cmd = [
+        "python3",
+        str(ctx.repo_root / "pipeline_tools" / "check_tokenized_parallel.py"),
+        "--tokenized-dir",
+        str(ctx.tokenized_dir),
+        "--output-dir",
+        str(parts_dir),
+        "--mode",
+        "merge",
+    ]
+    if languages:
+        merge_cmd.extend(["--expected-languages", ",".join(languages)])
+    english_key = str(token_cfg.get("language_rates_english_key", "english")).strip() or "english"
+    merge_cmd.extend(["--english-key", english_key])
+    if bool(token_cfg.get("english_median_check", False)):
+        merge_cmd.append("--english-median-check")
+        merge_cmd.extend(
+            [
+                "--english-median-tolerance",
+                str(float(token_cfg.get("english_median_tolerance", 0.05))),
+            ]
+        )
+    merge_job_id = executor.submit(
+        merge_cmd,
+        ctx.env,
+        ctx.args.dry_run,
+        merge_log,
+        dependency=f"afterok:{array_job_id}",
+        job_name=merge_job_name,
+        script_dir=merge_sbatch_root,
+        slurm_output=str(merge_slurm_root / "tokenize_check_merge_%A.log"),
+    )
+    if merge_job_id:
+        executor.wait_for_jobs([(merge_job_id, merge_log)], ctx.args.dry_run)
+    return True
+
+
 def stage_tokenize(ctx: PipelineContext) -> None:
     if "tokenize" in ctx.active_stages and bool(ctx.tokenize_cfg.get("enabled", True)):
         missing = _missing_modules(["datasets", "transformers"])
@@ -395,13 +517,15 @@ def stage_tokenize(ctx: PipelineContext) -> None:
                 if max_samples > 0:
                     cmd.extend(["--max_samples", str(max_samples)])
                 _run_stage_cmd(cmd=cmd, env=ctx.env, dry_run=ctx.args.dry_run, logs_root=ctx.logs_root, stage="tokenize", executor=ctx.executor)
+            check_done = _submit_tokenize_parallel_check(ctx, languages=languages)
+            if not check_done:
+                check_tokenize(
+                    ctx.tokenized_dir,
+                    dry_run=ctx.args.dry_run,
+                    expected_languages=languages,
+                    english_median_check=bool(ctx.tokenize_cfg.get("english_median_check", False)),
+                    english_key=str(ctx.tokenize_cfg.get("language_rates_english_key", "english")).strip() or "english",
+                    english_median_tolerance=float(ctx.tokenize_cfg.get("english_median_tolerance", 0.05)),
+                )
             if not ctx.args.dry_run:
                 _save_stage_state(ctx.state_path, "tokenize", signature, [str(ctx.tokenized_dir)])
-            check_tokenize(
-                ctx.tokenized_dir,
-                dry_run=ctx.args.dry_run,
-                expected_languages=languages,
-                english_median_check=bool(ctx.tokenize_cfg.get("english_median_check", False)),
-                english_key=str(ctx.tokenize_cfg.get("language_rates_english_key", "english")).strip() or "english",
-                english_median_tolerance=float(ctx.tokenize_cfg.get("english_median_tolerance", 0.05)),
-            )
