@@ -430,7 +430,7 @@ def check_embedding_init(output_dir: Path, manifest_path: Path, expected_vocab_s
 _APPROACH_MODULES: dict[str, list[str]] = {
     "LORA":      ["lora_A", "lora_B"],
     "COLA":      ["lora_A", "lora_B", "router", "expert_"],
-    "HYDRALORA": ["lora_A", "lora_B", "router", "expert_"],
+    "HYDRALORA": ["lora_A", "lora_B", "lora_route"],
     "ADAMOLE":   ["lora_A", "lora_B", "lora_gating", "lora_threshold"],
     "MIXLORA":   ["lora_A", "lora_B", "lora_router", "experts"],
     "MOLA":      ["lora_A", "lora_B", "lora_gating", "moe_layer"],
@@ -538,7 +538,7 @@ def _extract_lpr_config(acfg: dict[str, Any], approach: str) -> dict[str, Any]:
     lpr["head_router_mode"] = acfg.get("language_head_router_mode", "unknown")
     lpr["prior_weight"] = acfg.get("language_prior_weight")
     lpr["bias_value"] = acfg.get("language_bias_value")
-    lpr["num_languages"] = len(acfg.get("language_list", []))
+    lpr["num_languages"] = len(acfg.get("language_list") or [])
     lpr["language_to_family_ids"] = acfg.get("language_to_family_ids")
     if approach == "COLA":
         lpr["num_A"] = acfg.get("num_A")
@@ -642,7 +642,11 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
     # --- module presence ---
     first_keys = _load_adapter_keys(ck_paths[0])
     entry["num_adapter_keys"] = len(first_keys)
-    expected_fragments = _APPROACH_MODULES.get(approach, [])
+    expected_fragments = list(_APPROACH_MODULES.get(approach, []))
+    if approach == "HYDRALORA":
+        acfg_for_modules = _load_adapter_config(run_dir)
+        if acfg_for_modules.get("use_hydralora_experts", False):
+            expected_fragments.append("expert_")
     entry["modules_expected"] = expected_fragments
     found_fragments = [f for f in expected_fragments if any(f in k for k in first_keys)]
     missing_fragments = [f for f in expected_fragments if f not in found_fragments]
@@ -674,7 +678,8 @@ def _check_run_adapters(run_dir: Path) -> dict[str, Any]:
         # Cross-check: num_experts in config vs checkpoint
         cfg_num_experts = acfg.get("cola_num_experts" if approach == "COLA" else "num_experts")
         ck_num_experts = entry["expert_structure"]["num_experts"]
-        if cfg_num_experts is not None and ck_num_experts != cfg_num_experts:
+        enforce_expert_count = approach != "HYDRALORA" or acfg.get("use_hydralora_experts", False)
+        if enforce_expert_count and cfg_num_experts is not None and ck_num_experts != cfg_num_experts:
             entry["pass"] = False
             entry.setdefault("errors", []).append(
                 f"expert count mismatch: config={cfg_num_experts} vs checkpoint={ck_num_experts}"
