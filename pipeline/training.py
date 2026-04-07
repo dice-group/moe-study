@@ -391,7 +391,6 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         '--disable_gradient_checkpointing', str(disable_gradient_checkpointing),
         '--use_reentrant_gc', str(use_reentrant_gc),
         '--report_to', report_to,
-        '--include_effective_tokens_per_second', 'true',
         '--include_num_input_tokens_seen', 'true',
     ]
     save_strategy = train.get('save_strategy')
@@ -436,8 +435,13 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         cuda_visible_devices = dist.get('cuda_visible_devices')
         if cuda_visible_devices is not None:
             env['CUDA_VISIBLE_DEVICES'] = str(cuda_visible_devices)
+        config_file = dist.get('config_file') or dist.get('accelerate_config_file')
+        config_args: list[str] = []
+        if config_file:
+            config_args = ['--config_file', str(config_file)]
         cmd = [
             'accelerate', 'launch',
+            *config_args,
             '--num_processes', str(num_processes),
             '--num_machines', str(num_machines),
             '--machine_rank', str(machine_rank),

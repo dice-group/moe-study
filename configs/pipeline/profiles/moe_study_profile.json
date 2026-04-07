@@ -1035,6 +1035,15 @@
       "num_experts": 32,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/runs",
       "report_to": "wandb",
+      "distributed": {
+        "enabled": true,
+        "num_processes": 4,
+        "num_machines": 1,
+        "machine_rank": 0,
+        "main_process_ip": "127.0.0.1",
+        "main_process_port": 29501,
+        "config_file": "configs/accelerate/fsdp_4gpu_config.yaml"
+      },
       "runs": [
         {
           "id": "lora_r64",
