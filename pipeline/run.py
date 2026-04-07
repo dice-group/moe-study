@@ -482,6 +482,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
     chain_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     dependency_ids: list[str] = []
     submitted: list[str] = []
+    last_stage_job_ids_by_run: dict[str, str] = {}
 
     for stage in active_stages:
         stage_cfg = _resolve_stage_cfg(profile, stage)
@@ -494,7 +495,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
         dependency = f"afterok:{':'.join(dependency_ids)}" if dependency_ids else None
         stage_job_ids: list[str] = []
 
-        if stage == "train" and len(run_ids) > 1:
+        if stage in {"train", "benchmark"} and len(run_ids) > 1:
             for run_id in run_ids:
                 cmd = [
                     sys.executable,
@@ -520,12 +521,17 @@ def _submit_chain(args: argparse.Namespace) -> int:
                 log_path = chain_logs_root / f"chain_{stage}.{run_id}.{chain_timestamp}.log"
                 slurm_output = chain_slurm_root / f"chain_{stage}.{run_id}.{chain_timestamp}.slurm.log"
                 job_name = f"{stage_tag}{lang_tag}_{run_id}"
+                job_dependency = dependency
+                if stage == "benchmark":
+                    prior_job = last_stage_job_ids_by_run.get(run_id)
+                    if prior_job:
+                        job_dependency = f"afterok:{prior_job}"
                 job_id = executor.submit(
                     cmd,
                     os.environ.copy(),
                     args.dry_run,
                     log_path,
-                    dependency=dependency,
+                    dependency=job_dependency,
                     job_name=job_name,
                     script_dir=chain_sbatch_root,
                     slurm_output=slurm_output,
@@ -533,6 +539,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
                 if job_id:
                     stage_job_ids.append(job_id)
                     submitted.append(job_id)
+                    last_stage_job_ids_by_run[run_id] = job_id
         else:
             cmd = [
                 sys.executable,

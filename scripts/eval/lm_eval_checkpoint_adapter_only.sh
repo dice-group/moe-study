@@ -127,6 +127,17 @@ if [[ -n "${LM_EVAL_INCLUDE_PATH:-}" && "${EXTRA}" != *"--include_path"* && "${E
   EXTRA="$(echo "${EXTRA}" | xargs)"
 fi
 
+EXTRA_WRAPPER="${EXTRA}"
+if [[ -n "${EXTRA_WRAPPER:-}" ]]; then
+  read -r -a _extra_arr <<< "${EXTRA_WRAPPER}"
+  for i in "${!_extra_arr[@]}"; do
+    if [[ "${_extra_arr[$i]}" == "--include_path" ]]; then
+      _extra_arr[$i]="--include-path"
+    fi
+  done
+  EXTRA_WRAPPER="${_extra_arr[*]}"
+fi
+
 DEVICE_MAP=""
 if [[ -n "${EXTRA:-}" ]]; then
   if [[ "${EXTRA}" =~ (^|[[:space:]])--device-map[[:space:]]+([^[:space:]]+) ]]; then
@@ -266,7 +277,7 @@ if [[ "$USE_LANG" == "true" ]]; then
   if [[ "$LOG_ROUTER_METRICS" == "true" ]]; then
     WRAPPER_ARGS+=("--log-router-metrics")
   fi
-  LM_EVAL_FORCE_DEVICE="${FORCE_DEVICE}" LM_EVAL_TORCH_DTYPE="${MODEL_DTYPE}" python3 "${REPO_ROOT}/scripts/eval/lm_eval_language_ids.py" "${WRAPPER_ARGS[@]}" $EXTRA
+  LM_EVAL_FORCE_DEVICE="${FORCE_DEVICE}" LM_EVAL_TORCH_DTYPE="${MODEL_DTYPE}" python3 "${REPO_ROOT}/scripts/eval/lm_eval_language_ids.py" "${WRAPPER_ARGS[@]}" $EXTRA_WRAPPER
 else
   CMD=(
     lm_eval

@@ -275,7 +275,7 @@
       "lm_eval_bin": "lm_eval",
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster/benchmarks",
       "tasks_file": "configs/lm_eval_tasks_10_langs.txt",
-      "tokenizer": "meta-llama/Llama-3.2-1B",
+      "tokenizer": "meta-llama/Llama-3.1-8B",
       "wandb_mode": "disabled",
       "wandb_prefix": "eval/benchmark",
       "wandb_project": "moe-study-pipeline"
@@ -430,7 +430,7 @@
       "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/benchmarks"
     },
     "baseline_eval": {
-      "enabled": true,
+      "enabled": false,
       "models": [
         "meta-llama/Llama-3.1-8B"
       ],
@@ -680,7 +680,7 @@
       "wandb_project": "moe_study_eval"
     },
     "baseline_eval": {
-      "enabled": true,
+      "enabled": false,
       "models": [
         "meta-llama/Llama-3.1-8B"
       ],
@@ -951,7 +951,7 @@
       "wandb_project": "moe_study_eval"
     },
     "baseline_eval": {
-      "enabled": true,
+      "enabled": false,
       "models": [
         "meta-llama/Llama-3.1-8B"
       ],

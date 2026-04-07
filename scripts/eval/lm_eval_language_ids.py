@@ -148,6 +148,14 @@ def _load_language_list(adapter_dir: Path) -> Optional[list[str]]:
     return list(lang_list)
 
 
+def _load_base_model_name(adapter_dir: Path) -> str:
+    cfg_path = adapter_dir / "adapter_config.json"
+    if not cfg_path.exists():
+        return ""
+    cfg = json.loads(cfg_path.read_text())
+    return str(cfg.get("base_model_name_or_path", "")).strip()
+
+
 def _parse_tasks(tasks: str) -> list[str]:
     if os.path.isfile(tasks):
         return [line.strip() for line in Path(tasks).read_text().splitlines() if line.strip()]
@@ -547,7 +555,13 @@ def main() -> int:
         logger.info("Defaulting device_map=auto for cuda eval")
 
     # Build HF model_args for lm_eval
-    base_model = args.tokenizer
+    base_model = _load_base_model_name(ckpt) or args.tokenizer
+    if base_model and args.tokenizer and base_model != args.tokenizer:
+        print(
+            f"[WARN] Eval tokenizer '{args.tokenizer}' does not match adapter base model '{base_model}'. "
+            "Using adapter base model for weights.",
+            file=sys.stderr,
+        )
 
     if args.dry_run:
         for task in tasks:
