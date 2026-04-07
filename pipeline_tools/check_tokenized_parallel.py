@@ -79,14 +79,20 @@ def _scan_rank(rank_dir: Path) -> dict[str, Any]:
     unique_lids: set[int] = set()
     unique_fids: set[int] = set()
     pad_count = 0
-    has_lang_ids = "language_ids" in available
-    has_family_ids = "family_ids" in available
+    has_lang_ids = False
+    has_family_ids = False
     example = None
 
     try:
         dataset = ds.dataset([str(p) for p in arrow_files], format="ipc")
         available = set(dataset.schema.names)
-        columns = [c for c in ["language", "split", "input_ids", "language_ids", "family_ids"] if c in available]
+        has_lang_ids = "language_ids" in available
+        has_family_ids = "family_ids" in available
+        columns = [
+            c
+            for c in ["language", "split", "input_ids", "language_ids", "family_ids", "doc_id", "chunk_idx", "doc_token_count"]
+            if c in available
+        ]
         if "language" not in available:
             raise RuntimeError(f"Missing 'language' column in {rank_dir}")
         scanner = dataset.scanner(columns=columns, batch_size=8192)
@@ -94,12 +100,27 @@ def _scan_rank(rank_dir: Path) -> dict[str, Any]:
     except pa.ArrowInvalid:
         # Fallback for IPC stream-formatted shards.
         def _stream_batches():
-            nonlocal available, columns, schema_checked
+            nonlocal available, columns, schema_checked, has_lang_ids, has_family_ids
             for path in arrow_files:
                 for batch, schema in _iter_ipc_batches(path):
                     if not schema_checked:
                         available = set(schema.names)
-                        columns = [c for c in ["language", "split", "input_ids", "language_ids", "family_ids"] if c in available]
+                        has_lang_ids = "language_ids" in available
+                        has_family_ids = "family_ids" in available
+                        columns = [
+                            c
+                            for c in [
+                                "language",
+                                "split",
+                                "input_ids",
+                                "language_ids",
+                                "family_ids",
+                                "doc_id",
+                                "chunk_idx",
+                                "doc_token_count",
+                            ]
+                            if c in available
+                        ]
                         if "language" not in available:
                             raise RuntimeError(f"Missing 'language' column in {rank_dir}")
                         schema_checked = True
@@ -286,6 +307,17 @@ def main() -> int:
         raise SystemExit(f"No part_*.json found in {output_dir}")
     payloads = [json.loads(p.read_text(encoding="utf-8")) for p in parts]
     out = _merge_parts(payloads)
+
+    required_chunk_columns = {"doc_id", "chunk_idx", "doc_token_count"}
+    missing_chunk_columns = sorted(required_chunk_columns - set(out.get("columns", [])))
+    if missing_chunk_columns:
+        out["pass"] = False
+        out["missing_chunk_columns"] = missing_chunk_columns
+        (tokenized_dir / "_check.json").write_text(json.dumps(out, indent=2, sort_keys=True), encoding="utf-8")
+        raise SystemExit(
+            "[CHECK FAIL] tokenize: missing chunk metadata columns: "
+            f"{missing_chunk_columns}"
+        )
 
     expected = [x.strip() for x in args.expected_languages.split(",") if x.strip()]
     if expected:

@@ -96,8 +96,10 @@ def check_tokenize(
         return
 
     from datasets import load_from_disk
+    import pyarrow as pa
     import pyarrow.dataset as ds
     import pyarrow.compute as pc
+    from pipeline_tools.check_tokenized_parallel import _iter_ipc_batches
 
     rank_dirs = sorted(
         p for p in tokenized_dir.iterdir() if p.is_dir() and p.name.startswith("rank_")
@@ -125,18 +127,49 @@ def check_tokenize(
             arrow_files = sorted(rank_dir.glob("data-*.arrow"))
             if not arrow_files:
                 continue
-            dataset = ds.dataset([str(p) for p in arrow_files], format="ipc")
-            available = set(dataset.schema.names)
-            columns_seen.update(available)
-            required = ["language", "split", "input_ids", "language_ids", "family_ids"]
-            columns = [col for col in required if col in available]
-            if "language" not in available:
-                out["pass"] = False
-                _write_check(tokenized_dir / "_check.json", out)
-                raise SystemExit("[CHECK FAIL] tokenize: missing 'language' column in tokenized data")
 
-            scanner = dataset.scanner(columns=columns, batch_size=8192)
-            for batch in scanner.to_batches():
+            required = [
+                "language",
+                "split",
+                "input_ids",
+                "language_ids",
+                "family_ids",
+                "doc_id",
+                "chunk_idx",
+                "doc_token_count",
+            ]
+            try:
+                dataset = ds.dataset([str(p) for p in arrow_files], format="ipc")
+                available = set(dataset.schema.names)
+                columns_seen.update(available)
+                columns = [col for col in required if col in available]
+                if "language" not in available:
+                    out["pass"] = False
+                    _write_check(tokenized_dir / "_check.json", out)
+                    raise SystemExit("[CHECK FAIL] tokenize: missing 'language' column in tokenized data")
+
+                batches_iter = dataset.scanner(columns=columns, batch_size=8192).to_batches()
+            except pa.ArrowInvalid:
+                # HuggingFace Datasets writes IPC stream shards; pyarrow.dataset expects file IPC.
+                def _stream_batches():
+                    schema_checked = False
+                    columns: list[str] = []
+                    for path in arrow_files:
+                        for batch, schema in _iter_ipc_batches(path):
+                            if not schema_checked:
+                                available = set(schema.names)
+                                columns_seen.update(available)
+                                columns = [col for col in required if col in available]
+                                if "language" not in available:
+                                    out["pass"] = False
+                                    _write_check(tokenized_dir / "_check.json", out)
+                                    raise SystemExit("[CHECK FAIL] tokenize: missing 'language' column in tokenized data")
+                                schema_checked = True
+                            yield batch.select(columns) if columns else batch
+
+                batches_iter = _stream_batches()
+
+            for batch in batches_iter:
                 batch_rows = batch.num_rows
                 total_rows += batch_rows
                 lang_list = batch.column("language").to_pylist()
@@ -273,11 +306,11 @@ def check_tokenize(
         }
 
     # Fail conditions
-    if len(ds) == 0:
+    if int(out.get("num_rows", 0)) == 0:
         out["pass"] = False
         _write_check(tokenized_dir / "_check.json", out)
         raise SystemExit("[CHECK FAIL] tokenize: dataset has 0 rows")
-    if "train" not in splits:
+    if "train" not in out.get("splits", {}):
         out["pass"] = False
         _write_check(tokenized_dir / "_check.json", out)
         raise SystemExit("[CHECK FAIL] tokenize: no 'train' split found")
@@ -285,6 +318,17 @@ def check_tokenize(
         out["pass"] = False
         _write_check(tokenized_dir / "_check.json", out)
         raise SystemExit("[CHECK FAIL] tokenize: missing 'language_ids' column")
+
+    required_chunk_columns = {"doc_id", "chunk_idx", "doc_token_count"}
+    missing_chunk_columns = sorted(required_chunk_columns - set(out.get("columns", [])))
+    if missing_chunk_columns:
+        out["pass"] = False
+        out["missing_chunk_columns"] = missing_chunk_columns
+        _write_check(tokenized_dir / "_check.json", out)
+        raise SystemExit(
+            "[CHECK FAIL] tokenize: missing chunk metadata columns: "
+            f"{missing_chunk_columns}"
+        )
 
     if expected_languages:
         expected = sorted({str(item) for item in expected_languages if str(item).strip()})
