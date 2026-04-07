@@ -429,6 +429,18 @@
     "benchmark": {
       "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/benchmarks"
     },
+    "baseline_eval": {
+      "enabled": true,
+      "models": [
+        "meta-llama/Llama-3.1-8B"
+      ],
+      "tasks_file": "configs/lm_eval_tasks_sib_taxi_10_langs.txt",
+      "output_root": "outputs/baselines",
+      "batch_size": "auto",
+      "lm_eval_bin": "lm_eval",
+      "seed": 42,
+      "extra_args": "--include_path scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks"
+    },
     "summary": {
       "gate_json": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/gate.json",
       "summary_csv": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/summary.csv"
@@ -486,7 +498,7 @@
             "rank": 64
           },
           "train": {
-            "batch_size": 24,
+            "batch_size": 32,
             "grad_accum": 2
           }
         },
@@ -498,7 +510,7 @@
             "rank": 8
           },
           "train": {
-            "batch_size": 24,
+            "batch_size": 33,
             "grad_accum": 2
           }
         },
@@ -517,7 +529,7 @@
             "use_cola_pissa_init": false
           },
           "train": {
-            "batch_size": 24,
+            "batch_size": 32,
             "grad_accum": 2
           }
         },
@@ -535,7 +547,7 @@
             "language_prior_weight": 0.0
           },
           "train": {
-            "batch_size": 10,
+            "batch_size": 32,
             "grad_accum": 2
           }
         },
@@ -571,7 +583,7 @@
             "adamole_num_experts": 2
           },
           "train": {
-            "batch_size": 1,
+            "batch_size": 7,
             "grad_accum": 2
           }
         },
@@ -664,6 +676,18 @@
       "include_taxi1500": true,
       "include_flores": true,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/benchmarks"
+    },
+    "baseline_eval": {
+      "enabled": true,
+      "models": [
+        "meta-llama/Llama-3.1-8B"
+      ],
+      "tasks_file": "configs/lm_eval_tasks_sib_taxi_10_langs.txt",
+      "output_root": "outputs/baselines",
+      "batch_size": "auto",
+      "lm_eval_bin": "lm_eval",
+      "seed": 42,
+      "extra_args": "--include_path scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks"
     },
     "summary": {
       "gate_json": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/gate.json",
@@ -918,6 +942,18 @@
       "include_taxi1500": true,
       "include_flores": true,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/benchmarks"
+    },
+    "baseline_eval": {
+      "enabled": true,
+      "models": [
+        "meta-llama/Llama-3.1-8B"
+      ],
+      "tasks_file": "configs/lm_eval_tasks_sib_taxi_96_langs.txt",
+      "output_root": "outputs/baselines",
+      "batch_size": "auto",
+      "lm_eval_bin": "lm_eval",
+      "seed": 42,
+      "extra_args": "--include_path scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks"
     },
     "summary": {
       "gate_json": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/gate.json",
@@ -1174,6 +1210,18 @@
       "include_taxi1500": true,
       "include_flores": true,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/benchmarks"
+    },
+    "baseline_eval": {
+      "enabled": true,
+      "models": [
+        "meta-llama/Llama-3.1-8B"
+      ],
+      "tasks_file": "configs/lm_eval_tasks_sib_taxi_200_langs.txt",
+      "output_root": "outputs/baselines",
+      "batch_size": "auto",
+      "lm_eval_bin": "lm_eval",
+      "seed": 42,
+      "extra_args": "--include_path scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks"
     },
     "summary": {
       "gate_json": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/gate.json",
