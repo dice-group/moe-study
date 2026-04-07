@@ -736,7 +736,7 @@
       "sample_fraction": 0.01,
       "skip_if_output_exists": true,
       "slurm_array_enabled": true,
-      "slurm_array_ranks": 25,
+      "slurm_array_ranks": 40,
       "check_parallel_enabled": true,
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/96.csv",
       "languages_csv_column": "subset",

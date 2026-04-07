@@ -11,6 +11,7 @@
     "include_sib200": true,
     "include_taxi1500": true,
     "include_flores": true,
+    "lang_mode": "no_ids",
     "lm_eval_bin": "lm_eval",
     "output_dir": "outputs/pipeline_runs/default/benchmarks",
     "tasks_file": "configs/lm_eval_tasks.txt",

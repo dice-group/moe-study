@@ -240,6 +240,10 @@ def stage_benchmark(ctx: PipelineContext) -> None:
         )
         selected_tasks_file = ctx.benchmark_root / "selected_tasks.txt"
         selected_tasks_summary = ctx.benchmark_root / "selected_tasks_summary.json"
+        if ctx.args.run_id and len(ctx.args.run_id) == 1:
+            run_id = str(ctx.args.run_id[0])
+            selected_tasks_file = ctx.benchmark_root / f"selected_tasks.{run_id}.txt"
+            selected_tasks_summary = ctx.benchmark_root / f"selected_tasks_summary.{run_id}.json"
         benchmark_summary_path = ctx.benchmark_root / "benchmark_summary.json"
         all_runs = ctx.train_cfg.get("runs", [])
         if ctx.args.run_id:
@@ -320,6 +324,7 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                 raise SystemExit(f"Benchmark eval script not found: {eval_script}")
             tokenizer = resolved_eval_tokenizer
             batch_size = str(ctx.benchmark_cfg.get("batch_size", "auto"))
+            lang_mode = str(ctx.benchmark_cfg.get("lang_mode", "")).strip()
             extra_args = str(ctx.benchmark_cfg.get("extra_args", "")).strip()
             if any(task.startswith(("sib200_", "taxi1500_")) for task in selected_tasks):
                 _ensure_external_task_configs(ctx.repo_root)
@@ -391,6 +396,8 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                     "--wandb-mode",
                     wandb_mode,
                 ]
+                if lang_mode:
+                    cmd.extend(["--lang-mode", lang_mode])
                 if extra_args:
                     cmd.extend(["--extra-args", extra_args])
                 _run_stage_cmd(
