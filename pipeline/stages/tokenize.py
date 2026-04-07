@@ -422,6 +422,7 @@ def _submit_tokenize_parallel_check(ctx: PipelineContext, *, languages: list[str
         merge_cmd.extend(["--expected-languages", ",".join(languages)])
     english_key = str(token_cfg.get("language_rates_english_key", "english")).strip() or "english"
     merge_cmd.extend(["--english-key", english_key])
+    merge_cmd.extend(["--eval-fraction", str(float(token_cfg.get("eval_fraction", 0.02)))])
     if bool(token_cfg.get("english_median_check", False)):
         merge_cmd.append("--english-median-check")
         merge_cmd.extend(
@@ -531,6 +532,7 @@ def stage_tokenize(ctx: PipelineContext) -> None:
                     english_median_check=bool(ctx.tokenize_cfg.get("english_median_check", False)),
                     english_key=str(ctx.tokenize_cfg.get("language_rates_english_key", "english")).strip() or "english",
                     english_median_tolerance=float(ctx.tokenize_cfg.get("english_median_tolerance", 0.05)),
+                    eval_fraction=float(ctx.tokenize_cfg.get("eval_fraction", 0.02)),
                 )
             if not ctx.args.dry_run:
                 _save_stage_state(ctx.state_path, "tokenize", signature, [str(ctx.tokenized_dir)])

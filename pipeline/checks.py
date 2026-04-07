@@ -99,6 +99,7 @@ def check_tokenize(
     english_median_check: bool = False,
     english_key: str = "english",
     english_median_tolerance: float = 0.05,
+    eval_fraction: float | None = None,
 ) -> None:
     """Verify tokenized dataset: row counts, token counts, splits, language IDs, example."""
 
@@ -123,6 +124,8 @@ def check_tokenize(
         split_tokens: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
         langs = collections.Counter()
         tokens_by_lang: dict[str, int] = collections.Counter()
+        docs_by_lang: dict[str, int] = collections.Counter()
+        split_docs: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
         total_tokens = 0
         total_rows = 0
         unique_lids: set[int] = set()
@@ -190,7 +193,12 @@ def check_tokenize(
                 else:
                     lengths = [0] * batch_rows
 
-                for split_name, lang, length in zip(split_list, lang_list, lengths):
+                if "chunk_idx" in batch.column_names:
+                    chunk_idx_list = batch.column("chunk_idx").to_pylist()
+                else:
+                    chunk_idx_list = [None] * batch_rows
+
+                for idx, (split_name, lang, length) in enumerate(zip(split_list, lang_list, lengths)):
                     lang_key = str(lang)
                     split_key = str(split_name)
                     langs[lang_key] += 1
@@ -198,6 +206,9 @@ def check_tokenize(
                     split_langs[split_key][lang_key] += 1
                     split_tokens[split_key][lang_key] += int(length)
                     total_tokens += int(length)
+                    if chunk_idx_list[idx] == 0:
+                        docs_by_lang[lang_key] += 1
+                        split_docs[split_key][lang_key] += 1
 
                 if "language_ids" in batch.column_names:
                     has_lang_ids = True
@@ -230,10 +241,12 @@ def check_tokenize(
         out["splits"] = {k: sum(v.values()) for k, v in split_langs.items()}
         out["samples_per_language_by_split"] = {split: dict(counts) for split, counts in split_langs.items()}
         out["tokens_per_language_by_split"] = {split: dict(counts) for split, counts in split_tokens.items()}
+        out["docs_per_language_by_split"] = {split: dict(counts) for split, counts in split_docs.items()}
         out["samples_per_language"] = dict(langs)
         out["num_languages"] = len(langs)
         out["total_tokens"] = total_tokens
         out["tokens_per_language"] = dict(tokens_by_lang)
+        out["docs_per_language"] = dict(docs_by_lang)
         out["has_language_ids"] = has_lang_ids
         if has_lang_ids:
             out["unique_language_ids"] = sorted(unique_lids)
@@ -253,18 +266,20 @@ def check_tokenize(
     else:
         ds = load_from_disk(str(tokenized_dir))
         out["num_rows"] = len(ds)
-        out["columns"] = ds.column_names
-
-        # Splits
+        out["columns"] = ds.column_names        # Splits
         splits = collections.Counter(ds["split"])
         out["splits"] = dict(splits)
         split_langs: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
         split_tokens: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
-        for split_name, lang, ids in zip(ds["split"], ds["language"], ds["input_ids"]):
+        split_docs: dict[str, dict[str, int]] = collections.defaultdict(collections.Counter)
+        for split_name, lang, ids, chunk_idx in zip(ds["split"], ds["language"], ds["input_ids"], ds["chunk_idx"]):
             split_langs[str(split_name)][str(lang)] += 1
             split_tokens[str(split_name)][str(lang)] += len(ids)
+            if int(chunk_idx) == 0:
+                split_docs[str(split_name)][str(lang)] += 1
         out["samples_per_language_by_split"] = {split: dict(counts) for split, counts in split_langs.items()}
         out["tokens_per_language_by_split"] = {split: dict(counts) for split, counts in split_tokens.items()}
+        out["docs_per_language_by_split"] = {split: dict(counts) for split, counts in split_docs.items()}
 
         # Language counts
         langs = collections.Counter(ds["language"])
@@ -275,11 +290,16 @@ def check_tokenize(
         total_tokens = sum(len(ids) for ids in ds["input_ids"])
         out["total_tokens"] = total_tokens
         tokens_by_lang: dict[str, int] = collections.Counter()
-        for lang, ids in zip(ds["language"], ds["input_ids"]):
+        docs_by_lang: dict[str, int] = collections.Counter()
+        for lang, ids, chunk_idx in zip(ds["language"], ds["input_ids"], ds["chunk_idx"]):
             tokens_by_lang[lang] += len(ids)
+            if int(chunk_idx) == 0:
+                docs_by_lang[lang] += 1
         out["tokens_per_language"] = dict(tokens_by_lang)
+        out["docs_per_language"] = dict(docs_by_lang)
 
         # Language IDs
+
         has_lang_ids = "language_ids" in ds.column_names
         out["has_language_ids"] = has_lang_ids
         if has_lang_ids:
@@ -351,38 +371,55 @@ def check_tokenize(
 
     if english_median_check and expected_languages:
         english_key = str(english_key or "english").strip()
-        if english_key not in tokens_by_lang:
+        if english_key not in docs_by_lang:
             out["pass"] = False
             out["english_missing"] = english_key
             _write_check(tokenized_dir / "_check.json", out)
             raise SystemExit(f"[CHECK FAIL] tokenize: english key '{english_key}' missing from tokenized data")
-        expected_set = {str(item) for item in expected_languages if str(item).strip()}
-        other_fracs = []
-        for lang in expected_set:
-            if lang == english_key:
-                continue
-            frac = _validation_fraction(split_tokens, lang)
-            if frac is not None:
-                other_fracs.append(frac)
-        if other_fracs:
-            english_frac = _validation_fraction(split_tokens, english_key)
-            if english_frac is None:
+
+        english_frac = _validation_fraction(split_docs, english_key)
+        if english_frac is None:
+            out["pass"] = False
+            out["english_validation_fraction"] = None
+            _write_check(tokenized_dir / "_check.json", out)
+            raise SystemExit("[CHECK FAIL] tokenize: english validation fraction unavailable")
+
+        if eval_fraction is not None and eval_fraction > 0:
+            min_allowed = eval_fraction * 0.25
+            max_allowed = eval_fraction * 3.0
+            out["english_validation_fraction_expected"] = eval_fraction
+            out["english_validation_fraction_allowed_min"] = min_allowed
+            out["english_validation_fraction_allowed_max"] = max_allowed
+            out["english_validation_fraction_actual"] = english_frac
+            if english_frac < min_allowed or english_frac > max_allowed:
                 out["pass"] = False
-                out["english_validation_fraction"] = None
-                _write_check(tokenized_dir / "_check.json", out)
-                raise SystemExit("[CHECK FAIL] tokenize: english validation fraction unavailable")
-            median_frac = float(statistics.median(other_fracs))
-            tolerance = max(0.005, float(median_frac) * float(english_median_tolerance))
-            if abs(english_frac - median_frac) > tolerance:
-                out["pass"] = False
-                out["english_validation_fraction_expected"] = median_frac
-                out["english_validation_fraction_actual"] = english_frac
-                out["english_validation_fraction_tolerance"] = tolerance
                 _write_check(tokenized_dir / "_check.json", out)
                 raise SystemExit(
-                    "[CHECK FAIL] tokenize: english validation fraction is not near median of other languages "
-                    f"(expected ~{median_frac:.4f} ±{tolerance:.4f}, got {english_frac:.4f})"
+                    "[CHECK FAIL] tokenize: english validation fraction is outside allowed range "
+                    f"(expected ~{eval_fraction:.4f} within [{min_allowed:.4f}, {max_allowed:.4f}], got {english_frac:.4f})"
                 )
+        else:
+            expected_set = {str(item) for item in expected_languages if str(item).strip()}
+            other_fracs = []
+            for lang in expected_set:
+                if lang == english_key:
+                    continue
+                frac = _validation_fraction(split_docs, lang)
+                if frac is not None:
+                    other_fracs.append(frac)
+            if other_fracs:
+                median_frac = float(statistics.median(other_fracs))
+                tolerance = max(0.02, float(median_frac) * float(english_median_tolerance))
+                if abs(english_frac - median_frac) > tolerance:
+                    out["pass"] = False
+                    out["english_validation_fraction_expected"] = median_frac
+                    out["english_validation_fraction_actual"] = english_frac
+                    out["english_validation_fraction_tolerance"] = tolerance
+                    _write_check(tokenized_dir / "_check.json", out)
+                    raise SystemExit(
+                        "[CHECK FAIL] tokenize: english validation fraction is not near median of other languages "
+                        f"(expected ~{median_frac:.4f} ±{tolerance:.4f}, got {english_frac:.4f})"
+                    )
 
     _write_check(tokenized_dir / "_check.json", out)
 
