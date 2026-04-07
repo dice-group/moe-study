@@ -489,6 +489,7 @@
     "training": {
       "num_experts": 2,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/runs",
+      "report_to": "wandb",
       "runs": [
         {
           "id": "lora_r64",
@@ -675,7 +676,8 @@
       "include_sib200": true,
       "include_taxi1500": true,
       "include_flores": true,
-      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/benchmarks"
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/benchmarks",
+      "wandb_project": "moe_study_eval"
     },
     "baseline_eval": {
       "enabled": true,
@@ -696,6 +698,9 @@
     "report": {
       "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/report.xlsx",
       "enabled": true
+    },
+    "wandb": {
+      "project": "moe_study_training"
     },
     "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
     "sample": {
@@ -755,6 +760,7 @@
     "training": {
       "num_experts": 32,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/runs",
+      "report_to": "wandb",
       "runs": [
         {
           "id": "lora_r64",
@@ -845,7 +851,7 @@
           },
           "params": {
             "adamole_aux_loss_coef": 0.001,
-            "adamole_max_threshold": 0.015625,
+            "adamole_max_threshold": 0.046875,
             "adamole_num_experts": 32
           },
           "train": {
@@ -941,7 +947,8 @@
       "include_sib200": true,
       "include_taxi1500": true,
       "include_flores": true,
-      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/benchmarks"
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/benchmarks",
+      "wandb_project": "moe_study_eval"
     },
     "baseline_eval": {
       "enabled": true,
@@ -962,6 +969,9 @@
     "report": {
       "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/report.xlsx",
       "enabled": true
+    },
+    "wandb": {
+      "project": "moe_study_training"
     },
     "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
     "sample": {
@@ -985,7 +995,8 @@
     "extends": "moe_study_profile_otus_cluster",
     "output_root": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs",
     "executor": {
-      "time": "72:00:00"
+      "gres": "gpu:h100:4",
+      "time": "18:00:00"
     },
     "tokenization": {
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/tokenized",
@@ -1023,6 +1034,7 @@
     "training": {
       "num_experts": 32,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/runs",
+      "report_to": "wandb",
       "runs": [
         {
           "id": "lora_r64",
@@ -1209,7 +1221,8 @@
       "include_sib200": true,
       "include_taxi1500": true,
       "include_flores": true,
-      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/benchmarks"
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/benchmarks",
+      "wandb_project": "moe_study_eval"
     },
     "baseline_eval": {
       "enabled": true,
@@ -1230,6 +1243,9 @@
     "report": {
       "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/report.xlsx",
       "enabled": true
+    },
+    "wandb": {
+      "project": "moe_study_training"
     },
     "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
     "sample": {
