@@ -1,0 +1,23 @@
+{
+  "batch_size": "auto",
+  "batch_sizes": [
+    64
+  ],
+  "device": "cuda:0",
+  "fewshot_seed": 42,
+  "git_hash": "87c0b9a",
+  "limit": null,
+  "lm_eval_version": "0.4.11",
+  "metrics_summary_csv": "l-3-1-8b_sib_taxi_baseline_metrics_summary.csv",
+  "model": "meta-llama/Llama-3.1-8B",
+  "model_slug": "l-3-1-8b",
+  "num_requested_tasks": 114,
+  "num_result_tasks": 114,
+  "num_summary_rows": 228,
+  "numpy_seed": 42,
+  "resolved_tasks_txt": "tasks_resolved.txt",
+  "seed": 42,
+  "tasks_file": "../../lm_eval_tasks_sib_taxi_200_langs.txt",
+  "torch_seed": 42,
+  "transformers_version": "5.5.0"
+}

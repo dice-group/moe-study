@@ -31,6 +31,11 @@ from .sources import (
     resolve_baseline_lm_eval_path,
 )
 
+DEFAULT_BASELINE_METRICS_CSVS = [
+    "configs/baselines/llama31_8b_full_eval/l-3-1-8b_full_baseline_metrics_summary.csv",
+    "configs/baselines/llama31_8b_sib_taxi_eval/l-3-1-8b_sib_taxi_baseline_metrics_summary.csv",
+]
+
 
 def build_workbook(
     *,
@@ -104,7 +109,12 @@ def main() -> int:
     parser.add_argument("--benchmark-summary-json", default="", help="Legacy/no-op: kept for CLI compatibility.")
     parser.add_argument("--baseline-cache-root", default="")
     parser.add_argument("--baseline-lm-eval-json", default="outputs/baselines/llama31_8b_full_eval")
-    parser.add_argument("--baseline-metrics-csv", default="configs/baselines/llama31_8b_full_eval/l-3-1-8b_full_baseline_metrics_summary.csv")
+    parser.add_argument(
+        "--baseline-metrics-csv",
+        action="append",
+        default=None,
+        help="Tracked baseline metrics CSV. May be provided multiple times; defaults include all repo baseline bundles.",
+    )
     parser.add_argument("--resource-availability-csv", default="result_analysis/l2v_nested_samples/fineweb2-language-distribution.csv")
     parser.add_argument("--model-name-or-path", default="")
     parser.add_argument("--sample-manifest", default="")
@@ -127,7 +137,9 @@ def main() -> int:
         baseline_json_path = resolve_baseline_lm_eval_path(Path(args.baseline_lm_eval_json))
         if baseline_json_path is not None:
             baseline_json_rows = load_baseline_rows_from_lm_eval_json(baseline_json_path, args.model_name_or_path)
-    baseline_csv_rows = load_baseline_rows_from_csv(Path(args.baseline_metrics_csv))
+    baseline_csv_rows = []
+    for baseline_csv in args.baseline_metrics_csv or DEFAULT_BASELINE_METRICS_CSVS:
+        baseline_csv_rows.extend(load_baseline_rows_from_csv(Path(baseline_csv)))
     if baseline_rows or baseline_json_rows or baseline_csv_rows:
         merged = {}
         for row in [*baseline_rows, *baseline_json_rows, *baseline_csv_rows]:

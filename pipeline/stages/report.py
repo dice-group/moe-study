@@ -12,6 +12,11 @@ from .runtime import (
 )
 from ..context import PipelineContext
 
+DEFAULT_BASELINE_METRICS_CSVS = [
+    "configs/baselines/llama31_8b_full_eval/l-3-1-8b_full_baseline_metrics_summary.csv",
+    "configs/baselines/llama31_8b_sib_taxi_eval/l-3-1-8b_sib_taxi_baseline_metrics_summary.csv",
+]
+
 
 def stage_report(ctx: PipelineContext) -> None:
     if "report" in ctx.active_stages and bool(ctx.report_cfg.get("enabled", False)):
@@ -74,6 +79,20 @@ def stage_report(ctx: PipelineContext) -> None:
                 "--output-xlsx",
                 str(ctx.report_xlsx),
             ]
+            baseline_metrics_csv_values: list[str] = []
+            baseline_metrics_csv = str(ctx.report_cfg.get("baseline_metrics_csv", "")).strip()
+            if baseline_metrics_csv:
+                baseline_metrics_csv_values.append(baseline_metrics_csv)
+            baseline_metrics_csvs = ctx.report_cfg.get("baseline_metrics_csvs", [])
+            if isinstance(baseline_metrics_csvs, list):
+                for csv_path in baseline_metrics_csvs:
+                    value = str(csv_path).strip()
+                    if value:
+                        baseline_metrics_csv_values.append(value)
+            if not baseline_metrics_csv_values:
+                baseline_metrics_csv_values = list(DEFAULT_BASELINE_METRICS_CSVS)
+            for csv_path in baseline_metrics_csv_values:
+                cmd.extend(["--baseline-metrics-csv", str(_abs(ctx.repo_root, csv_path))])
             _run_stage_cmd(cmd=cmd, env=ctx.env, dry_run=ctx.args.dry_run, logs_root=ctx.logs_root, stage="report", executor=ctx.executor)
             if not ctx.args.dry_run:
                 _save_stage_state(ctx.state_path, "report", signature, [str(ctx.report_xlsx)])
