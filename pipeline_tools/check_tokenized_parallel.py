@@ -254,6 +254,15 @@ def _merge_parts(parts: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def _validation_fraction(tokens_by_split: dict[str, dict[str, int]], lang: str) -> float | None:
+    val_tokens = int(tokens_by_split.get("validation", {}).get(lang, 0))
+    train_tokens = int(tokens_by_split.get("train", {}).get(lang, 0))
+    total = val_tokens + train_tokens
+    if total <= 0:
+        return None
+    return val_tokens / total
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Parallel tokenized dataset check")
     ap.add_argument("--tokenized-dir", required=True)
@@ -330,28 +339,39 @@ def main() -> int:
 
     if args.english_median_check and expected:
         english_key = args.english_key.strip() or "english"
-        samples = out.get("samples_per_language", {})
-        if english_key not in samples:
+        tokens_by_split = out.get("tokens_per_language_by_split", {})
+        if english_key not in out.get("tokens_per_language", {}):
             out["pass"] = False
             out["english_missing"] = english_key
             (tokenized_dir / "_check.json").write_text(json.dumps(out, indent=2, sort_keys=True), encoding="utf-8")
             raise SystemExit(f"[CHECK FAIL] tokenize: english key '{english_key}' missing from tokenized data")
-        other_counts = [samples.get(lang, 0) for lang in expected if lang != english_key and lang in samples]
-        if other_counts:
+        other_fracs = []
+        for lang in expected:
+            if lang == english_key:
+                continue
+            frac = _validation_fraction(tokens_by_split, lang)
+            if frac is not None:
+                other_fracs.append(frac)
+        if other_fracs:
             import statistics
 
-            median_count = int(statistics.median(other_counts))
-            english_count = int(samples.get(english_key, 0))
-            tolerance = max(1, int(median_count * float(args.english_median_tolerance)))
-            if abs(english_count - median_count) > tolerance:
+            english_frac = _validation_fraction(tokens_by_split, english_key)
+            if english_frac is None:
                 out["pass"] = False
-                out["english_median_expected"] = median_count
-                out["english_median_actual"] = english_count
-                out["english_median_tolerance"] = tolerance
+                out["english_validation_fraction"] = None
+                (tokenized_dir / "_check.json").write_text(json.dumps(out, indent=2, sort_keys=True), encoding="utf-8")
+                raise SystemExit("[CHECK FAIL] tokenize: english validation fraction unavailable")
+            median_frac = float(statistics.median(other_fracs))
+            tolerance = max(0.005, float(median_frac) * float(args.english_median_tolerance))
+            if abs(english_frac - median_frac) > tolerance:
+                out["pass"] = False
+                out["english_validation_fraction_expected"] = median_frac
+                out["english_validation_fraction_actual"] = english_frac
+                out["english_validation_fraction_tolerance"] = tolerance
                 (tokenized_dir / "_check.json").write_text(json.dumps(out, indent=2, sort_keys=True), encoding="utf-8")
                 raise SystemExit(
-                    "[CHECK FAIL] tokenize: english sample count is not near median of other languages "
-                    f"(expected ~{median_count} ±{tolerance}, got {english_count})"
+                    "[CHECK FAIL] tokenize: english validation fraction is not near median of other languages "
+                    f"(expected ~{median_frac:.4f} ±{tolerance:.4f}, got {english_frac:.4f})"
                 )
 
     (tokenized_dir / "_check.json").write_text(json.dumps(out, indent=2, sort_keys=True), encoding="utf-8")

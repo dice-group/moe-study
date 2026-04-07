@@ -19,6 +19,16 @@ from typing import Any
 LOGGER = logging.getLogger("pipeline.checks")
 
 
+def _validation_fraction(tokens_by_split: dict[str, dict[str, int]], lang: str) -> float | None:
+    val_tokens = int(tokens_by_split.get("validation", {}).get(lang, 0))
+    train_tokens = int(tokens_by_split.get("train", {}).get(lang, 0))
+    total = val_tokens + train_tokens
+    if total <= 0:
+        return None
+    return val_tokens / total
+
+
+
 def _write_check(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, default=str) + "\n", encoding="utf-8")
@@ -341,26 +351,37 @@ def check_tokenize(
 
     if english_median_check and expected_languages:
         english_key = str(english_key or "english").strip()
-        if english_key not in langs:
+        if english_key not in tokens_by_lang:
             out["pass"] = False
             out["english_missing"] = english_key
             _write_check(tokenized_dir / "_check.json", out)
             raise SystemExit(f"[CHECK FAIL] tokenize: english key '{english_key}' missing from tokenized data")
         expected_set = {str(item) for item in expected_languages if str(item).strip()}
-        other_counts = [langs[lang] for lang in expected_set if lang != english_key and lang in langs]
-        if other_counts:
-            median_count = int(statistics.median(other_counts))
-            english_count = int(langs.get(english_key, 0))
-            tolerance = max(1, int(median_count * float(english_median_tolerance)))
-            if abs(english_count - median_count) > tolerance:
+        other_fracs = []
+        for lang in expected_set:
+            if lang == english_key:
+                continue
+            frac = _validation_fraction(split_tokens, lang)
+            if frac is not None:
+                other_fracs.append(frac)
+        if other_fracs:
+            english_frac = _validation_fraction(split_tokens, english_key)
+            if english_frac is None:
                 out["pass"] = False
-                out["english_median_expected"] = median_count
-                out["english_median_actual"] = english_count
-                out["english_median_tolerance"] = tolerance
+                out["english_validation_fraction"] = None
+                _write_check(tokenized_dir / "_check.json", out)
+                raise SystemExit("[CHECK FAIL] tokenize: english validation fraction unavailable")
+            median_frac = float(statistics.median(other_fracs))
+            tolerance = max(0.005, float(median_frac) * float(english_median_tolerance))
+            if abs(english_frac - median_frac) > tolerance:
+                out["pass"] = False
+                out["english_validation_fraction_expected"] = median_frac
+                out["english_validation_fraction_actual"] = english_frac
+                out["english_validation_fraction_tolerance"] = tolerance
                 _write_check(tokenized_dir / "_check.json", out)
                 raise SystemExit(
-                    "[CHECK FAIL] tokenize: english sample count is not near median of other languages "
-                    f"(expected ~{median_count} ±{tolerance}, got {english_count})"
+                    "[CHECK FAIL] tokenize: english validation fraction is not near median of other languages "
+                    f"(expected ~{median_frac:.4f} ±{tolerance:.4f}, got {english_frac:.4f})"
                 )
 
     _write_check(tokenized_dir / "_check.json", out)
