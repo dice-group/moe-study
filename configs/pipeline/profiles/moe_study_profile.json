@@ -46,9 +46,9 @@
         "main_process_port": 29501
       },
       "eval": {
-        "enabled": false,
-        "eval_steps": 0.2,
-        "strategy": "no"
+        "enabled": true,
+        "eval_steps": 0.05,
+        "strategy": "steps"
       },
       "eval_dataset_name": "identity",
       "language_column": "language",
@@ -251,9 +251,9 @@
         "fp16": false,
         "grad_accum": 2,
         "learning_rate": "2e-4",
-        "logging_steps": 1,
+        "logging_steps": 50,
         "num_train_epochs": 1.0,
-        "save_steps": 0.2,
+        "save_steps": 0.1,
         "save_total_limit": 5,
         "use_reentrant_gc": true,
         "weight_decay": 0.0
@@ -511,7 +511,7 @@
             "rank": 4
           },
           "train": {
-            "batch_size": 33,
+            "batch_size": 32,
             "grad_accum": 2
           }
         },
@@ -602,7 +602,7 @@
             "mola_top_k": 2
           },
           "train": {
-            "batch_size": 20,
+            "batch_size": 32,
             "grad_accum": 2
           }
         },
@@ -622,7 +622,7 @@
             "movlora_top_k": 1
           },
           "train": {
-            "batch_size": 26,
+            "batch_size": 34,
             "grad_accum": 2
           }
         },
