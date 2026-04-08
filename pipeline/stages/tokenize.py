@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import statistics
+from pathlib import Path
 
 from .runtime import (
     _load_json,
@@ -20,11 +21,12 @@ from ..executor import SlurmExecutor, build_executor
 
 def _resolve_languages_for_tokenize(ctx: PipelineContext) -> list[str]:
     token_cfg = ctx.tokenize_cfg
+    english_key = str(token_cfg.get("language_rates_english_key", "english")).strip() or "english"
     explicit = token_cfg.get("languages")
     if isinstance(explicit, list) and explicit:
         base = [str(item).strip() for item in explicit if str(item).strip()]
-        extras = _resolve_language_extras(token_cfg)
-        return sorted(set(base + extras))
+        extras = _resolve_language_extras(token_cfg)        
+        return sorted(set(base + extras + [english_key])) # always include english_key if languages are explicitly set
 
     csv_path = str(token_cfg.get("languages_csv", "")).strip()
     if csv_path:
@@ -50,13 +52,13 @@ def _resolve_languages_for_tokenize(ctx: PipelineContext) -> list[str]:
         if not languages:
             raise SystemExit(f"No languages resolved from {csv_path} (column={column}, split={split_value})")
         extras = _resolve_language_extras(token_cfg)
-        return sorted(languages.union(extras))
+        return sorted(languages.union(extras).union({english_key}))
 
     explicit = ctx.sample_cfg.get("languages")
     if isinstance(explicit, list) and explicit:
         base = [str(item).strip() for item in explicit if str(item).strip()]
         extras = _resolve_language_extras(token_cfg)
-        return sorted(set(base + extras))
+        return sorted(set(base + extras + [english_key]))
 
     return []
 
@@ -72,136 +74,91 @@ def _resolve_language_extras(token_cfg: dict) -> list[str]:
     return []
 
 
+def _plan_complete(plan_dir: Path, world_size: int) -> bool:
+    return all((plan_dir / f"rank_{rank:05d}.jsonl").exists() for rank in range(world_size))
+
+
+def _default_shard_doc_counts_tsv(ctx: PipelineContext) -> Path:
+    return ctx.repo_root / "data_prep" / "merlin_data_prep" / "distributed_data_processor" / "configs" / "shard_doc_counts.tsv"
+
+
+def _build_shard_plan_cmd(
+    ctx: PipelineContext,
+    *,
+    languages: list[str],
+    world_size: int,
+    rates_path: Path | None,
+) -> list[str]:
+    cmd = [
+        "python3",
+        str(ctx.repo_root / "data_prep" / "merlin_data_prep" / "distributed_data_processor" / "src" / "plan_tokenization_shards.py"),
+        "--shard_counts_tsv",
+        str(_default_shard_doc_counts_tsv(ctx)),
+        "--output_dir",
+        str(ctx.tokenized_dir.parent / f"{ctx.tokenized_dir.name}_shard_plan"),
+        "--languages",
+        *languages,
+        "--world_size",
+        str(world_size),
+        "--sample_fraction",
+        str(float(ctx.tokenize_cfg.get("sample_fraction", 1.0))),
+        "--eval_fraction",
+        str(float(ctx.tokenize_cfg.get("eval_fraction", 0.02))),
+    ]
+    if rates_path is not None:
+        cmd.extend(["--language_rates_json", str(rates_path)])
+    return cmd
+
+
 def _build_language_rates_for_tokenize(ctx: PipelineContext, languages: list[str]) -> Path | None:
     token_cfg = ctx.tokenize_cfg
-    csv_path = str(token_cfg.get("language_rates_csv", "")).strip()
-    if not csv_path:
-        return None
-    subset_column = str(token_cfg.get("language_rates_csv_column", "subset")).strip() or "subset"
-    split_value = str(token_cfg.get("language_rates_csv_split", "train")).strip()
-    split_column = str(token_cfg.get("language_rates_csv_split_column", "split")).strip() or "split"
-    docs_column = str(token_cfg.get("language_rates_csv_documents_column", "documents")).strip() or "documents"
     english_key = str(token_cfg.get("language_rates_english_key", "english")).strip() or "english"
-    english_override = token_cfg.get("language_rates_english_docs_override")
-    english_docs_count = token_cfg.get("language_rates_english_docs_count")
-    english_divisor = token_cfg.get("language_rates_english_undersample_divisor", 1)
-    counts_tsv = str(token_cfg.get("language_rates_counts_tsv", "")).strip()
-    counts_lang_col = str(token_cfg.get("language_rates_counts_tsv_language_column", "language")).strip() or "language"
-    counts_val_col = str(token_cfg.get("language_rates_counts_tsv_count_column", "count")).strip() or "count"
-    counts_has_header = bool(token_cfg.get("language_rates_counts_tsv_has_header", False))
-    require_positive = bool(token_cfg.get("language_rates_require_positive_counts", True))
-
     if english_key not in languages:
         return None
+    counts_tsv = _default_shard_doc_counts_tsv(ctx)
+    if not counts_tsv.exists():
+        raise SystemExit(f"Missing shard doc counts TSV: {counts_tsv}")
 
-    docs: dict[str, float] = {}
-    with open(csv_path, newline="", encoding="utf-8") as handle:
-        reader = csv.DictReader(handle)
-        if not reader.fieldnames:
-            raise SystemExit(f"language_rates_csv is missing a header: {csv_path}")
-        if subset_column not in reader.fieldnames:
-            raise SystemExit(f"language_rates_csv missing column '{subset_column}'. Found: {reader.fieldnames}")
-        if docs_column not in reader.fieldnames:
-            raise SystemExit(f"language_rates_csv missing column '{docs_column}'. Found: {reader.fieldnames}")
-        if split_value and split_column not in reader.fieldnames:
-            raise SystemExit(f"language_rates_csv missing split column '{split_column}'. Found: {reader.fieldnames}")
-
-        for row in reader:
-            if split_value and str(row.get(split_column, "")).strip() != split_value:
+    totals = {language: 0 for language in languages}
+    with counts_tsv.open("r", encoding="utf-8") as handle:
+        header = handle.readline().strip().split("\t")
+        if header != ["language", "shard", "doc_count"]:
+            raise SystemExit(f"Unexpected shard counts header in {counts_tsv}: {header}")
+        for line_no, line in enumerate(handle, start=2):
+            stripped = line.strip()
+            if not stripped:
                 continue
-            subset = str(row.get(subset_column, "")).strip()
-            if not subset:
+            parts = stripped.split("\t")
+            if len(parts) != 3:
+                raise SystemExit(f"Invalid shard counts row in {counts_tsv}:{line_no}")
+            language, _shard, doc_count = parts
+            if language not in totals:
                 continue
-            raw = row.get(docs_column, 0)
-            try:
-                value = float(raw)
-            except (TypeError, ValueError):
-                value = 0.0
-            docs[subset] = max(0.0, value)
+            totals[language] += int(doc_count)
 
-    counts: dict[str, float] = {}
-    if counts_tsv:
-        with open(counts_tsv, newline="", encoding="utf-8") as handle:
-            if counts_has_header:
-                reader = csv.DictReader(handle, delimiter="\t")
-                if not reader.fieldnames:
-                    raise SystemExit(f"language_rates_counts_tsv is missing a header: {counts_tsv}")
-                if counts_lang_col not in reader.fieldnames or counts_val_col not in reader.fieldnames:
-                    raise SystemExit(
-                        f"language_rates_counts_tsv missing columns '{counts_lang_col}', '{counts_val_col}'. "
-                        f"Found: {reader.fieldnames}"
-                    )
-                for row in reader:
-                    lang = str(row.get(counts_lang_col, "")).strip()
-                    if not lang:
-                        continue
-                    raw = row.get(counts_val_col, 0)
-                    try:
-                        value = float(raw)
-                    except (TypeError, ValueError):
-                        value = 0.0
-                    counts[lang] = max(0.0, value)
-            else:
-                for line in handle:
-                    parts = line.strip().split("\t")
-                    if len(parts) < 2:
-                        continue
-                    lang = parts[0].strip()
-                    if not lang:
-                        continue
-                    try:
-                        value = float(parts[1])
-                    except (TypeError, ValueError):
-                        value = 0.0
-                    counts[lang] = max(0.0, value)
-
-    if english_override is not None:
-        try:
-            target_map = counts if counts_tsv else docs
-            target_map[english_key] = float(english_override)
-        except (TypeError, ValueError):
-            raise SystemExit(f"language_rates_english_docs_override must be numeric, got {english_override}")
-    elif english_key not in docs:
-        if english_docs_count is None and not counts_tsv:
-            raise SystemExit(f"language_rates_csv missing '{english_key}' in column '{subset_column}': {csv_path}")
-        try:
-            base = float(english_docs_count)
-        except (TypeError, ValueError):
-            raise SystemExit(f"language_rates_english_docs_count must be numeric, got {english_docs_count}")
-        try:
-            divisor = float(english_divisor) if english_divisor is not None else 1.0
-        except (TypeError, ValueError):
-            divisor = 1.0
-        if divisor <= 0:
-            divisor = 1.0
-        if not counts_tsv:
-            docs[english_key] = base / divisor
-
-    if counts_tsv:
-        missing_counts = [lang for lang in languages if lang not in counts]
-        if missing_counts:
-            raise SystemExit(f"language_rates_counts_tsv missing languages: {missing_counts}")
-        if require_positive:
-            non_positive = [lang for lang in languages if counts.get(lang, 0.0) <= 0.0]
-            if non_positive:
-                raise SystemExit(f"language_rates_counts_tsv has non-positive counts for languages: {non_positive}")
-        other_docs = [counts.get(lang, 0.0) for lang in languages if lang != english_key and counts.get(lang, 0.0) > 0.0]
-        if not other_docs:
-            raise SystemExit(f"language_rates_counts_tsv has no positive counts for non-english languages: {counts_tsv}")
-        median_docs = float(statistics.median(other_docs))
-        english_docs = float(counts.get(english_key, 0.0))
-    else:
-        other_docs = [docs.get(lang, 0.0) for lang in languages if lang != english_key and docs.get(lang, 0.0) > 0.0]
-        if not other_docs:
-            raise SystemExit(f"language_rates_csv has no positive docs for non-english languages: {csv_path}")
-        median_docs = float(statistics.median(other_docs))
-        english_docs = float(docs.get(english_key, 0.0))
-    if english_docs <= 0:
-        source = counts_tsv if counts_tsv else csv_path
-        raise SystemExit(f"language_rates source has non-positive docs for '{english_key}': {source}")
+    missing = [language for language, total in totals.items() if total <= 0]
+    if missing:
+        raise SystemExit(f"Missing shard counts for languages: {missing}")
 
     base_rate = float(token_cfg.get("sample_fraction", 1.0))
-    english_rate = base_rate * median_docs / english_docs
+    english_docs = float(totals[english_key])
+    if english_docs <= 0:
+        raise SystemExit(f"Non-positive shard count for english language '{english_key}': {counts_tsv}")
+
+    other_targets: list[int] = []
+    for language in languages:
+        if language == english_key:
+            continue
+        total_docs = int(totals[language])
+        target = int(round(total_docs * base_rate))
+        if total_docs > 0 and base_rate > 0.0:
+            target = max(1, target)
+        other_targets.append(min(total_docs, target))
+
+    if not other_targets:
+        return None
+    english_target = int(round(statistics.median(other_targets)))
+    english_rate = english_target / english_docs
     english_rate = max(0.0, min(1.0, english_rate))
 
     rates = {english_key: english_rate}
@@ -244,6 +201,13 @@ def _submit_tokenize_slurm_array(
         raise SystemExit("tokenization.slurm_array_ranks must be set when no languages list is available")
 
     rank_output_dir = ctx.tokenized_dir.parent / f"{ctx.tokenized_dir.name}_ranks"
+    shard_plan_dir = ctx.tokenized_dir.parent / f"{ctx.tokenized_dir.name}_shard_plan"
+    shard_counts_tsv = _default_shard_doc_counts_tsv(ctx)
+    if not languages:
+        raise SystemExit("Tokenization requires resolved languages for shard-plan creation.")
+    if not shard_counts_tsv.exists():
+        raise SystemExit(f"Missing shard doc counts TSV: {shard_counts_tsv}")
+    max_samples = int(token_cfg.get("max_samples", 0) or 0)
     cmd = [
         "python3",
         str(ctx.repo_root / "data_prep" / "merlin_data_prep" / "distributed_data_processor" / "src" / "tokenize_slurm.py"),
@@ -255,12 +219,8 @@ def _submit_tokenize_slurm_array(
         tokenize_model_name,
         "--num_proc",
         str(int(token_cfg.get("num_proc", 1))),
-        "--eval_fraction",
-        str(float(token_cfg.get("eval_fraction", 0.02))),
         "--eval_seed",
         str(int(token_cfg.get("eval_seed", 42))),
-        "--sample_fraction",
-        str(float(token_cfg.get("sample_fraction", 1.0))),
         "--sample_seed",
         str(int(token_cfg.get("sample_seed", 42))),
         "--max_length",
@@ -269,24 +229,40 @@ def _submit_tokenize_slurm_array(
         str(ctx.language_map_path),
         "--mask_pad_labels",
         "true" if bool(token_cfg.get("mask_pad_labels", True)) else "false",
+        "--shard-plan-dir",
+        str(shard_plan_dir),
     ]
-    if languages:
-        cmd.extend(["--languages", *languages])
-    if rates_path is not None:
-        cmd.extend(["--language_rates_json", str(rates_path)])
-    max_samples = int(token_cfg.get("max_samples", 0))
     if max_samples > 0:
         cmd.extend(["--max_samples", str(max_samples)])
 
     lang_count = max(1, int(getattr(ctx, "lang_count", len(languages) or 0) or 0))
+    array_spec = f"0-{array_ranks - 1}"
+    shard_plan_logs_root = ctx.logs_root / "tokenize" / "shard_plan"
     array_logs_root = ctx.logs_root / "tokenize" / "array"
     merge_logs_root = ctx.logs_root / "tokenize" / "merge"
+    shard_plan_logs_root.mkdir(parents=True, exist_ok=True)
     array_logs_root.mkdir(parents=True, exist_ok=True)
     merge_logs_root.mkdir(parents=True, exist_ok=True)
 
+    shard_plan_job_id = None
+    if not _plan_complete(shard_plan_dir, array_ranks):
+        shard_plan_cmd = _build_shard_plan_cmd(
+            ctx,
+            languages=languages,
+            world_size=array_ranks,
+            rates_path=rates_path,
+        )
+        shard_plan_log = _stage_log_path(shard_plan_logs_root, ctx.env, "tokenize", "shard_plan")
+        shard_plan_job_id = executor.submit(
+            shard_plan_cmd,
+            ctx.env,
+            ctx.args.dry_run,
+            shard_plan_log,
+            job_name=f"toks{lang_count}l_all",
+        )
+
     stage_log = _stage_log_path(array_logs_root, ctx.env, "tokenize", "array")
     slurm_output = array_logs_root / "tokenize_array_%A_%a.log"
-    array_spec = f"0-{array_ranks - 1}"
     job_name = f"tok{lang_count}l_all"
     array_job_id = executor.submit_array(
         cmd,
@@ -294,6 +270,7 @@ def _submit_tokenize_slurm_array(
         ctx.args.dry_run,
         stage_log,
         array=array_spec,
+        dependency=f"afterok:{shard_plan_job_id}" if shard_plan_job_id else None,
         slurm_output=str(slurm_output),
         job_name=job_name,
     )
@@ -500,12 +477,8 @@ def stage_tokenize(ctx: PipelineContext) -> None:
                     tokenize_model_name,
                     "--num_proc",
                     str(int(ctx.tokenize_cfg.get("num_proc", 1))),
-                    "--eval_fraction",
-                    str(float(ctx.tokenize_cfg.get("eval_fraction", 0.02))),
                     "--eval_seed",
                     str(int(ctx.tokenize_cfg.get("eval_seed", 42))),
-                    "--sample_fraction",
-                    str(float(ctx.tokenize_cfg.get("sample_fraction", 1.0))),
                     "--sample_seed",
                     str(int(ctx.tokenize_cfg.get("sample_seed", 42))),
                     "--max_length",
@@ -515,11 +488,29 @@ def stage_tokenize(ctx: PipelineContext) -> None:
                     "--mask_pad_labels",
                     "true" if bool(ctx.tokenize_cfg.get("mask_pad_labels", True)) else "false",
                 ]
-                if languages:
-                    cmd.extend(["--languages", *languages])
-                if rates_path is not None:
-                    cmd.extend(["--language_rates_json", str(rates_path)])
-                max_samples = int(ctx.tokenize_cfg.get("max_samples", 0))
+                shard_plan_dir = ctx.tokenized_dir.parent / f"{ctx.tokenized_dir.name}_shard_plan"
+                shard_counts_tsv = _default_shard_doc_counts_tsv(ctx)
+                if not languages:
+                    raise SystemExit("Tokenization requires resolved languages for shard-plan creation.")
+                if not shard_counts_tsv.exists():
+                    raise SystemExit(f"Missing shard doc counts TSV: {shard_counts_tsv}")
+                if not _plan_complete(shard_plan_dir, 1):
+                    plan_cmd = _build_shard_plan_cmd(
+                        ctx,
+                        languages=languages,
+                        world_size=1,
+                        rates_path=rates_path,
+                    )
+                    _run_stage_cmd(
+                        cmd=plan_cmd,
+                        env=ctx.env,
+                        dry_run=ctx.args.dry_run,
+                        logs_root=ctx.logs_root,
+                        stage="tokenize_shard_plan",
+                        executor=ctx.executor,
+                    )
+                cmd.extend(["--shard-plan-dir", str(shard_plan_dir)])
+                max_samples = int(ctx.tokenize_cfg.get("max_samples", 0) or 0)
                 if max_samples > 0:
                     cmd.extend(["--max_samples", str(max_samples)])
                 _run_stage_cmd(cmd=cmd, env=ctx.env, dry_run=ctx.args.dry_run, logs_root=ctx.logs_root, stage="tokenize", executor=ctx.executor)
