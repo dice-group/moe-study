@@ -464,10 +464,10 @@
       "eval_fraction": 0.02,
       "sample_seed": 1234,
       "mask_pad_labels": true,
-      "sample_fraction": 0.005,
+      "sample_fraction": 0.00025,
       "skip_if_output_exists": true,
       "slurm_array_enabled": true,
-      "slurm_array_ranks": 35,
+      "slurm_array_ranks": 50,
       "check_parallel_enabled": true,
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
       "languages_csv_column": "subset",
@@ -492,11 +492,11 @@
       "report_to": "wandb",
       "runs": [
         {
-          "id": "lora_r64",
+          "id": "lora_r8",
           "kind": "lora",
           "lora": {
-            "alpha": 128,
-            "rank": 64
+            "alpha": 16,
+            "rank": 8
           },
           "train": {
             "batch_size": 32,
@@ -504,11 +504,11 @@
           }
         },
         {
-          "id": "lora_r8",
+          "id": "lora_r4",
           "kind": "lora",
           "lora": {
-            "alpha": 16,
-            "rank": 8
+            "alpha": 8,
+            "rank": 4
           },
           "train": {
             "batch_size": 33,
@@ -736,7 +736,7 @@
       "sample_fraction": 0.01,
       "skip_if_output_exists": true,
       "slurm_array_enabled": true,
-      "slurm_array_ranks": 40,
+      "slurm_array_ranks": 50,
       "check_parallel_enabled": true,
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/96.csv",
       "languages_csv_column": "subset",
@@ -1010,7 +1010,7 @@
       "sample_fraction": 0.005,
       "skip_if_output_exists": true,
       "slurm_array_enabled": true,
-      "slurm_array_ranks": 25,
+      "slurm_array_ranks": 50,
       "check_parallel_enabled": true,
       "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/200.csv",
       "languages_csv_column": "subset",
