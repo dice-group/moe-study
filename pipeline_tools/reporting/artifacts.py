@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import re
 import subprocess
 from collections import Counter, defaultdict
@@ -78,6 +79,38 @@ def resolve_trainable_stats(run_id: str, run_dir: Path, logs_root: Path | None) 
     return {}
 
 
+def load_shard_plan_summary(tokenized_dir: Path) -> dict[str, Any]:
+    plan_dir = tokenized_dir.parent / f"{tokenized_dir.name}_shard_plan"
+    summary = safe_json_load(plan_dir / "summary.json")
+    if not summary:
+        return {}
+    selected_targets = summary.get("selected_targets", {}) if isinstance(summary.get("selected_targets"), dict) else {}
+    validation_targets = summary.get("validation_targets", {}) if isinstance(summary.get("validation_targets"), dict) else {}
+    shard_counts: Counter[str] = Counter()
+    for path in sorted(plan_dir.glob("rank_*.jsonl")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                row = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
+            language = str(row.get("language", "")).strip()
+            if language:
+                shard_counts[language] += 1
+    train_targets = {
+        str(language): int(selected_targets.get(language, 0)) - int(validation_targets.get(language, 0))
+        for language in selected_targets.keys()
+    }
+    return {
+        "selected_targets": {str(k): int(v) for k, v in selected_targets.items()},
+        "validation_targets": {str(k): int(v) for k, v in validation_targets.items()},
+        "train_targets": train_targets,
+        "selected_shards": dict(shard_counts),
+    }
+
+
 def build_data_overview(*, sample_manifest_path: Path, tokenized_dir: Path, profile_payload: dict[str, Any], benchmark_summary_path: Path) -> dict[str, Any]:
     sample_manifest = safe_json_load(sample_manifest_path)
     sample_check = safe_json_load(sample_manifest_path.parent / "_check.json")
@@ -89,6 +122,7 @@ def build_data_overview(*, sample_manifest_path: Path, tokenized_dir: Path, prof
     sample_cfg = profile_payload.get("sample", {}) if isinstance(profile_payload, dict) else {}
     tokenization_cfg = profile_payload.get("tokenization", {}) if isinstance(profile_payload, dict) else {}
     benchmark_cfg = profile_payload.get("benchmark", {}) if isinstance(profile_payload, dict) else {}
+    shard_plan_summary = load_shard_plan_summary(tokenized_dir)
     source = sample_manifest.get("source", {}) if isinstance(sample_manifest.get("source"), dict) else {}
     selection = sample_manifest.get("selection", {}) if isinstance(sample_manifest.get("selection"), dict) else {}
     sample_languages = sample_check.get("languages", {}) if isinstance(sample_check.get("languages"), dict) else {}
@@ -114,14 +148,20 @@ def build_data_overview(*, sample_manifest_path: Path, tokenized_dir: Path, prof
     languages = selection.get("languages", sample_cfg.get("languages", []))
     if not isinstance(languages, list):
         languages = []
+    planned_selected_docs = shard_plan_summary.get("selected_targets", {}) if isinstance(shard_plan_summary.get("selected_targets"), dict) else {}
+    planned_validation_docs = shard_plan_summary.get("validation_targets", {}) if isinstance(shard_plan_summary.get("validation_targets"), dict) else {}
+    planned_train_docs = shard_plan_summary.get("train_targets", {}) if isinstance(shard_plan_summary.get("train_targets"), dict) else {}
+    planned_selected_shards = shard_plan_summary.get("selected_shards", {}) if isinstance(shard_plan_summary.get("selected_shards"), dict) else {}
     language_rows: list[dict[str, Any]] = []
-    for language in sorted(set([*sample_languages.keys(), *tokenized_samples.keys(), *tokenized_tokens.keys(), *[str(x) for x in languages]])):
+    for language in sorted(set([*sample_languages.keys(), *tokenized_samples.keys(), *tokenized_tokens.keys(), *planned_selected_docs.keys(), *[str(x) for x in languages]])):
         sampled = sample_languages.get(language, {}) if isinstance(sample_languages.get(language), dict) else {}
         language_rows.append({
             "language": language,
-            "sampled_docs": sampled.get("docs", ""),
-            "sampled_files": sampled.get("files", ""),
-            "sampled_bytes": sampled.get("bytes", ""),
+            "selected_docs": sampled.get("docs", planned_selected_docs.get(language, "")),
+            "selected_shards": sampled.get("files", planned_selected_shards.get(language, "")),
+            "selected_bytes": sampled.get("bytes", ""),
+            "train_docs": planned_train_docs.get(language, ""),
+            "validation_docs": planned_validation_docs.get(language, ""),
             "tokenized_examples": tokenized_samples.get(language, ""),
             "tokenized_train_examples": tokenized_samples_by_split.get("train", {}).get(language, "") if isinstance(tokenized_samples_by_split.get("train", {}), dict) else "",
             "tokenized_validation_examples": tokenized_samples_by_split.get("validation", {}).get(language, "") if isinstance(tokenized_samples_by_split.get("validation", {}), dict) else "",
@@ -150,6 +190,9 @@ def build_data_overview(*, sample_manifest_path: Path, tokenized_dir: Path, prof
         ("tokenization_model_name", tokenization_cfg.get("model_name", "")),
         ("tokenization_max_length", tokenization_cfg.get("max_length", "")),
         ("tokenization_eval_fraction", tokenization_cfg.get("eval_fraction", "")),
+        ("selected_docs_total", sum(int(v) for v in planned_selected_docs.values()) if planned_selected_docs else ""),
+        ("train_docs_total", sum(int(v) for v in planned_train_docs.values()) if planned_train_docs else ""),
+        ("validation_docs_total", sum(int(v) for v in planned_validation_docs.values()) if planned_validation_docs else ""),
         ("benchmark_enabled", benchmark_cfg.get("enabled", "")),
         ("benchmark_tasks_file", benchmark_summary.get("tasks_file", benchmark_cfg.get("tasks_file", ""))),
         ("benchmark_selected_tasks_file", benchmark_summary.get("selected_tasks_file", "")),
@@ -280,7 +323,20 @@ def write_data_overview_sheet(ws, overview: dict[str, Any]) -> None:
     ws.cell(start_row, 1, "Per-Language Data")
     ws.cell(start_row, 1).fill = SECTION_FILL
     ws.cell(start_row, 1).font = SECTION_FONT
-    lang_headers = ["language", "sampled_docs", "sampled_files", "sampled_bytes", "tokenized_examples", "tokenized_train_examples", "tokenized_validation_examples", "tokenized_tokens", "tokenized_train_tokens", "tokenized_validation_tokens"]
+    lang_headers = [
+        "language",
+        "selected_docs",
+        "selected_shards",
+        "selected_bytes",
+        "train_docs",
+        "validation_docs",
+        "tokenized_examples",
+        "tokenized_train_examples",
+        "tokenized_validation_examples",
+        "tokenized_tokens",
+        "tokenized_train_tokens",
+        "tokenized_validation_tokens",
+    ]
     for idx, header in enumerate(lang_headers, start=1):
         ws.cell(start_row + 1, idx, header)
     style_header(ws, header_row=start_row + 1)
@@ -297,7 +353,7 @@ def write_data_overview_sheet(ws, overview: dict[str, Any]) -> None:
     style_header(ws, header_row=start_row + 1)
     for row in overview.get("benchmark_run_rows", []):
         ws.append([row.get(header, "") for header in run_headers])
-    for col, width in {"A": 28, "B": 120, "C": 16, "D": 16, "E": 18, "F": 18, "G": 18, "H": 18, "I": 18, "J": 18}.items():
+    for col, width in {"A": 28, "B": 16, "C": 16, "D": 16, "E": 18, "F": 20, "G": 18, "H": 18, "I": 18, "J": 18, "K": 18, "L": 18}.items():
         ws.column_dimensions[col].width = width
     ws.freeze_panes = "A2"
 
