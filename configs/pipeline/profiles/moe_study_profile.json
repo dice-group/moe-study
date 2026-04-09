@@ -99,7 +99,7 @@
             "cola_num_B": 39,
             "cola_strategy": "fully",
             "cola_use_experts": false,
-            "use_cola_pissa_init": false
+            "use_cola_pissa_init": true
           },
           "train": {
             "batch_size": 24,
@@ -253,7 +253,7 @@
         "learning_rate": "2e-4",
         "logging_steps": 50,
         "num_train_epochs": 1.0,
-        "save_steps": 0.1,
+        "save_steps": 0.05,
         "save_total_limit": 5,
         "use_reentrant_gc": true,
         "weight_decay": 0.0
@@ -527,7 +527,7 @@
             "cola_num_B": 2,
             "cola_strategy": "fully",
             "cola_use_experts": false,
-            "use_cola_pissa_init": false
+            "use_cola_pissa_init": true
           },
           "train": {
             "batch_size": 32,
@@ -730,7 +730,7 @@
       "eval_fraction": 0.02,
       "sample_seed": 1234,
       "mask_pad_labels": true,
-      "sample_fraction": 0.01,
+      "sample_fraction": 0.0025,
       "skip_if_output_exists": true,
       "slurm_array_enabled": true,
       "slurm_array_ranks": 50,
@@ -780,7 +780,7 @@
             "rank": 64
           },
           "train": {
-            "batch_size": 32,
+            "batch_size": 30,
             "grad_accum": 2
           }
         },
@@ -792,7 +792,7 @@
             "rank": 8
           },
           "train": {
-            "batch_size": 33,
+            "batch_size": 30,
             "grad_accum": 2
           }
         },
@@ -808,7 +808,7 @@
             "cola_num_B": 39,
             "cola_strategy": "fully",
             "cola_use_experts": false,
-            "use_cola_pissa_init": false
+            "use_cola_pissa_init": true
           },
           "train": {
             "batch_size": 30,
@@ -829,7 +829,7 @@
             "language_prior_weight": 0.0
           },
           "train": {
-            "batch_size": 12,
+            "batch_size": 10,
             "grad_accum": 2
           }
         },
@@ -903,7 +903,7 @@
             "movlora_top_k": 4
           },
           "train": {
-            "batch_size": 26,
+            "batch_size": 25,
             "grad_accum": 2
           }
         },
@@ -1063,7 +1063,7 @@
             "rank": 64
           },
           "train": {
-            "batch_size": 32,
+            "batch_size": 30,
             "grad_accum": 2
           }
         },
@@ -1075,7 +1075,7 @@
             "rank": 8
           },
           "train": {
-            "batch_size": 33,
+            "batch_size": 30,
             "grad_accum": 2
           }
         },
@@ -1091,10 +1091,10 @@
             "cola_num_B": 39,
             "cola_strategy": "fully",
             "cola_use_experts": false,
-            "use_cola_pissa_init": false
+            "use_cola_pissa_init": true
           },
           "train": {
-            "batch_size": 32,
+            "batch_size": 30,
             "grad_accum": 2
           }
         },
@@ -1186,7 +1186,7 @@
             "movlora_top_k": 4
           },
           "train": {
-            "batch_size": 26,
+            "batch_size": 25,
             "grad_accum": 2
           }
         },
@@ -1244,7 +1244,7 @@
       "wandb_project": "moe_study_eval"
     },
     "baseline_eval": {
-      "enabled": true,
+      "enabled": false,
       "models": [
         "meta-llama/Llama-3.1-8B"
       ],
