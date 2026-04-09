@@ -452,9 +452,6 @@
   "moe_study_profile_otus_cluster_10_langs": {
     "extends": "moe_study_profile_otus_cluster",
     "output_root": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs",
-    "executor": {
-      "time": "03:36:00"
-    },
     "tokenization": {
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized",
       "enabled": true,
@@ -490,6 +487,9 @@
       "num_experts": 2,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/runs",
       "report_to": "wandb",
+      "executor": {
+        "time": "03:36:00"
+      },
       "runs": [
         {
           "id": "lora_r8",
@@ -721,9 +721,6 @@
   "moe_study_profile_otus_cluster_96_langs": {
     "extends": "moe_study_profile_otus_cluster",
     "output_root": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs",
-    "executor": {
-      "time": "34:30:00"
-    },
     "tokenization": {
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/tokenized",
       "enabled": true,
@@ -761,6 +758,19 @@
       "num_experts": 32,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/runs",
       "report_to": "wandb",
+      "executor": {
+        "gres": "gpu:h100:4",
+        "time": "08:37:30"
+      },
+      "distributed": {
+        "enabled": true,
+        "num_processes": 4,
+        "num_machines": 1,
+        "machine_rank": 0,
+        "main_process_ip": "127.0.0.1",
+        "main_process_port": 29501,
+        "config_file": "configs/accelerate/fsdp_4gpu_config.yaml"
+      },
       "runs": [
         {
           "id": "lora_r64",
@@ -994,10 +1004,6 @@
   "moe_study_profile_otus_cluster_200_langs": {
     "extends": "moe_study_profile_otus_cluster",
     "output_root": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs",
-    "executor": {
-      "gres": "gpu:h100:4",
-      "time": "18:00:00"
-    },
     "tokenization": {
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/tokenized",
       "enabled": true,
@@ -1035,6 +1041,10 @@
       "num_experts": 32,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/runs",
       "report_to": "wandb",
+      "executor": {
+        "gres": "gpu:h100:4",
+        "time": "18:00:00"
+      },
       "distributed": {
         "enabled": true,
         "num_processes": 4,
