@@ -525,7 +525,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
                 if stage == "benchmark":
                     prior_job = last_stage_job_ids_by_run.get(run_id)
                     if prior_job:
-                        job_dependency = f"afterok:{prior_job}"
+                        job_dependency = f"afterany:{prior_job}" # use afterany dependency to allow benchmark to run even after training is aborted due to time limit
                 job_id = executor.submit(
                     cmd,
                     os.environ.copy(),
