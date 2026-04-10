@@ -393,6 +393,8 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         '--report_to', report_to,
         '--include_num_input_tokens_seen', 'true',
     ]
+    if os.environ.get("SLURM_JOB_ID"):  # ensures that we get a final checkpoint on time-limit termination (Slurm sends SIGTERM)
+        train_args.extend(["--enable_jit_checkpoint", "true"])
     save_strategy = train.get('save_strategy')
     if save_strategy is not None:
         train_args.extend(['--save_strategy', str(save_strategy)])
