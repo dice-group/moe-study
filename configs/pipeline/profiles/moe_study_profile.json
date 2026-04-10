@@ -421,6 +421,8 @@
       "model_name": "meta-llama/Llama-3.1-8B",
       "num_proc": 8,
       "mask_pad_labels": true,
+      "shard_counts_from_sampled": true,
+      "include_english_key": false,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/tokenized"
     },
     "training": {

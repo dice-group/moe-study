@@ -22,11 +22,14 @@ from ..executor import SlurmExecutor, build_executor
 def _resolve_languages_for_tokenize(ctx: PipelineContext) -> list[str]:
     token_cfg = ctx.tokenize_cfg
     english_key = str(token_cfg.get("language_rates_english_key", "english")).strip() or "english"
+    include_english = bool(token_cfg.get("include_english_key", True))
     explicit = token_cfg.get("languages")
     if isinstance(explicit, list) and explicit:
         base = [str(item).strip() for item in explicit if str(item).strip()]
         extras = _resolve_language_extras(token_cfg)        
-        return sorted(set(base + extras + [english_key])) # always include english_key if languages are explicitly set
+        if include_english:
+            return sorted(set(base + extras + [english_key]))  # preserve legacy behavior by default
+        return sorted(set(base + extras))
 
     csv_path = str(token_cfg.get("languages_csv", "")).strip()
     if csv_path:
@@ -52,13 +55,18 @@ def _resolve_languages_for_tokenize(ctx: PipelineContext) -> list[str]:
         if not languages:
             raise SystemExit(f"No languages resolved from {csv_path} (column={column}, split={split_value})")
         extras = _resolve_language_extras(token_cfg)
-        return sorted(languages.union(extras).union({english_key}))
+        resolved = set(languages).union(extras)
+        if include_english:
+            resolved.add(english_key)
+        return sorted(resolved)
 
     explicit = ctx.sample_cfg.get("languages")
     if isinstance(explicit, list) and explicit:
         base = [str(item).strip() for item in explicit if str(item).strip()]
         extras = _resolve_language_extras(token_cfg)
-        return sorted(set(base + extras + [english_key]))
+        if include_english:
+            return sorted(set(base + extras + [english_key]))
+        return sorted(set(base + extras))
 
     return []
 
@@ -81,10 +89,42 @@ def _plan_complete(plan_dir: Path, world_size: int) -> bool:
 def _default_shard_doc_counts_tsv(ctx: PipelineContext) -> Path:
     return ctx.repo_root / "data_prep" / "merlin_data_prep" / "distributed_data_processor" / "configs" / "shard_doc_counts.tsv"
 
+def _resolve_shard_doc_counts_tsv(ctx: PipelineContext, *, languages: list[str]) -> Path:
+    token_cfg = ctx.tokenize_cfg
+
+    if bool(token_cfg.get("shard_counts_from_sampled", False)):
+        output_tsv = ctx.sampled_dir / "sampled_shard_doc_counts.tsv"
+        cmd = [
+            "python3",
+            str(ctx.repo_root / "pipeline_tools" / "build_sampled_shard_doc_counts_tsv.py"),
+            "--shard_dir",
+            str(ctx.sample_shard_dir),
+            "--output_tsv",
+            str(output_tsv),
+            "--languages",
+            ",".join(languages),
+        ]
+        _run_stage_cmd(
+            cmd=cmd,
+            env=ctx.env,
+            dry_run=ctx.args.dry_run,
+            logs_root=ctx.logs_root,
+            stage="tokenize_shard_counts",
+            executor=ctx.executor,
+        )
+        return output_tsv
+
+    override = token_cfg.get("shard_counts_tsv")
+    if isinstance(override, str) and override.strip():
+        return (ctx.repo_root / override.strip()).resolve()
+
+    return _default_shard_doc_counts_tsv(ctx)
+
 
 def _build_shard_plan_cmd(
     ctx: PipelineContext,
     *,
+    shard_counts_tsv: Path,
     languages: list[str],
     world_size: int,
     rates_path: Path | None,
@@ -93,7 +133,7 @@ def _build_shard_plan_cmd(
         "python3",
         str(ctx.repo_root / "data_prep" / "merlin_data_prep" / "distributed_data_processor" / "src" / "plan_tokenization_shards.py"),
         "--shard_counts_tsv",
-        str(_default_shard_doc_counts_tsv(ctx)),
+        str(shard_counts_tsv),
         "--output_dir",
         str(ctx.tokenized_dir.parent / f"{ctx.tokenized_dir.name}_shard_plan"),
         "--languages",
@@ -110,13 +150,14 @@ def _build_shard_plan_cmd(
     return cmd
 
 
-def _build_language_rates_for_tokenize(ctx: PipelineContext, languages: list[str]) -> Path | None:
+def _build_language_rates_for_tokenize(ctx: PipelineContext, languages: list[str], *, counts_tsv: Path) -> Path | None:
     token_cfg = ctx.tokenize_cfg
     english_key = str(token_cfg.get("language_rates_english_key", "english")).strip() or "english"
     if english_key not in languages:
         return None
-    counts_tsv = _default_shard_doc_counts_tsv(ctx)
     if not counts_tsv.exists():
+        if ctx.args.dry_run:
+            return None
         raise SystemExit(f"Missing shard doc counts TSV: {counts_tsv}")
 
     totals = {language: 0 for language in languages}
@@ -174,6 +215,7 @@ def _submit_tokenize_slurm_array(
     languages: list[str],
     rates_path: Path | None,
     tokenize_model_name: str,
+    shard_counts_tsv: Path,
 ) -> None:
     token_cfg = ctx.tokenize_cfg
     executor = ctx.executor
@@ -202,10 +244,11 @@ def _submit_tokenize_slurm_array(
 
     rank_output_dir = ctx.tokenized_dir.parent / f"{ctx.tokenized_dir.name}_ranks"
     shard_plan_dir = ctx.tokenized_dir.parent / f"{ctx.tokenized_dir.name}_shard_plan"
-    shard_counts_tsv = _default_shard_doc_counts_tsv(ctx)
     if not languages:
         raise SystemExit("Tokenization requires resolved languages for shard-plan creation.")
     if not shard_counts_tsv.exists():
+        if ctx.args.dry_run:
+            return
         raise SystemExit(f"Missing shard doc counts TSV: {shard_counts_tsv}")
     max_samples = int(token_cfg.get("max_samples", 0) or 0)
     cmd = [
@@ -248,6 +291,7 @@ def _submit_tokenize_slurm_array(
     if not _plan_complete(shard_plan_dir, array_ranks):
         shard_plan_cmd = _build_shard_plan_cmd(
             ctx,
+            shard_counts_tsv=shard_counts_tsv,
             languages=languages,
             world_size=array_ranks,
             rates_path=rates_path,
@@ -452,7 +496,8 @@ def stage_tokenize(ctx: PipelineContext) -> None:
             ctx.logger.info("[SKIP] tokenize stage (cache hit)")
         else:
             languages = _resolve_languages_for_tokenize(ctx)
-            rates_path = _build_language_rates_for_tokenize(ctx, languages)
+            shard_counts_tsv = _resolve_shard_doc_counts_tsv(ctx, languages=languages)
+            rates_path = _build_language_rates_for_tokenize(ctx, languages, counts_tsv=shard_counts_tsv)
             skip_if_exists = bool(ctx.tokenize_cfg.get("skip_if_output_exists", False))
             existing_artifacts = [ctx.tokenized_dir / "dataset_info.json", ctx.tokenized_dir / "state.json"]
             has_existing = all(p.exists() for p in existing_artifacts)
@@ -464,6 +509,7 @@ def stage_tokenize(ctx: PipelineContext) -> None:
                     languages=languages,
                     rates_path=rates_path,
                     tokenize_model_name=tokenize_model_name,
+                    shard_counts_tsv=shard_counts_tsv,
                 )
             else:
                 cmd = [
@@ -489,14 +535,17 @@ def stage_tokenize(ctx: PipelineContext) -> None:
                     "true" if bool(ctx.tokenize_cfg.get("mask_pad_labels", True)) else "false",
                 ]
                 shard_plan_dir = ctx.tokenized_dir.parent / f"{ctx.tokenized_dir.name}_shard_plan"
-                shard_counts_tsv = _default_shard_doc_counts_tsv(ctx)
                 if not languages:
                     raise SystemExit("Tokenization requires resolved languages for shard-plan creation.")
                 if not shard_counts_tsv.exists():
+                    if ctx.args.dry_run:
+                        return
                     raise SystemExit(f"Missing shard doc counts TSV: {shard_counts_tsv}")
-                if not _plan_complete(shard_plan_dir, 1):
+                force_replan = bool(ctx.tokenize_cfg.get("shard_counts_from_sampled", False))
+                if force_replan or (not _plan_complete(shard_plan_dir, 1)):
                     plan_cmd = _build_shard_plan_cmd(
                         ctx,
+                        shard_counts_tsv=shard_counts_tsv,
                         languages=languages,
                         world_size=1,
                         rates_path=rates_path,
