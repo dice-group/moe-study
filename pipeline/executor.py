@@ -12,6 +12,7 @@ import datetime as dt
 import logging
 import os
 import re
+import signal
 import subprocess
 import textwrap
 import time
@@ -81,26 +82,65 @@ class LocalExecutor:
                 fh.write("[END] dry_run=true exit_code=0 duration_seconds=0.000\n")
             return
 
+        proc: subprocess.Popen[str] | None = None
+        got_signal = False
+        previous_sigterm_handler = signal.getsignal(signal.SIGTERM)
+        previous_sigusr1_handler = signal.getsignal(signal.SIGUSR1)
+
+        def _forward_signal(signum: int, frame: object) -> None:  # pragma: no cover (signal timing)
+            nonlocal got_signal, proc
+            got_signal = True
+            sig_name = (
+                "SIGTERM"
+                if signum == signal.SIGTERM
+                else ("SIGUSR1" if signum == signal.SIGUSR1 else str(signum))
+            )
+            # cluster uses SIGUSR1 as a time-limit warning; treat it as SIGTERM when forwarding.
+            forward_signum = signal.SIGTERM if signum == signal.SIGUSR1 else signum
+            if forward_signum != signum:
+                LOGGER.warning("[SIGNAL] Received %s; forwarding SIGTERM to child process.", sig_name)
+            else:
+                LOGGER.warning("[SIGNAL] Received %s; forwarding to child process.", sig_name)
+            if proc is None:
+                return
+            try:
+                # Put the child in its own session so we can terminate the whole subtree (e.g. accelerate).
+                os.killpg(proc.pid, forward_signum)
+            except Exception:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+
         with log_path.open("a", encoding="utf-8") as fh:
             fh.write(f"\n[START_UTC] {started_at}\n")
             fh.write(f"\n[CMD] {' '.join(cmd)}\n")
-            proc = subprocess.Popen(
-                cmd,
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-            )
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                LOGGER.info("%s", line.rstrip("\n"))
-                fh.write(line)
-            code = proc.wait()
+            signal.signal(signal.SIGTERM, _forward_signal)
+            signal.signal(signal.SIGUSR1, _forward_signal)
+            try:
+                proc = subprocess.Popen(
+                    cmd,
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    start_new_session=True,
+                )
+                assert proc.stdout is not None
+                for line in proc.stdout:
+                    LOGGER.info("%s", line.rstrip("\n"))
+                    fh.write(line)
+                code = proc.wait()
+            finally:
+                signal.signal(signal.SIGTERM, previous_sigterm_handler)
+                signal.signal(signal.SIGUSR1, previous_sigusr1_handler)
             duration = time.perf_counter() - started_perf
             fh.write(f"[END] dry_run=false exit_code={code} duration_seconds={duration:.3f}\n")
             if code != 0:
                 raise subprocess.CalledProcessError(code, cmd)
+            if got_signal:
+                LOGGER.warning("[SIGNAL] Signal handled; child exited cleanly.")
 
     def run_batch(
         self,
@@ -399,8 +439,28 @@ class SlurmExecutor:
                 "export PYTHONUNBUFFERED=1",
                 "",
                 'echo "[SLURM_START] $(date -u +%Y-%m-%dT%H:%M:%SZ) job=$SLURM_JOB_ID"',
-                cmd_str,
-                'echo "[SLURM_END] $(date -u +%Y-%m-%dT%H:%M:%SZ) exit_code=$?"',
+                "EXIT_CODE=0",
+                "CHILD_PID=",
+                "signal_forward() {",
+                "  local sig=\"$1\"",
+                '  echo "[SLURM_SIGNAL] $(date -u +%Y-%m-%dT%H:%M:%SZ) signal=${sig} forwarding_to_pid=${CHILD_PID:-}"',
+                '  if [[ -n "${CHILD_PID:-}" ]]; then',
+                '    kill -${sig} "${CHILD_PID}" 2>/dev/null || true',
+                "  fi",
+                "}",
+                "signal_forward_usr1() {",
+                '  echo "[SLURM_SIGNAL] $(date -u +%Y-%m-%dT%H:%M:%SZ) signal=USR1 forwarding_to_pid=${CHILD_PID:-}"',
+                '  if [[ -n "${CHILD_PID:-}" ]]; then',
+                '    kill -TERM "${CHILD_PID}" 2>/dev/null || true',
+                "  fi",
+                "}",
+                "trap 'signal_forward TERM' TERM INT",
+                "trap 'signal_forward_usr1' USR1",
+                f"{cmd_str} &",
+                "CHILD_PID=$!",
+                'wait "${CHILD_PID}" || EXIT_CODE=$?',
+                'echo "[SLURM_END] $(date -u +%Y-%m-%dT%H:%M:%SZ) exit_code=${EXIT_CODE}"',
+                'exit "${EXIT_CODE}"',
             ]
         )
         return "\n".join(script_lines) + "\n"

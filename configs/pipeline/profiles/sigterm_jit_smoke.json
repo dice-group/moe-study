@@ -1,0 +1,62 @@
+{
+  "sigterm_jit_smoke_otus_cluster": {
+    "extends": "moe_study_profile_otus_cluster_10_langs",
+    "output_root": "outputs/pipeline_runs/sigterm_jit_smoke_otus_cluster",
+    "tokenization": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized"
+    },
+    "audit": {
+      "enabled": false
+    },
+    "benchmark": {
+      "enabled": false
+    },
+    "baseline_eval": {
+      "enabled": false
+    },
+    "summary": {
+      "enabled": false
+    },
+    "report": {
+      "enabled": false
+    },
+    "wandb": {
+      "enabled": false
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:TERM@900"
+        ]
+      }
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/sigterm_jit_smoke_otus_cluster/runs",
+      "report_to": "none",
+      "executor": {
+        "time": "00:20:00"
+      },
+      "train": {
+        "max_steps": 1000000,
+        "save_steps": 999999,
+        "save_total_limit": 1,
+        "logging_steps": 10
+      },
+      "runs": [
+        {
+          "id": "lora_sigterm",
+          "kind": "lora",
+          "lora": {
+            "alpha": 8,
+            "rank": 4
+          },
+          "train": {
+            "batch_size": 8,
+            "grad_accum": 2
+          }
+        }
+      ]
+    }
+  }
+}

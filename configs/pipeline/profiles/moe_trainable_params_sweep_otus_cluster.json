@@ -884,6 +884,9 @@
         {
           "id": "movlora_e2",
           "kind": "movlora",
+          "lora": {
+            "target": "k_proj,v_proj,down_proj"
+          },
           "params": {
             "movlora_num_experts": 2,
             "movlora_top_k": 0,
@@ -897,6 +900,9 @@
         {
           "id": "movlora_e4",
           "kind": "movlora",
+          "lora": {
+            "target": "k_proj,v_proj,down_proj"
+          },
           "params": {
             "movlora_num_experts": 4,
             "movlora_top_k": 0,
@@ -910,6 +916,9 @@
         {
           "id": "movlora_e8",
           "kind": "movlora",
+          "lora": {
+            "target": "k_proj,v_proj,down_proj"
+          },
           "params": {
             "movlora_num_experts": 8,
             "movlora_top_k": 0,
@@ -923,6 +932,9 @@
         {
           "id": "movlora_e16",
           "kind": "movlora",
+          "lora": {
+            "target": "k_proj,v_proj,down_proj"
+          },
           "params": {
             "movlora_num_experts": 16,
             "movlora_top_k": 0,
@@ -936,6 +948,9 @@
         {
           "id": "movlora_e32",
           "kind": "movlora",
+          "lora": {
+            "target": "k_proj,v_proj,down_proj"
+          },
           "params": {
             "movlora_num_experts": 32,
             "movlora_top_k": 0,
@@ -949,6 +964,9 @@
         {
           "id": "movlora_e64",
           "kind": "movlora",
+          "lora": {
+            "target": "k_proj,v_proj,down_proj"
+          },
           "params": {
             "movlora_num_experts": 64,
             "movlora_top_k": 0,
@@ -962,6 +980,9 @@
         {
           "id": "movlora_e128",
           "kind": "movlora",
+          "lora": {
+            "target": "k_proj,v_proj,down_proj"
+          },
           "params": {
             "movlora_num_experts": 128,
             "movlora_top_k": 0,
@@ -975,6 +996,9 @@
         {
           "id": "movlora_e256",
           "kind": "movlora",
+          "lora": {
+            "target": "k_proj,v_proj,down_proj"
+          },
           "params": {
             "movlora_num_experts": 256,
             "movlora_top_k": 0,
