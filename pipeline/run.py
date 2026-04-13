@@ -497,6 +497,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
     dependency_ids: list[str] = []
     submitted: list[str] = []
     last_stage_job_ids_by_run: dict[str, str] = {}
+    stage_job_ids_by_stage: dict[str, list[str]] = {}
 
     for stage in active_stages:
         stage_cfg = _resolve_stage_cfg(profile, stage)
@@ -506,7 +507,16 @@ def _submit_chain(args: argparse.Namespace) -> int:
         if not isinstance(executor, SlurmExecutor):
             raise SystemExit(f"submit-chain requires Slurm executor for stage '{stage}'")
         stage_tag = stage_short.get(stage, stage)
-        dependency = f"afterok:{':'.join(dependency_ids)}" if dependency_ids else None
+        dependency_source_ids = dependency_ids
+        if stage in {"final_eval_loss", "benchmark"}:
+            dependency_source_ids = stage_job_ids_by_stage.get("train", dependency_ids)
+        elif stage == "summary":
+            combined: list[str] = []
+            for dep_stage in ("final_eval_loss", "benchmark"):
+                combined.extend(stage_job_ids_by_stage.get(dep_stage, []))
+            if combined:
+                dependency_source_ids = combined
+        dependency = f"afterok:{':'.join(dependency_source_ids)}" if dependency_source_ids else None
         stage_job_ids: list[str] = []
 
         if stage == "train":
@@ -549,6 +559,8 @@ def _submit_chain(args: argparse.Namespace) -> int:
                     submitted.append(job_id)
                     last_stage_job_ids_by_run[run_id] = job_id
             dependency_ids = stage_job_ids if stage_job_ids else dependency_ids
+            if stage_job_ids:
+                stage_job_ids_by_stage[stage] = list(stage_job_ids)
             continue
 
         if stage in {"train", "benchmark"} and len(run_ids) > 1:
@@ -645,6 +657,8 @@ def _submit_chain(args: argparse.Namespace) -> int:
                 submitted.append(job_id)
 
         dependency_ids = stage_job_ids if stage_job_ids else dependency_ids
+        if stage_job_ids:
+            stage_job_ids_by_stage[stage] = list(stage_job_ids)
 
     if submitted:
         print(f"Submitted {len(submitted)} job(s): {' -> '.join(submitted)}")
