@@ -4,9 +4,7 @@ import re
 from pathlib import Path
 
 from .runtime import (
-    _build_run_label,
     _dump_json,
-    _load_json,
     _missing_modules,
     _save_stage_state,
     _should_skip_stage,
@@ -14,7 +12,7 @@ from .runtime import (
 )
 from ..checks import check_train
 from ..context import PipelineContext
-from ..training import build_training_cmd, run_training_variant
+from ..training import build_training_cmd, describe_training_run, resolve_training_stage_config, run_training_variant
 
 
 _TRAINABLE_RE = re.compile(
@@ -79,24 +77,7 @@ def stage_train(ctx: PipelineContext) -> None:
         missing = _missing_modules(["datasets", "transformers", "torch"])
         if missing:
             raise SystemExit(f"Missing Python modules for train stage: {missing}")
-        train_cfg_local = dict(ctx.train_cfg)
-        if bool(ctx.wandb_cfg.get("enabled", False)):
-            train_cfg_local["report_to"] = "wandb"
-            train_cfg_local["train_run_prefix"] = str(ctx.wandb_cfg.get("train_prefix", "train"))
-        train_cfg_for_stage = dict(train_cfg_local)
-        resolved_model_path = str(train_cfg_for_stage.get("model_name_or_path", ""))
-        if bool(ctx.tokenizer_extension_cfg.get("enabled", False)) and bool(ctx.embedding_init_cfg.get("enabled", False)):
-            if not ctx.embedding_init_manifest_path.exists():
-                raise SystemExit(
-                    f"Training with embedding init requires manifest at {ctx.embedding_init_manifest_path}. "
-                    "Run embedding_init stage first."
-                )
-            embedding_manifest = _load_json(ctx.embedding_init_manifest_path)
-            resolved_model_path = str(embedding_manifest.get("initialized_model_dir", resolved_model_path))
-        train_cfg_for_stage["model_name_or_path"] = resolved_model_path
-        runs = train_cfg_local.get("runs", [])
-        if not runs:
-            raise SystemExit("No training runs configured in profile.training.runs")
+        train_cfg_for_stage, resolved_model_path, runs = resolve_training_stage_config(ctx)
         ctx.train_root.mkdir(parents=True, exist_ok=True)
         signature = _stage_signature(
             {
@@ -122,13 +103,11 @@ def stage_train(ctx: PipelineContext) -> None:
                 tuple[dict, str, str, Path, Path]
             ] = []  # (run_cfg, run_id, run_name_label, output_dir, log_path)
             for run in runs:
-                run_id = str(run["id"])
-                run_name_label = _build_run_label(
-                    base_run_label=ctx.base_run_label,
+                run_id, run_name_label, output_dir, run_log_path = describe_training_run(
+                    ctx,
                     run=run,
-                    default_num_experts=int(train_cfg_local.get("num_experts", 0)),
+                    train_cfg_for_stage=train_cfg_for_stage,
                 )
-                output_dir = ctx.train_root / run_id
                 train_results = output_dir / "train_results.json"
                 trainer_state = output_dir / "trainer_state.json"
                 done = output_dir / ".training_complete"
@@ -142,8 +121,6 @@ def stage_train(ctx: PipelineContext) -> None:
                     ctx.logger.info("[SKIP] train run %s (already complete)", run_id)
                     continue
                 output_dir.mkdir(parents=True, exist_ok=True)
-                run_log_dir = ctx.logs_root / "train_runs" / run_id
-                run_log_path = run_log_dir / f"{run_name_label}.train.log"
                 pending.append((run, run_id, run_name_label, output_dir, run_log_path))
 
             if pending and hasattr(ctx.executor, "run_batch") and len(pending) > 1:

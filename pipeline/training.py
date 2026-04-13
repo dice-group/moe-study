@@ -4,10 +4,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from .runtime import _abs, _count_experts, _deep_merge, _run_with_tee
+from .runtime import _abs, _build_run_label, _count_experts, _deep_merge, _load_json, _run_with_tee
 
 if TYPE_CHECKING:
     from .executor import Executor
+    from .context import PipelineContext
 
 def _cfg_value(cfg: dict[str, Any], key: str, default: Any, *aliases: str) -> Any:
     if key in cfg:
@@ -493,6 +494,47 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         distributed_enabled=bool(dist.get('enabled', False)),
     )
     return cmd, env
+
+
+def resolve_training_stage_config(ctx: "PipelineContext") -> tuple[dict[str, Any], str, list[dict[str, Any]]]:
+    train_cfg_local = dict(ctx.train_cfg)
+    if bool(ctx.wandb_cfg.get("enabled", False)):
+        train_cfg_local["report_to"] = "wandb"
+        train_cfg_local["train_run_prefix"] = str(ctx.wandb_cfg.get("train_prefix", "train"))
+
+    train_cfg_for_stage = dict(train_cfg_local)
+    resolved_model_path = str(train_cfg_for_stage.get("model_name_or_path", ""))
+    if bool(ctx.tokenizer_extension_cfg.get("enabled", False)) and bool(ctx.embedding_init_cfg.get("enabled", False)):
+        if not ctx.embedding_init_manifest_path.exists():
+            raise SystemExit(
+                f"Training with embedding init requires manifest at {ctx.embedding_init_manifest_path}. "
+                "Run embedding_init stage first."
+            )
+        embedding_manifest = _load_json(ctx.embedding_init_manifest_path)
+        resolved_model_path = str(embedding_manifest.get("initialized_model_dir", resolved_model_path))
+
+    train_cfg_for_stage["model_name_or_path"] = resolved_model_path
+    runs = train_cfg_local.get("runs", [])
+    if not runs:
+        raise SystemExit("No training runs configured in profile.training.runs")
+    return train_cfg_for_stage, resolved_model_path, runs
+
+
+def describe_training_run(
+    ctx: "PipelineContext",
+    *,
+    run: dict[str, Any],
+    train_cfg_for_stage: dict[str, Any],
+) -> tuple[str, str, Path, Path]:
+    run_id = str(run["id"])
+    run_name_label = _build_run_label(
+        base_run_label=ctx.base_run_label,
+        run=run,
+        default_num_experts=int(train_cfg_for_stage.get("num_experts", 0)),
+    )
+    output_dir = ctx.train_root / run_id
+    log_path = ctx.logs_root / "train_runs" / run_id / f"{run_name_label}.train.log"
+    return run_id, run_name_label, output_dir, log_path
 
 
 def build_final_eval_cmd(

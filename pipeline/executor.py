@@ -29,17 +29,6 @@ def _is_llamafactory_train_cmd(cmd: Sequence[str]) -> bool:
     return len(cmd) >= 4 and cmd[1:4] == ["-m", "llamafactory.cli", "train"]
 
 
-def _extract_cli_arg(cmd: Sequence[str], flag: str) -> str | None:
-    try:
-        idx = list(cmd).index(flag)
-    except ValueError:
-        return None
-    next_idx = idx + 1
-    if next_idx >= len(cmd):
-        return None
-    return str(cmd[next_idx])
-
-
 class Executor(Protocol):
     """
         Minimal contract every executor backend must satisfy
@@ -111,60 +100,19 @@ class LocalExecutor:
                 if signum == signal.SIGTERM
                 else ("SIGUSR1" if signum == signal.SIGUSR1 else str(signum))
             )
-            # For LLaMA-Factory train jobs, prefer SIGUSR1 on the nested local-executor hop.
-            # Use a filesystem sentinel instead of another child signal. The parent local executor
-            # reliably receives the Slurm warning signal, but a second nested signal hop into the
-            # trainer process has proven brittle under submit-chain. The trainer callback polls for
-            # this sentinel at step boundaries and converts it into save+stop.
-            if _is_llamafactory_train_cmd(cmd):
-                if proc is None or proc.poll() is not None:
-                    LOGGER.warning(
-                        "[SIGNAL] Received %s after child training process already exited; ignoring.",
-                        sig_name,
-                    )
-                    return
-                output_dir = _extract_cli_arg(cmd, "--output_dir")
-                if output_dir:
-                    sentinel = Path(output_dir) / ".jit_checkpoint_requested"
-                    sentinel.parent.mkdir(parents=True, exist_ok=True)
-                    try:
-                        sentinel.write_text(sig_name, encoding="utf-8")
-                        LOGGER.warning(
-                            "[SIGNAL] Received %s; wrote checkpoint request sentinel for child training process: %s",
-                            sig_name,
-                            sentinel,
-                        )
-                    except Exception:
-                        LOGGER.exception("[SIGNAL] Failed to write checkpoint request sentinel: %s", sentinel)
-                else:
-                    LOGGER.warning(
-                        "[SIGNAL] Received %s; training command missing --output_dir, falling back to child signal.",
-                        sig_name,
-                    )
-                    forward_signum = signal.SIGUSR1
-                    if proc is not None:
-                        try:
-                            proc.send_signal(forward_signum)
-                        except Exception:
-                            try:
-                                proc.terminate()
-                            except Exception:
-                                pass
-                return
-            else:
-                # cluster uses SIGUSR1 as a time-limit warning; treat it as SIGTERM when forwarding.
-                forward_signum = signal.SIGTERM if signum == signal.SIGUSR1 else signum
-                if forward_signum != signum:
-                    LOGGER.warning("[SIGNAL] Received %s; forwarding SIGTERM to child process.", sig_name)
-                else:
-                    LOGGER.warning("[SIGNAL] Received %s; forwarding to child process.", sig_name)
             if proc is None:
                 return
+            # Cluster uses SIGUSR1 as a time-limit warning; treat it as SIGTERM when forwarding.
+            forward_signum = signal.SIGTERM if signum == signal.SIGUSR1 else signum
+            if forward_signum != signum:
+                LOGGER.warning("[SIGNAL] Received %s; forwarding SIGTERM to child process.", sig_name)
+            else:
+                LOGGER.warning("[SIGNAL] Received %s; forwarding to child process.", sig_name)
             try:
-                # Prefer signaling the main child PID only.
-                # Forwarding to the whole process group can kill DataLoader workers mid-step,
-                # preventing JitCheckpointCallback from reaching the next step boundary to save.
-                proc.send_signal(forward_signum)
+                if _is_llamafactory_train_cmd(cmd):
+                    proc.send_signal(forward_signum)
+                else:
+                    os.killpg(proc.pid, forward_signum)
             except Exception:
                 try:
                     proc.terminate()
