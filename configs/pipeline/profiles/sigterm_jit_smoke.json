@@ -61,5 +61,29 @@
         }
       ]
     }
+  },
+  "sigterm_jit_eval_chain_otus_cluster": {
+    "extends": "sigterm_jit_smoke_otus_cluster",
+    "output_root": "outputs/pipeline_runs/sigterm_jit_eval_chain_otus_cluster",
+    "benchmark": {
+      "enabled": true,
+      "tasks_file": "configs/lm_eval_tasks_sigterm_smoke.txt",
+      "include_belebele": true,
+      "include_sib200": false,
+      "include_taxi1500": false,
+      "include_flores": false,
+      "batch_size": "1",
+      "allow_missing_lm_eval": false,
+      "wandb_mode": "disabled",
+      "output_dir": "outputs/pipeline_runs/sigterm_jit_eval_chain_otus_cluster/benchmarks"
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "batch_size": 1,
+      "output_subdir": "final_eval_loss"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/sigterm_jit_eval_chain_otus_cluster/runs"
+    }
   }
 }

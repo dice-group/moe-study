@@ -1,5 +1,4 @@
 import json
-import re
 from pathlib import Path
 from typing import Any
 
@@ -14,44 +13,7 @@ from .runtime import (
     _stage_signature,
 )
 from ..context import PipelineContext
-from ..training import build_final_eval_cmd
-
-
-_CHECKPOINT_ADAPTER_RE = re.compile(r"^checkpoint-(\d+)_adapter$")
-
-
-def _resolve_adapter_for_eval(run_dir: Path) -> Path:
-    """Pick the best adapter directory to evaluate.
-
-    Preference order:
-    1) latest 'checkpoint-*_adapter' (produced when we save latest SIGTERM JIT checkpointing a few seconds before job termination)
-    2) run root, if it looks like a PEFT adapter directory
-    """
-    best_step = -1
-    best_path: Path | None = None
-    if run_dir.exists():
-        for child in run_dir.iterdir():
-            if not child.is_dir():
-                continue
-            match = _CHECKPOINT_ADAPTER_RE.match(child.name)
-            if not match:
-                continue
-            step = int(match.group(1))
-            if step > best_step:
-                best_step = step
-                best_path = child
-
-    if best_path is not None:
-        return best_path
-
-    # fallback to root adapter 'trainer.save_model()`
-    if (run_dir / "adapter_config.json").exists():
-        return run_dir
-
-    raise SystemExit(
-        f"final_eval_loss: could not resolve adapter to evaluate in {run_dir} "
-        "(expected checkpoint-*_adapter or adapter_config.json)."
-    )
+from ..training import build_final_eval_cmd, resolve_adapter_eval_path
 
 
 def stage_final_eval_loss(ctx: PipelineContext) -> None:
@@ -98,17 +60,12 @@ def stage_final_eval_loss(ctx: PipelineContext) -> None:
         )
         run_dir = ctx.train_root / run_id
         lineage_path = run_dir / "model_tokenizer_lineage.json"
-        if not lineage_path.exists():
-            raise SystemExit(
-                f"final_eval_loss requires {lineage_path} (produced by train stage). "
-                "Run train stage first."
-            )
-        lineage = _load_json(lineage_path)
+        lineage = _load_json(lineage_path) if lineage_path.exists() else {}
         model_name_or_path = str(lineage.get("model_name_or_path") or ctx.train_cfg.get("model_name_or_path") or "")
         if not model_name_or_path:
             raise SystemExit(f"final_eval_loss: missing model_name_or_path for run {run_id}")
 
-        adapter_path = _resolve_adapter_for_eval(run_dir)
+        adapter_path = resolve_adapter_eval_path(run_dir)
         out_dir = run_dir / output_subdir
         out_dir.mkdir(parents=True, exist_ok=True)
         eval_results_path = out_dir / "eval_results.json"
@@ -168,4 +125,3 @@ def stage_final_eval_loss(ctx: PipelineContext) -> None:
         _dump_json(stage_summary, {"runs": eval_rows})
         _save_stage_state(ctx.state_path, "final_eval_loss", signature, [str(path) for path in expected])
         ctx.logger.info("[OK] final_eval_loss_summary=%s", stage_summary)
-

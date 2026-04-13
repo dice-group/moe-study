@@ -23,6 +23,7 @@ from .runtime import (
 )
 from ..checks import check_benchmark
 from ..context import PipelineContext
+from ..training import resolve_adapter_eval_path
 
 
 def _read_selected_tasks_file(path) -> list[str]:
@@ -374,13 +375,14 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                 checkpoint_dir = ctx.train_root / run_id
                 if not checkpoint_dir.exists():
                     raise SystemExit(f"Benchmark checkpoint directory missing: {checkpoint_dir}")
+                adapter_dir = resolve_adapter_eval_path(checkpoint_dir)
                 out_dir = ctx.benchmark_root / run_id
                 out_dir.mkdir(parents=True, exist_ok=True)
                 cmd = [
                     "bash",
                     str(eval_script),
                     "--checkpoint",
-                    str(checkpoint_dir),
+                    str(adapter_dir),
                     "--tokenizer",
                     tokenizer,
                     "--tasks",
@@ -414,7 +416,7 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                     benchmark_rows.append(
                         {
                             "run_id": run_id,
-                            "evaluated_checkpoint": str(checkpoint_dir.resolve()),
+                            "evaluated_checkpoint": str(adapter_dir.resolve()),
                             "evaluated_tokenizer": tokenizer,
                             "output_dir": str(out_dir.resolve()),
                             "num_output_files": len(files),

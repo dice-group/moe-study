@@ -2,6 +2,7 @@
 """Training helpers for proof pipeline."""
 from __future__ import annotations
 import os
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from .runtime import _abs, _build_run_label, _count_experts, _deep_merge, _load_json, _run_with_tee
@@ -9,6 +10,9 @@ from .runtime import _abs, _build_run_label, _count_experts, _deep_merge, _load_
 if TYPE_CHECKING:
     from .executor import Executor
     from .context import PipelineContext
+
+
+_CHECKPOINT_ADAPTER_RE = re.compile(r"^checkpoint-(\d+)_adapter$")
 
 def _cfg_value(cfg: dict[str, Any], key: str, default: Any, *aliases: str) -> Any:
     if key in cfg:
@@ -535,6 +539,34 @@ def describe_training_run(
     output_dir = ctx.train_root / run_id
     log_path = ctx.logs_root / "train_runs" / run_id / f"{run_name_label}.train.log"
     return run_id, run_name_label, output_dir, log_path
+
+
+def resolve_adapter_eval_path(run_dir: Path) -> Path:
+    """Resolve the best adapter directory to evaluate for a completed training run."""
+    best_step = -1
+    best_path: Path | None = None
+    if run_dir.exists():
+        for child in run_dir.iterdir():
+            if not child.is_dir():
+                continue
+            match = _CHECKPOINT_ADAPTER_RE.match(child.name)
+            if not match:
+                continue
+            step = int(match.group(1))
+            if step > best_step:
+                best_step = step
+                best_path = child
+
+    if best_path is not None:
+        return best_path
+
+    if (run_dir / "adapter_config.json").exists():
+        return run_dir
+
+    raise SystemExit(
+        f"could not resolve adapter to evaluate in {run_dir} "
+        "(expected checkpoint-*_adapter or adapter_config.json)."
+    )
 
 
 def build_final_eval_cmd(
