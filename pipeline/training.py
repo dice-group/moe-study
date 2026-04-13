@@ -319,6 +319,20 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
     seed = int(run_cfg.get('seed', common.get('seed', 42)))
     train = _deep_merge(common.get('train', {}), run_cfg.get('train', {}))
     lora = _deep_merge(common.get('lora', {}), run_cfg.get('lora', {}))
+    # Allow per-profile or per-run env injection (useful for Slurm signal / torchrun tests).
+    extra_env_raw = (
+        run_cfg.get("extra_env")
+        or run_cfg.get("env")
+        or common.get("extra_env")
+        or common.get("env")
+        or {}
+    )
+    if isinstance(extra_env_raw, dict):
+        for k, v in extra_env_raw.items():
+            key = str(k).strip()
+            if not key:
+                continue
+            env[key] = str(v)
     eval_cfg = _deep_merge(common.get('eval', {}), run_cfg.get('eval', {}))
     eval_strategy = str(eval_cfg.get('strategy', 'steps')).strip().lower()
     eval_enabled = bool(eval_cfg.get('enabled', True)) and eval_strategy != 'no'

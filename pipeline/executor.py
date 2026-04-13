@@ -9,6 +9,7 @@ they just call ``executor.run()`` or ``executor.run_batch()`` with command lists
 from __future__ import annotations
 
 import datetime as dt
+import errno
 import logging
 import os
 import re
@@ -22,6 +23,21 @@ from pathlib import Path
 from typing import Any, Protocol, Sequence
 
 LOGGER = logging.getLogger("proof_pipeline")
+
+
+def _is_llamafactory_train_cmd(cmd: Sequence[str]) -> bool:
+    return len(cmd) >= 4 and cmd[1:4] == ["-m", "llamafactory.cli", "train"]
+
+
+def _extract_cli_arg(cmd: Sequence[str], flag: str) -> str | None:
+    try:
+        idx = list(cmd).index(flag)
+    except ValueError:
+        return None
+    next_idx = idx + 1
+    if next_idx >= len(cmd):
+        return None
+    return str(cmd[next_idx])
 
 
 class Executor(Protocol):
@@ -95,17 +111,60 @@ class LocalExecutor:
                 if signum == signal.SIGTERM
                 else ("SIGUSR1" if signum == signal.SIGUSR1 else str(signum))
             )
-            # cluster uses SIGUSR1 as a time-limit warning; treat it as SIGTERM when forwarding.
-            forward_signum = signal.SIGTERM if signum == signal.SIGUSR1 else signum
-            if forward_signum != signum:
-                LOGGER.warning("[SIGNAL] Received %s; forwarding SIGTERM to child process.", sig_name)
+            # For LLaMA-Factory train jobs, prefer SIGUSR1 on the nested local-executor hop.
+            # Use a filesystem sentinel instead of another child signal. The parent local executor
+            # reliably receives the Slurm warning signal, but a second nested signal hop into the
+            # trainer process has proven brittle under submit-chain. The trainer callback polls for
+            # this sentinel at step boundaries and converts it into save+stop.
+            if _is_llamafactory_train_cmd(cmd):
+                if proc is None or proc.poll() is not None:
+                    LOGGER.warning(
+                        "[SIGNAL] Received %s after child training process already exited; ignoring.",
+                        sig_name,
+                    )
+                    return
+                output_dir = _extract_cli_arg(cmd, "--output_dir")
+                if output_dir:
+                    sentinel = Path(output_dir) / ".jit_checkpoint_requested"
+                    sentinel.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        sentinel.write_text(sig_name, encoding="utf-8")
+                        LOGGER.warning(
+                            "[SIGNAL] Received %s; wrote checkpoint request sentinel for child training process: %s",
+                            sig_name,
+                            sentinel,
+                        )
+                    except Exception:
+                        LOGGER.exception("[SIGNAL] Failed to write checkpoint request sentinel: %s", sentinel)
+                else:
+                    LOGGER.warning(
+                        "[SIGNAL] Received %s; training command missing --output_dir, falling back to child signal.",
+                        sig_name,
+                    )
+                    forward_signum = signal.SIGUSR1
+                    if proc is not None:
+                        try:
+                            proc.send_signal(forward_signum)
+                        except Exception:
+                            try:
+                                proc.terminate()
+                            except Exception:
+                                pass
+                return
             else:
-                LOGGER.warning("[SIGNAL] Received %s; forwarding to child process.", sig_name)
+                # cluster uses SIGUSR1 as a time-limit warning; treat it as SIGTERM when forwarding.
+                forward_signum = signal.SIGTERM if signum == signal.SIGUSR1 else signum
+                if forward_signum != signum:
+                    LOGGER.warning("[SIGNAL] Received %s; forwarding SIGTERM to child process.", sig_name)
+                else:
+                    LOGGER.warning("[SIGNAL] Received %s; forwarding to child process.", sig_name)
             if proc is None:
                 return
             try:
-                # Put the child in its own session so we can terminate the whole subtree (e.g. accelerate).
-                os.killpg(proc.pid, forward_signum)
+                # Prefer signaling the main child PID only.
+                # Forwarding to the whole process group can kill DataLoader workers mid-step,
+                # preventing JitCheckpointCallback from reaching the next step boundary to save.
+                proc.send_signal(forward_signum)
             except Exception:
                 try:
                     proc.terminate()
@@ -128,9 +187,19 @@ class LocalExecutor:
                     start_new_session=True,
                 )
                 assert proc.stdout is not None
-                for line in proc.stdout:
-                    LOGGER.info("%s", line.rstrip("\n"))
-                    fh.write(line)
+                while True:
+                    try:
+                        line = proc.stdout.readline()
+                    except OSError as exc:
+                        if exc.errno == errno.EINTR:
+                            continue
+                        raise
+                    if line:
+                        LOGGER.info("%s", line.rstrip("\n"))
+                        fh.write(line)
+                        continue
+                    if proc.poll() is not None:
+                        break
                 code = proc.wait()
             finally:
                 signal.signal(signal.SIGTERM, previous_sigterm_handler)
@@ -391,11 +460,13 @@ class SlurmExecutor:
         sbatch_lines = [
             f"#SBATCH --job-name={job_name}",
             f"#SBATCH --partition={self.partition}",
-            f"#SBATCH --mem={self.mem}",
             f"#SBATCH --time={self.time_limit}",
             f"#SBATCH --cpus-per-task={self.cpus_per_task}",
             f"#SBATCH --output={slurm_log}",
         ]
+        mem_value = str(self.mem).strip()
+        if mem_value and mem_value.lower() not in {"0", "none"}:
+            sbatch_lines.insert(2, f"#SBATCH --mem={mem_value}")
         gres_value = str(self.gres).strip()
         if gres_value and gres_value.lower() not in {"none", "cpu"}:
             sbatch_lines.insert(2, f"#SBATCH --gres={gres_value}")
@@ -414,23 +485,35 @@ class SlurmExecutor:
                 env_exports.append(f'export {key}="{env[key]}"')
 
         cmd_str = " ".join(_shell_quote(c) for c in cmd)
-        script_lines: list[str] = ["#!/bin/bash", *sbatch_lines, "", "set -eo pipefail", ""]
+        # Wrap in a new session so signal forwarding can target the whole subtree reliably.
+        cmd_str_for_bash = cmd_str.replace("'", "'\"'\"'")
+        script_lines: list[str] = ["#!/bin/bash", *sbatch_lines, "", "set -uo pipefail", ""]
 
         if module_lines:
             script_lines.extend(module_lines.splitlines())
             script_lines.append("")
 
-        script_lines.extend(
-            [
-                "set +u",
-                f'CONDA_BASE="{self.conda_base}"',
-                'source "${CONDA_BASE}/etc/profile.d/conda.sh"',
-                f'if [[ "${{CONDA_DEFAULT_ENV:-}}" != "{self.conda_env}" ]]; then',
-                f"  conda activate {self.conda_env}",
-                "fi",
-                "set -u",
-            ]
-        )
+        conda_base = str(self.conda_base).strip()
+        conda_env = str(self.conda_env).strip()
+        if conda_base and conda_env and conda_base.lower() != "none" and conda_env.lower() != "none":
+            script_lines.extend(
+                [
+                    "set +u",
+                    f'CONDA_BASE="{conda_base}"',
+                    f'CONDA_ENV="{conda_env}"',
+                    'if [[ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]]; then',
+                    '  source "${CONDA_BASE}/etc/profile.d/conda.sh"',
+                    '  if [[ "${CONDA_DEFAULT_ENV:-}" != "${CONDA_ENV}" ]]; then',
+                    '    conda activate "${CONDA_ENV}"',
+                    "  fi",
+                    "else",
+                    '  echo "[SLURM_WARN] conda.sh not found; skipping conda activate (CONDA_BASE=${CONDA_BASE})"',
+                    "fi",
+                    "set -u",
+                ]
+            )
+        else:
+            script_lines.append('echo "[SLURM_INFO] conda disabled for this job script."')
         if env_exports:
             script_lines.extend(env_exports)
         script_lines.extend(
@@ -441,24 +524,52 @@ class SlurmExecutor:
                 'echo "[SLURM_START] $(date -u +%Y-%m-%dT%H:%M:%SZ) job=$SLURM_JOB_ID"',
                 "EXIT_CODE=0",
                 "CHILD_PID=",
+                "CHILD_PGID=",
                 "signal_forward() {",
                 "  local sig=\"$1\"",
-                '  echo "[SLURM_SIGNAL] $(date -u +%Y-%m-%dT%H:%M:%SZ) signal=${sig} forwarding_to_pid=${CHILD_PID:-}"',
+                '  echo "[SLURM_SIGNAL] $(date -u +%Y-%m-%dT%H:%M:%SZ) signal=${sig} forwarding_to_pid=${CHILD_PID:-} forwarding_to_pgid=${CHILD_PGID:-}"',
+                '  if [[ -n "${CHILD_PGID:-}" ]]; then',
+                '    kill -${sig} -- "-${CHILD_PGID}" 2>/dev/null || true',
+                "    return",
+                "  fi",
                 '  if [[ -n "${CHILD_PID:-}" ]]; then',
                 '    kill -${sig} "${CHILD_PID}" 2>/dev/null || true',
                 "  fi",
                 "}",
                 "signal_forward_usr1() {",
-                '  echo "[SLURM_SIGNAL] $(date -u +%Y-%m-%dT%H:%M:%SZ) signal=USR1 forwarding_to_pid=${CHILD_PID:-}"',
+                "  # Some clusters deliver SIGUSR1 as a time-limit warning; treat it as SIGTERM.",
+                '  echo "[SLURM_SIGNAL] $(date -u +%Y-%m-%dT%H:%M:%SZ) signal=USR1 mapped_to=TERM forwarding_to_pid=${CHILD_PID:-} forwarding_to_pgid=${CHILD_PGID:-}"',
+                "  # IMPORTANT: only signal the main child PID on the warning path.",
+                "  # Signaling the full process group can kill DataLoader workers mid-step,",
+                "  # preventing Python-level checkpoint-on-signal handlers from completing.",
                 '  if [[ -n "${CHILD_PID:-}" ]]; then',
                 '    kill -TERM "${CHILD_PID}" 2>/dev/null || true',
+                "    return",
                 "  fi",
+                "  signal_forward TERM",
                 "}",
                 "trap 'signal_forward TERM' TERM INT",
                 "trap 'signal_forward_usr1' USR1",
-                f"{cmd_str} &",
+                # Replace the intermediate shell with the target command so the tracked child PID
+                # is the actual Python process. Otherwise a warning signal can hit the shell first
+                # and cascade into abrupt teardown before nested checkpoint handlers run.
+                f"setsid bash -lc 'exec {cmd_str_for_bash}' &",
                 "CHILD_PID=$!",
-                'wait "${CHILD_PID}" || EXIT_CODE=$?',
+                'CHILD_PGID="$(ps -o pgid= \"${CHILD_PID}\" 2>/dev/null | tr -d \" \")"',
+                "while true; do",
+                '  wait "${CHILD_PID}"',
+                "  rc=$?",
+                "  if [[ ${rc} -eq 0 ]]; then",
+                "    EXIT_CODE=0",
+                "    break",
+                "  fi",
+                "  # wait can be interrupted by trapped signals (USR1/TERM). Retry until the child exits.",
+                "  if [[ ${rc} -ge 128 ]]; then",
+                "    continue",
+                "  fi",
+                "  EXIT_CODE=${rc}",
+                "  break",
+                "done",
                 'echo "[SLURM_END] $(date -u +%Y-%m-%dT%H:%M:%SZ) exit_code=${EXIT_CODE}"',
                 'exit "${EXIT_CODE}"',
             ]
@@ -533,6 +644,30 @@ class SlurmExecutor:
             capture_output=True,
             text=True,
         )
+        # Local/simplified Slurm installs often have accounting disabled, which makes sacct unusable.
+        if (
+            result.returncode != 0
+            or "accounting storage is disabled" in (result.stderr or "").lower()
+            or not (result.stdout or "").strip()
+        ):
+            finished: dict[str, tuple[str, str]] = {}
+            for jid in job_ids:
+                show = subprocess.run(
+                    ["scontrol", "show", "job", "-o", str(jid)],
+                    capture_output=True,
+                    text=True,
+                )
+                text_out = (show.stdout or "").strip()
+                if not text_out:
+                    continue
+                # Example: "... JobState=COMPLETED ... ExitCode=0:0 ..."
+                state_match = re.search(r"\bJobState=(\w+)\b", text_out)
+                exit_match = re.search(r"\bExitCode=([0-9]+):", text_out)
+                state = state_match.group(1) if state_match else ""
+                exit_code = exit_match.group(1) if exit_match else "1"
+                if state in ("COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "NODE_FAIL"):
+                    finished[str(jid)] = (state, exit_code)
+            return finished
         finished: dict[str, tuple[str, str]] = {}
         for line in result.stdout.strip().splitlines():
             parts = line.split("|")
@@ -565,6 +700,12 @@ def build_executor(
     Returns ``LocalExecutor`` when executor type is ``"local"`` or absent.
     """
     base_cfg: dict[str, Any] = dict(profile.get("executor", {}))
+    # Merge stage-level overrides before selecting executor type so a stage can switch local->slurm.
+    if stage_cfg:
+        stage_exec = stage_cfg.get("executor", {})
+        if isinstance(stage_exec, dict):
+            base_cfg.update(stage_exec)
+
     exec_type = base_cfg.pop("type", "local")
 
     if exec_type == "local":
@@ -572,11 +713,6 @@ def build_executor(
 
     if exec_type != "slurm":
         raise ValueError(f"Unknown executor type: {exec_type!r}  (expected 'local' or 'slurm')")
-
-    # Merge stage-level overrides.
-    if stage_cfg:
-        stage_exec = stage_cfg.get("executor", {})
-        base_cfg.update(stage_exec)
 
     return SlurmExecutor(
         partition=base_cfg.get("partition", _SLURM_DEFAULTS["partition"]),

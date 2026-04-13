@@ -27,15 +27,18 @@
     "stage_executors": {
       "train": {
         "extra_sbatch_flags": [
-          "--signal=B:TERM@900"
+          "--signal=B:USR1@300"
         ]
       }
     },
     "training": {
       "output_dir": "outputs/pipeline_runs/sigterm_jit_smoke_otus_cluster/runs",
       "report_to": "none",
+      "extra_env": {
+        "FORCE_TORCHRUN": "0"
+      },
       "executor": {
-        "time": "00:20:00"
+        "time": "00:06:00"
       },
       "train": {
         "max_steps": 1000000,

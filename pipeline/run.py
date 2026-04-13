@@ -16,6 +16,7 @@ from typing import Any
 
 from .runtime import (
     _abs,
+    _build_run_label,
     _compute_pipeline_code_signature,
     _load_json,
     _load_pipeline_config,
@@ -29,6 +30,7 @@ from .context import PipelineContext
 from .executor import SlurmExecutor
 from .data_stages import DATA_STAGE_HANDLERS
 from .model_eval_stages import MODEL_STAGE_HANDLERS
+from .training import build_training_cmd
 
 STAGES = [
     "sample",
@@ -508,6 +510,68 @@ def _submit_chain(args: argparse.Namespace) -> int:
         stage_tag = stage_short.get(stage, stage)
         dependency = f"afterok:{':'.join(dependency_ids)}" if dependency_ids else None
         stage_job_ids: list[str] = []
+
+        if stage == "train":
+            train_args = argparse.Namespace(**vars(args))
+            train_args.submit_chain = False
+            train_ctx = _build_context(train_args)
+            train_cfg_local = dict(train_ctx.train_cfg)
+            if bool(train_ctx.wandb_cfg.get("enabled", False)):
+                train_cfg_local["report_to"] = "wandb"
+                train_cfg_local["train_run_prefix"] = str(train_ctx.wandb_cfg.get("train_prefix", "train"))
+            train_cfg_for_stage = dict(train_cfg_local)
+            resolved_model_path = str(train_cfg_for_stage.get("model_name_or_path", ""))
+            if bool(train_ctx.tokenizer_extension_cfg.get("enabled", False)) and bool(train_ctx.embedding_init_cfg.get("enabled", False)):
+                if not train_ctx.embedding_init_manifest_path.exists():
+                    raise SystemExit(
+                        f"Training with embedding init requires manifest at {train_ctx.embedding_init_manifest_path}. "
+                        "Run embedding_init stage first."
+                    )
+                embedding_manifest = _load_json(train_ctx.embedding_init_manifest_path)
+                resolved_model_path = str(embedding_manifest.get("initialized_model_dir", resolved_model_path))
+            train_cfg_for_stage["model_name_or_path"] = resolved_model_path
+            runs = train_cfg_local.get("runs", [])
+            if not runs:
+                raise SystemExit("No training runs configured in profile.training.runs")
+
+            for run in runs:
+                run_id = str(run["id"])
+                run_name_label = _build_run_label(
+                    base_run_label=train_ctx.base_run_label,
+                    run=run,
+                    default_num_experts=int(train_cfg_local.get("num_experts", 0)),
+                )
+                output_dir = train_ctx.train_root / run_id
+                output_dir.mkdir(parents=True, exist_ok=True)
+                log_path = train_ctx.logs_root / "train_runs" / run_id / f"{run_name_label}.train.log"
+                slurm_output = chain_slurm_root / f"chain_{stage}.{run_id}.{chain_timestamp}.slurm.log"
+                cmd, run_env = build_training_cmd(
+                    repo_root=train_ctx.repo_root,
+                    env=train_ctx.env,
+                    output_dir=output_dir,
+                    run_cfg=run,
+                    common=train_cfg_for_stage,
+                    language_map_path=train_ctx.language_map_path,
+                    tokenized_path=train_ctx.tokenized_dir,
+                    embedding_training_cfg=train_ctx.embedding_training_cfg,
+                    run_name=run_name_label,
+                )
+                job_id = executor.submit(
+                    cmd,
+                    run_env,
+                    args.dry_run,
+                    log_path,
+                    dependency=dependency,
+                    job_name=f"{stage_tag}{lang_tag}_{run_id}",
+                    script_dir=chain_sbatch_root,
+                    slurm_output=slurm_output,
+                )
+                if job_id:
+                    stage_job_ids.append(job_id)
+                    submitted.append(job_id)
+                    last_stage_job_ids_by_run[run_id] = job_id
+            dependency_ids = stage_job_ids if stage_job_ids else dependency_ids
+            continue
 
         if stage in {"train", "benchmark"} and len(run_ids) > 1:
             for run_id in run_ids:
