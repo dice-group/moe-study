@@ -102,6 +102,17 @@ def stage_summary(ctx: PipelineContext) -> None:
                 eval_loss = _latest_metric(history, "eval_loss")
                 if eval_loss is None:
                     eval_loss = _latest_metric_from_log_jsonl(output_dir / "trainer_log.jsonl", "eval_loss")
+                if eval_loss is None:
+                    subdir = str(ctx.final_eval_loss_cfg.get("output_subdir", "final_eval_loss")).strip() or "final_eval_loss"
+                    eval_results_path = output_dir / subdir / "eval_results.json"
+                    if eval_results_path.exists():
+                        try:
+                            eval_payload = _load_json(eval_results_path)
+                            value = eval_payload.get("eval_loss")
+                            if isinstance(value, (int, float)):
+                                eval_loss = float(value)
+                        except Exception:
+                            pass
                 rows.append(
                     {
                         "run_id": run_id,

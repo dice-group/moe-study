@@ -392,9 +392,10 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         '--use_reentrant_gc', str(use_reentrant_gc),
         '--report_to', report_to,
         '--include_num_input_tokens_seen', 'true',
+        '--include_effective_tokens_per_second', 'true',
     ]
-    if os.environ.get("SLURM_JOB_ID"):  # ensures that we get a final checkpoint on time-limit termination (Slurm sends SIGTERM)
-        train_args.extend(["--enable_jit_checkpoint", "true"])
+    # Enable signal-triggered final checkpointing. This is a no-op unless the process receives SIGTERM/SIGUSR1.
+    train_args.extend(["--enable_jit_checkpoint", "true"])
     save_strategy = train.get('save_strategy')
     if save_strategy is not None:
         train_args.extend(['--save_strategy', str(save_strategy)])
@@ -453,6 +454,20 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
             *train_args,
         ]
     else:
+        # LLaMA-Factory requires a distributed launch (even 1 GPU). FORCE_TORCHRUN
+        # makes the launcher spawn `torchrun --nproc_per_node=1 ...` in single-GPU
+        # environments, which satisfies its argument checks.
+        #
+        # Only apply when CUDA is available; on CPU-only machines this would
+        # request torchrun with 0 processes and fail.
+        if "FORCE_TORCHRUN" not in env:
+            try:
+                import torch
+
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                    env["FORCE_TORCHRUN"] = "1"
+            except Exception:
+                pass
         cmd = [
             'python3', '-m', 'llamafactory.cli', 'train',
             *train_args,
@@ -463,6 +478,151 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         run_cfg=run_cfg,
         distributed_enabled=bool(dist.get('enabled', False)),
     )
+    return cmd, env
+
+
+def build_final_eval_cmd(
+    *,
+    repo_root: Path,
+    env: dict[str, str],
+    output_dir: Path,
+    run_cfg: dict[str, Any],
+    common: dict[str, Any],
+    language_map_path: Path,
+    tokenized_path: Path,
+    embedding_training_cfg: dict[str, Any],
+    run_name: str,
+    model_name_or_path: str,
+    adapter_name_or_path: str,
+    per_device_eval_batch_size: int = 1,
+) -> tuple[list[str], dict[str, str]]:
+    """Build an eval-only command that computes validation loss from tokenized data.
+
+    This is used as a post-train step when training eval is disabled or unreliable near walltime.
+    """
+    env = dict(env)
+    kind = str(run_cfg["kind"])
+    seed = int(run_cfg.get("seed", common.get("seed", 42)))
+    train = _deep_merge(common.get("train", {}), run_cfg.get("train", {}))
+    lora = _deep_merge(common.get("lora", {}), run_cfg.get("lora", {}))
+
+    num_experts_raw = common.get("num_experts")
+    if num_experts_raw is None:
+        experts = max(1, int(_count_experts(language_map_path)))
+    else:
+        experts = max(1, int(num_experts_raw))
+
+    use_bf16 = bool(train.get("bf16", True))
+    use_fp16 = bool(train.get("fp16", False))
+    try:
+        import torch
+
+        if not torch.cuda.is_available() and (use_bf16 or use_fp16):
+            use_bf16 = False
+            use_fp16 = False
+    except Exception:
+        pass
+
+    eval_args: list[str] = [
+        "--stage",
+        "sft",
+        "--do_eval",
+        "--model_name_or_path",
+        str(model_name_or_path),
+        "--adapter_name_or_path",
+        str(adapter_name_or_path),
+        "--dataset",
+        str(common.get("dataset_name", "c4")),
+        "--eval_dataset",
+        str(common.get("eval_dataset_name", common.get("dataset_name", "c4"))),
+        "--dataset_dir",
+        str(_abs(repo_root, str(common.get("dataset_dir", "LLaMA-Factory/data")))),
+        "--template",
+        str(common.get("template", "llama3")),
+        "--finetuning_type",
+        kind,
+        "--output_dir",
+        str(output_dir),
+        "--overwrite_output_dir",
+        "--run_name",
+        str(common.get("eval_run_prefix", "final_eval") + "/" + run_name),
+        "--seed",
+        str(seed),
+        "--tokenized_path",
+        str(tokenized_path),
+        "--per_device_eval_batch_size",
+        str(int(per_device_eval_batch_size)),
+        "--eval_strategy",
+        "no",
+        "--bf16",
+        str(use_bf16),
+        "--fp16",
+        str(use_fp16),
+        "--flash_attn",
+        str(train.get("flash_attn", "fa2")),
+        "--report_to",
+        "none",
+    ]
+
+    if bool(embedding_training_cfg.get("enabled", False)):
+        additional_target = str(embedding_training_cfg.get("additional_target", "embed_tokens,lm_head")).strip()
+        if additional_target:
+            eval_args.extend(["--additional_target", additional_target])
+
+    eval_args.extend(
+        _approach_specific_train_args(
+            kind=kind,
+            run_cfg=run_cfg,
+            common=common,
+            language_map_path=language_map_path,
+            experts=experts,
+        )
+    )
+
+    dist = common.get("distributed", {})
+    if bool(dist.get("enabled", False)):
+        num_processes = int(dist.get("num_processes", 2))
+        num_machines = int(dist.get("num_machines", 1))
+        machine_rank = int(dist.get("machine_rank", 0))
+        main_process_ip = str(dist.get("main_process_ip", "127.0.0.1"))
+        main_process_port = int(dist.get("main_process_port", 29501))
+        cuda_visible_devices = dist.get("cuda_visible_devices")
+        if cuda_visible_devices is not None:
+            env["CUDA_VISIBLE_DEVICES"] = str(cuda_visible_devices)
+        config_file = dist.get("config_file") or dist.get("accelerate_config_file")
+        config_args: list[str] = []
+        if config_file:
+            config_args = ["--config_file", str(config_file)]
+        cmd = [
+            "accelerate",
+            "launch",
+            *config_args,
+            "--num_processes",
+            str(num_processes),
+            "--num_machines",
+            str(num_machines),
+            "--machine_rank",
+            str(machine_rank),
+            "--main_process_ip",
+            main_process_ip,
+            "--main_process_port",
+            str(main_process_port),
+            "--module",
+            "llamafactory.launcher",
+            *eval_args,
+        ]
+    else:
+        # See note in build_training_cmd: LLaMA-Factory requires distributed launch.
+        if "FORCE_TORCHRUN" not in env:
+            try:
+                import torch
+
+                if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                    env["FORCE_TORCHRUN"] = "1"
+            except Exception:
+                pass
+        cmd = ["python3", "-m", "llamafactory.cli", "train", *eval_args]
+
     return cmd, env
 
 

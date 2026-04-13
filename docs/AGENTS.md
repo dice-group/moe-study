@@ -179,15 +179,17 @@ The canonical stage order is defined in `pipeline/run.py`.
    Verify language maps, routing assumptions, dataset structure, and other pre-train invariants.
 6. `train`
    Launch method-specific PEFT training runs.
-7. `embedding_verify`
+7. `final_eval_loss`
+   Run a post-train eval-only pass to record a final validation loss for the produced checkpoint/adapter.
+8. `embedding_verify`
    Check embedding-related outputs and consistency when embedding training is enabled.
-8. `benchmark`
+9. `benchmark`
    Run downstream evaluation tasks such as lm-eval-style benchmarking.
-9. `baseline_eval`
+10. `baseline_eval`
    Run baseline evaluation workflows when configured.
-10. `summary`
+11. `summary`
    Aggregate run outputs into shared summaries and gate files.
-11. `report`
+12. `report`
    Build report-style artifacts such as spreadsheets.
 
 ## Tiny Local Profiles

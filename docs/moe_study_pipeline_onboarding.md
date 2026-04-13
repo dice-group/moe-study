@@ -46,6 +46,8 @@ Pipeline stage order:
 10. `summary`
 11. `report`
 
+Note: the pipeline also supports an optional `final_eval_loss` stage (between `train` and `embedding_verify`) to compute a final validation loss from the tokenized dataset after training completes.
+
 For the MoE-study profiles, most day-to-day work is concentrated in:
 
 - `audit`

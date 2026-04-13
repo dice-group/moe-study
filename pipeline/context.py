@@ -33,6 +33,7 @@ class PipelineContext:
     embedding_init_cfg: dict[str, Any]
     embedding_training_cfg: dict[str, Any]
     summary_cfg: dict[str, Any]
+    final_eval_loss_cfg: dict[str, Any]
     benchmark_cfg: dict[str, Any]
     baseline_eval_cfg: dict[str, Any]
     report_cfg: dict[str, Any]
@@ -50,6 +51,7 @@ class PipelineContext:
     train_root: Path
     summary_path: Path
     gate_path: Path
+    final_eval_loss_root: Path
     benchmark_root: Path
     baseline_cache_root: Path
     report_xlsx: Path

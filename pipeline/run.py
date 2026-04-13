@@ -37,6 +37,7 @@ STAGES = [
     "tokenize",
     "audit",
     "train",
+    "final_eval_loss",
     "embedding_verify",
     "benchmark",
     "baseline_eval",
@@ -68,6 +69,7 @@ def _stage_profile_cfg(profile: dict[str, Any], stage: str) -> dict[str, Any]:
         "tokenize": "tokenization",
         "audit": "audit",
         "train": "training",
+        "final_eval_loss": "final_eval_loss",
         "embedding_verify": "embedding_training",
         "benchmark": "benchmark",
         "baseline_eval": "baseline_eval",
@@ -275,6 +277,7 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     embedding_init_cfg = profile.get("embedding_init", {})
     embedding_training_cfg = profile.get("embedding_training", {})
     summary_cfg = profile.get("summary", {})
+    final_eval_loss_cfg = profile.get("final_eval_loss", {})
     benchmark_cfg = profile.get("benchmark", {})
     baseline_eval_cfg = profile.get("baseline_eval", {})
     report_cfg = profile.get("report", {})
@@ -320,6 +323,14 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     train_root = _abs(repo_root, train_cfg.get("output_dir", str(output_root / "runs")))
     summary_path = _abs(repo_root, summary_cfg.get("summary_csv", str(output_root / "summary.csv")))
     gate_path = _abs(repo_root, summary_cfg.get("gate_json", str(output_root / "gate.json")))
+    final_eval_loss_output_dir = ""
+    if isinstance(final_eval_loss_cfg, dict):
+        final_eval_loss_output_dir = str(final_eval_loss_cfg.get("output_dir", "")).strip()
+    final_eval_loss_root = (
+        _abs(repo_root, final_eval_loss_output_dir)
+        if final_eval_loss_output_dir
+        else (output_root / "final_eval_loss")
+    )
     benchmark_root = _abs(repo_root, benchmark_cfg.get("output_dir", str(output_root / "benchmarks")))
     baseline_cache_root = _abs(repo_root, baseline_eval_cfg.get("output_root", "outputs/baselines"))
     report_xlsx = _abs(repo_root, report_cfg.get("output_xlsx", str(output_root / "report.xlsx")))
@@ -373,6 +384,7 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
         embedding_init_cfg=embedding_init_cfg,
         embedding_training_cfg=embedding_training_cfg,
         summary_cfg=summary_cfg,
+        final_eval_loss_cfg=final_eval_loss_cfg if isinstance(final_eval_loss_cfg, dict) else {},
         benchmark_cfg=benchmark_cfg,
         baseline_eval_cfg=baseline_eval_cfg,
         report_cfg=report_cfg,
@@ -387,6 +399,7 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
         train_root=train_root,
         summary_path=summary_path,
         gate_path=gate_path,
+        final_eval_loss_root=final_eval_loss_root,
         benchmark_root=benchmark_root,
         baseline_cache_root=baseline_cache_root,
         report_xlsx=report_xlsx,
@@ -475,6 +488,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
         "summary": "sum",
         "report": "rpt",
         "train": "train",
+        "final_eval_loss": "fevl",
         "benchmark": "bench",
         "baseline_eval": "beval",
     }

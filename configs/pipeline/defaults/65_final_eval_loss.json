@@ -1,0 +1,7 @@
+{
+  "final_eval_loss": {
+    "enabled": false,
+    "output_subdir": "final_eval_loss",
+    "batch_size": 1
+  }
+}
