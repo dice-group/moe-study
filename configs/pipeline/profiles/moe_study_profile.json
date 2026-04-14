@@ -135,12 +135,11 @@
             "moelora_gate_temperature": 1.0,
             "moelora_num_experts": 32,
             "moelora_sparse_top_k": 2,
-            "moelora_task_embedding_dim": 64,
-            "moelora_task_num": 1
+            "moelora_task_embedding_dim": 64
           },
           "train": {
-            "batch_size": 24,
-            "grad_accum": 2
+            "batch_size": 8,
+            "grad_accum": 6
           }
         },
         {
@@ -203,18 +202,17 @@
             "hmora_num_experts": 32,
             "hmora_dropout": 0.1,
             "hmora_top_k_routing_strategy": true,
-            "hmora_top_k": 2,
+            "hmora_top_k": 4,
             "hmora_use_task_router": true,
             "hmora_task_router_only": false,
             "hmora_use_language_ids_as_task_ids": true,
             "hmora_share_router_for_qkv": true,
             "hmora_share_router_for_w_i": true,
             "hmora_num_router_mlp_layers": 1,
-            "hmora_router_hidden_dim": 32,
-            "hmora_epsilon_alpha": 2.0,
-            "hmora_alpha_shift": 0.0,
-            "hmora_alpha_low_bound": 0.0,
-            "hmora_alpha_up_bound": 1.0,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
             "hmora_use_load_balancing_loss": false,
             "hmora_use_div_loss": true,
             "hmora_gamma_div_certain_t": 0.4,
@@ -224,13 +222,13 @@
             "hmora_lambda_auxiliary": 0.003,
             "hmora_lambda_lm": 1.0,
             "hmora_use_hydra_lora": true,
-            "hmora_eta_b": 1.2,
+            "hmora_eta_b": 2.0,
             "hmora_task_token": "?",
             "hmora_num_encoder_layer": 1
           },
           "train": {
-            "batch_size": 24,
-            "grad_accum": 2
+            "batch_size": 8,
+            "grad_accum": 6
           }
         }
       ],
@@ -562,8 +560,7 @@
             "moelora_gate_temperature": 1.0,
             "moelora_num_experts": 2,
             "moelora_sparse_top_k": 1,
-            "moelora_task_embedding_dim": 64,
-            "moelora_task_num": 1
+            "moelora_task_embedding_dim": 64
           },
           "train": {
             "batch_size": 24,
@@ -627,21 +624,20 @@
             "rank": 2
           },
           "params": {
-            "hmora_num_experts": 2,
+            "hmora_num_experts": 32,
             "hmora_dropout": 0.1,
             "hmora_top_k_routing_strategy": true,
-            "hmora_top_k": 1,
+            "hmora_top_k": 4,
             "hmora_use_task_router": true,
             "hmora_task_router_only": false,
             "hmora_use_language_ids_as_task_ids": true,
             "hmora_share_router_for_qkv": true,
             "hmora_share_router_for_w_i": true,
             "hmora_num_router_mlp_layers": 1,
-            "hmora_router_hidden_dim": 32,
-            "hmora_epsilon_alpha": 2.0,
-            "hmora_alpha_shift": 0.0,
-            "hmora_alpha_low_bound": 0.0,
-            "hmora_alpha_up_bound": 1.0,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
             "hmora_use_load_balancing_loss": false,
             "hmora_use_div_loss": true,
             "hmora_gamma_div_certain_t": 0.4,
@@ -651,7 +647,7 @@
             "hmora_lambda_auxiliary": 0.003,
             "hmora_lambda_lm": 1.0,
             "hmora_use_hydra_lora": true,
-            "hmora_eta_b": 1.2,
+            "hmora_eta_b": 2.0,
             "hmora_task_token": "?",
             "hmora_num_encoder_layer": 1
           },
@@ -773,7 +769,7 @@
             "rank": 64
           },
           "train": {
-            "batch_size": 30,
+            "batch_size": 28,
             "grad_accum": 2
           }
         },
@@ -804,7 +800,7 @@
             "use_cola_pissa_init": true
           },
           "train": {
-            "batch_size": 30,
+            "batch_size": 28,
             "grad_accum": 2
           }
         },
@@ -837,11 +833,10 @@
             "moelora_gate_temperature": 1.0,
             "moelora_num_experts": 32,
             "moelora_sparse_top_k": 4,
-            "moelora_task_embedding_dim": 64,
-            "moelora_task_num": 1
+            "moelora_task_embedding_dim": 64
           },
           "train": {
-            "batch_size": 24,
+            "batch_size": 1,
             "grad_accum": 2
           }
         },
@@ -912,11 +907,10 @@
             "hmora_share_router_for_qkv": true,
             "hmora_share_router_for_w_i": true,
             "hmora_num_router_mlp_layers": 1,
-            "hmora_router_hidden_dim": 32,
-            "hmora_epsilon_alpha": 2.0,
-            "hmora_alpha_shift": 0.0,
-            "hmora_alpha_low_bound": 0.0,
-            "hmora_alpha_up_bound": 1.0,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
             "hmora_use_load_balancing_loss": false,
             "hmora_use_div_loss": true,
             "hmora_gamma_div_certain_t": 0.4,
@@ -926,7 +920,7 @@
             "hmora_lambda_auxiliary": 0.003,
             "hmora_lambda_lm": 1.0,
             "hmora_use_hydra_lora": true,
-            "hmora_eta_b": 1.2,
+            "hmora_eta_b": 2.0,
             "hmora_task_token": "?",
             "hmora_num_encoder_layer": 1
           },
@@ -946,6 +940,11 @@
       "include_flores": true,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs/benchmarks",
       "wandb_project": "moe_study_eval"
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_subdir": "final_eval_loss",
+      "batch_size": 1
     },
     "baseline_eval": {
       "enabled": false,
@@ -1050,7 +1049,7 @@
             "rank": 64
           },
           "train": {
-            "batch_size": 30,
+            "batch_size": 28,
             "grad_accum": 2
           }
         },
@@ -1081,7 +1080,7 @@
             "use_cola_pissa_init": true
           },
           "train": {
-            "batch_size": 30,
+            "batch_size": 28,
             "grad_accum": 2
           }
         },
@@ -1114,11 +1113,10 @@
             "moelora_gate_temperature": 1.0,
             "moelora_num_experts": 32,
             "moelora_sparse_top_k": 4,
-            "moelora_task_embedding_dim": 64,
-            "moelora_task_num": 1
+            "moelora_task_embedding_dim": 64
           },
           "train": {
-            "batch_size": 24,
+            "batch_size": 1,
             "grad_accum": 2
           }
         },
@@ -1131,12 +1129,12 @@
           },
           "params": {
             "adamole_aux_loss_coef": 0.001,
-            "adamole_max_threshold": 0.015625,
+            "adamole_max_threshold": 0.046875,
             "adamole_num_experts": 32
           },
           "train": {
-            "batch_size": 9,
-            "grad_accum": 2
+            "batch_size": 1,
+            "grad_accum": 1
           }
         },
         {
@@ -1189,11 +1187,10 @@
             "hmora_share_router_for_qkv": true,
             "hmora_share_router_for_w_i": true,
             "hmora_num_router_mlp_layers": 1,
-            "hmora_router_hidden_dim": 32,
-            "hmora_epsilon_alpha": 2.0,
-            "hmora_alpha_shift": 0.0,
-            "hmora_alpha_low_bound": 0.0,
-            "hmora_alpha_up_bound": 1.0,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
             "hmora_use_load_balancing_loss": false,
             "hmora_use_div_loss": true,
             "hmora_gamma_div_certain_t": 0.4,
@@ -1203,13 +1200,13 @@
             "hmora_lambda_auxiliary": 0.003,
             "hmora_lambda_lm": 1.0,
             "hmora_use_hydra_lora": true,
-            "hmora_eta_b": 1.2,
+            "hmora_eta_b": 2.0,
             "hmora_task_token": "?",
             "hmora_num_encoder_layer": 1
           },
           "train": {
-            "batch_size": 24,
-            "grad_accum": 2
+            "batch_size": 8,
+            "grad_accum": 6
           }
         }
       ]
@@ -1223,6 +1220,11 @@
       "include_flores": true,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs/benchmarks",
       "wandb_project": "moe_study_eval"
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_subdir": "final_eval_loss",
+      "batch_size": 1
     },
     "baseline_eval": {
       "enabled": false,
