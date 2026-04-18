@@ -2,6 +2,9 @@
 
 Date: 2026-04-18
 
+Status: supporting investigation note for the broader MoE+LoRA runtime study bundle.
+Open first: [moe_lora_runtime_research_synthesis_20260419.md](/local/joeldag/repos/moe-study/docs/training_issues/moe_lora_runtime_research_synthesis_20260419.md)
+
 ## Question
 
 Should this repo grow a true-sparse `hmora_sparse` execution path, or is the current dense-packed HMoRA design the better choice for GPU training?

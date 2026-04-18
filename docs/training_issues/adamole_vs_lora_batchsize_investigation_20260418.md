@@ -2,6 +2,9 @@
 
 Date: 2026-04-18
 
+Status: supporting investigation note for the broader MoE+LoRA runtime study bundle.
+Open first: [moe_lora_runtime_research_synthesis_20260419.md](/local/joeldag/repos/moe-study/docs/training_issues/moe_lora_runtime_research_synthesis_20260419.md)
+
 ## Question
 
 Why does `adamole` require a much smaller batch size than `lora` in the MoE study profile, even in the 10-language setup where AdaMoLE uses only 2 experts and the trainable parameter count is in the same order of magnitude?
