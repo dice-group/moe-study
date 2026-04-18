@@ -728,6 +728,7 @@ def _job_name_from_log(log_path: Path) -> str:
         "hydralora": "hydra",
         "lora": "lora",
         "moelora": "moelora",
+        "mtllora": "mtllora",
         "mixlora": "mixlora",
         "adamole": "adamole",
         "adamoe_1": "adamoe1",

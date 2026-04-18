@@ -230,6 +230,25 @@
             "batch_size": 8,
             "grad_accum": 6
           }
+        },
+        {
+          "id": "mtllora",
+          "kind": "mtllora",
+          "lora": {
+            "alpha": 4,
+            "rank": 2,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "params": {
+            "mtllora_num_up_projections": 2,
+            "mtllora_temperature": 0.1,
+            "mtllora_lambda_format": "full",
+            "mtllora_use_language_ids_as_task_ids": true
+          },
+          "train": {
+            "batch_size": 24,
+            "grad_accum": 2
+          }
         }
       ],
       "seed": 42,
@@ -655,6 +674,25 @@
             "batch_size": 24,
             "grad_accum": 2
           }
+        },
+        {
+          "id": "mtllora",
+          "kind": "mtllora",
+          "lora": {
+            "alpha": 4,
+            "rank": 2,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "params": {
+            "mtllora_num_up_projections": 2,
+            "mtllora_temperature": 0.1,
+            "mtllora_lambda_format": "full",
+            "mtllora_use_language_ids_as_task_ids": true
+          },
+          "train": {
+            "batch_size": 32,
+            "grad_accum": 2
+          }
         }
       ]
     },
@@ -926,6 +964,25 @@
           },
           "train": {
             "batch_size": 24,
+            "grad_accum": 2
+          }
+        },
+        {
+          "id": "mtllora",
+          "kind": "mtllora",
+          "lora": {
+            "alpha": 4,
+            "rank": 2,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "params": {
+            "mtllora_num_up_projections": 32,
+            "mtllora_temperature": 0.1,
+            "mtllora_lambda_format": "full",
+            "mtllora_use_language_ids_as_task_ids": true
+          },
+          "train": {
+            "batch_size": 20,
             "grad_accum": 2
           }
         }
@@ -1207,6 +1264,25 @@
           "train": {
             "batch_size": 8,
             "grad_accum": 6
+          }
+        },
+        {
+          "id": "mtllora",
+          "kind": "mtllora",
+          "lora": {
+            "alpha": 4,
+            "rank": 2,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "params": {
+            "mtllora_num_up_projections": 32,
+            "mtllora_temperature": 0.1,
+            "mtllora_lambda_format": "full",
+            "mtllora_use_language_ids_as_task_ids": true
+          },
+          "train": {
+            "batch_size": 20,
+            "grad_accum": 2
           }
         }
       ]

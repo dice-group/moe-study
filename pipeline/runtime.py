@@ -232,12 +232,12 @@ def _build_run_label(base_run_label: str, run: dict[str, Any], default_num_exper
                         suffix_parts.append(f"heads{parsed_heads[0]}x{len(parsed_heads)}")
                     else:
                         suffix_parts.append("heads" + "-".join(str(item) for item in parsed_heads))
-    elif run_kind in {"adamole", "mola", "moelpr", "moelora", "movlora", "mixlora", "hmora"}:
+    elif run_kind in {"adamole", "mola", "moelpr", "moelora", "mtllora", "movlora", "mixlora", "hmora"}:
         num_experts_value = _param_value(
             params,
-            f"{run_kind}_num_experts",
+            "mtllora_num_up_projections" if run_kind == "mtllora" else f"{run_kind}_num_experts",
             None,
-            "num_experts",
+            "num_up_projections" if run_kind == "mtllora" else "num_experts",
         )
         top_k_value = _param_value(
             params,
@@ -252,7 +252,8 @@ def _build_run_label(base_run_label: str, run: dict[str, Any], default_num_exper
             "sparse_top_k",
         )
         if num_experts_value is not None:
-            suffix_parts.append(f"nexp{int(num_experts_value)}")
+            suffix_key = "nup" if run_kind == "mtllora" else "nexp"
+            suffix_parts.append(f"{suffix_key}{int(num_experts_value)}")
         if top_k_value is not None:
             suffix_parts.append(f"k{int(top_k_value)}")
         elif sparse_top_k_value is not None:

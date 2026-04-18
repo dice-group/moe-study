@@ -260,6 +260,15 @@ def _approach_specific_train_args(
             '--moelora_gate_temperature', str(float(_cfg_value(cfg, 'moelora_gate_temperature', 1.0, 'gate_temperature'))),
         ])
         return approach_args
+    if kind == 'mtllora':
+        approach_args.extend([
+            '--mtllora_task_num', str(int(_cfg_value(cfg, 'mtllora_task_num', 1, 'task_num'))),
+            '--mtllora_num_up_projections', str(int(_cfg_value(cfg, 'mtllora_num_up_projections', experts, 'num_up_projections'))),
+            '--mtllora_temperature', str(float(_cfg_value(cfg, 'mtllora_temperature', 0.1, 'temperature'))),
+            '--mtllora_lambda_format', str(_cfg_value(cfg, 'mtllora_lambda_format', 'full', 'lambda_format')),
+            '--mtllora_use_language_ids_as_task_ids', str(bool(_cfg_value(cfg, 'mtllora_use_language_ids_as_task_ids', True, 'use_language_ids_as_task_ids'))),
+        ])
+        return approach_args
     if kind == 'movlora':
         approach_args.extend([
             '--movlora_num_experts', str(int(_cfg_value(cfg, 'movlora_num_experts', 8, 'num_experts'))),
