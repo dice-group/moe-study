@@ -599,6 +599,7 @@ def build_final_eval_cmd(
     adapter_name_or_path: str,
     per_device_eval_batch_size: int = 1,
     max_samples: int | None = None,
+    verify_adapter: bool = True,
 ) -> tuple[list[str], dict[str, str]]:
     """Build an eval-only command that computes validation loss from tokenized data.
 
@@ -621,13 +622,14 @@ def build_final_eval_cmd(
     if kind in {"moelora", "adamole"}:
         env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
-    verify_adapter_lora_hparams(
-        adapter_dir=Path(str(adapter_name_or_path)),
-        expected_rank=int(lora.get("rank", 16)),
-        expected_alpha=int(lora.get("alpha", 32)),
-        expected_dropout=float(lora.get("dropout", 0.05)),
-        expected_targets=lora.get("target", "q_proj,k_proj,v_proj,o_proj"),
-    )
+    if verify_adapter:
+        verify_adapter_lora_hparams(
+            adapter_dir=Path(str(adapter_name_or_path)),
+            expected_rank=int(lora.get("rank", 16)),
+            expected_alpha=int(lora.get("alpha", 32)),
+            expected_dropout=float(lora.get("dropout", 0.05)),
+            expected_targets=lora.get("target", "q_proj,k_proj,v_proj,o_proj"),
+        )
 
     eval_args: list[str] = [
         "--stage",

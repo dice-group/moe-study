@@ -375,7 +375,13 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                 checkpoint_dir = ctx.train_root / run_id
                 if not checkpoint_dir.exists():
                     raise SystemExit(f"Benchmark checkpoint directory missing: {checkpoint_dir}")
-                adapter_dir = resolve_adapter_eval_path(checkpoint_dir)
+                if ctx.args.dry_run:
+                    try:
+                        adapter_dir = resolve_adapter_eval_path(checkpoint_dir)
+                    except SystemExit:
+                        adapter_dir = checkpoint_dir
+                else:
+                    adapter_dir = resolve_adapter_eval_path(checkpoint_dir)
                 out_dir = ctx.benchmark_root / run_id
                 out_dir.mkdir(parents=True, exist_ok=True)
                 cmd = [
