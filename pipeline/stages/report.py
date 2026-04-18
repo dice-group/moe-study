@@ -45,6 +45,16 @@ def stage_report(ctx: PipelineContext) -> None:
         else:
             resolved_profile_path = ctx.output_root / "state" / "resolved_profile.json"
             _dump_json(resolved_profile_path, ctx.profile)
+            baseline_models = ctx.baseline_eval_cfg.get("models", [])
+            baseline_model_name_or_path = str(ctx.report_cfg.get("baseline_model_name_or_path", "")).strip()
+            if not baseline_model_name_or_path and isinstance(baseline_models, list):
+                for model in baseline_models:
+                    value = str(model).strip()
+                    if value:
+                        baseline_model_name_or_path = value
+                        break
+            if not baseline_model_name_or_path:
+                baseline_model_name_or_path = str(ctx.train_cfg.get("model_name_or_path", "")).strip()
             cmd = [
                 "python3",
                 str(ctx.repo_root / "pipeline_tools" / "export_proof_results_to_excel.py"),
@@ -56,6 +66,8 @@ def stage_report(ctx: PipelineContext) -> None:
                 str(benchmark_summary_path),
                 "--baseline-cache-root",
                 str(_abs(ctx.repo_root, str(ctx.report_cfg.get("baseline_cache_root", str(ctx.baseline_cache_root))))),
+                "--baseline-model-name-or-path",
+                baseline_model_name_or_path,
                 "--model-name-or-path",
                 str(
                     _load_json(ctx.embedding_init_manifest_path).get(

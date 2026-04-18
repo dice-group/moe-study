@@ -116,6 +116,7 @@ def main() -> int:
         help="Tracked baseline metrics CSV. May be provided multiple times; defaults include all repo baseline bundles.",
     )
     parser.add_argument("--resource-availability-csv", default="result_analysis/l2v_nested_samples/fineweb2-language-distribution.csv")
+    parser.add_argument("--baseline-model-name-or-path", default="")
     parser.add_argument("--model-name-or-path", default="")
     parser.add_argument("--sample-manifest", default="")
     parser.add_argument("--tokenized-dir", default="")
@@ -129,14 +130,16 @@ def main() -> int:
     summary_rows = read_summary_csv(Path(args.summary_csv))
     eval_rows = iter_eval_rows(Path(args.benchmark_dir))
 
+    baseline_model_name_or_path = str(args.baseline_model_name_or_path or args.model_name_or_path).strip()
+
     baseline_rows = []
-    if args.baseline_cache_root.strip() and args.model_name_or_path.strip():
-        baseline_rows = load_baseline_rows(Path(args.baseline_cache_root), args.model_name_or_path)
+    if args.baseline_cache_root.strip() and baseline_model_name_or_path:
+        baseline_rows = load_baseline_rows(Path(args.baseline_cache_root), baseline_model_name_or_path)
     baseline_json_rows = []
     if args.baseline_lm_eval_json.strip():
         baseline_json_path = resolve_baseline_lm_eval_path(Path(args.baseline_lm_eval_json))
         if baseline_json_path is not None:
-            baseline_json_rows = load_baseline_rows_from_lm_eval_json(baseline_json_path, args.model_name_or_path)
+            baseline_json_rows = load_baseline_rows_from_lm_eval_json(baseline_json_path, baseline_model_name_or_path)
     baseline_csv_rows = []
     for baseline_csv in args.baseline_metrics_csv or DEFAULT_BASELINE_METRICS_CSVS:
         baseline_csv_rows.extend(load_baseline_rows_from_csv(Path(baseline_csv)))

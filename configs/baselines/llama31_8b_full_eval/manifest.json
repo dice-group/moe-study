@@ -8,6 +8,6 @@
   "resolved_tasks_txt": "tasks_resolved.txt",
   "num_requested_tasks": 529,
   "num_result_tasks": 544,
-  "num_summary_rows": 544,
+  "num_summary_rows": 1356,
   "metrics_summary_csv": "l-3-1-8b_full_baseline_metrics_summary.csv"
 }
