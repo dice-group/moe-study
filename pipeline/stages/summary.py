@@ -43,22 +43,24 @@ def _load_trainable_stats(run_id: str, output_dir, logs_root) -> dict[str, objec
     artifact_path = output_dir / "trainable_params.json"
     if artifact_path.exists():
         return _load_json(artifact_path)
-    run_log_dir = logs_root / "train_runs" / run_id
-    if not run_log_dir.exists():
-        return {}
-    candidates = sorted(run_log_dir.glob("*.train.log"), key=lambda path: path.stat().st_mtime, reverse=True)
-    for candidate in candidates:
-        last_match = None
-        for line in candidate.read_text(encoding="utf-8").splitlines():
-            match = _TRAINABLE_RE.search(line)
-            if match:
-                last_match = match
-        if last_match is not None:
-            return {
-                "trainable_params": int(last_match.group(1).replace(",", "")),
-                "all_params": int(last_match.group(2).replace(",", "")),
-                "trainable_pct": float(last_match.group(3)),
-            }
+
+    candidate_sets = [
+        sorted((logs_root / "train_runs" / run_id).glob("*.train.log"), key=lambda path: path.stat().st_mtime, reverse=True),
+        sorted((logs_root / "chain" / "slurm").glob(f"chain_train.{run_id}.*.slurm.log"), key=lambda path: path.stat().st_mtime, reverse=True),
+    ]
+    for candidates in candidate_sets:
+        for candidate in candidates:
+            last_match = None
+            for line in candidate.read_text(encoding="utf-8").splitlines():
+                match = _TRAINABLE_RE.search(line)
+                if match:
+                    last_match = match
+            if last_match is not None:
+                return {
+                    "trainable_params": int(last_match.group(1).replace(",", "")),
+                    "all_params": int(last_match.group(2).replace(",", "")),
+                    "trainable_pct": float(last_match.group(3)),
+                }
     return {}
 
 

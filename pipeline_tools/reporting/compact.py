@@ -198,6 +198,7 @@ def write_comparison_sheet(ws, *, summary_rows: list[dict[str, str]], eval_rows:
         next_row = data_row + 1
 
     headers = ["benchmark", "metric", "language", "resource_availability", "better", "baseline", *approach_cols, "best_approach", "best_value"]
+    baseline_col = 6
     first_approach_col = 7
     last_approach_col = first_approach_col + len(approach_cols) - 1
 
@@ -211,8 +212,7 @@ def write_comparison_sheet(ws, *, summary_rows: list[dict[str, str]], eval_rows:
         row_cursor = start_row + 2
         for item in block_rows:
             ws.append([item["benchmark"], item["metric"], item["language"], item["resource_availability"], item["better"], item["baseline"], *[item["approach_values"].get(col, "") for col in approach_cols], item["best_approach"], item["best_value"]])
-            if approach_cols:
-                apply_row_heatmap(ws, row_cursor, str(item["better"]), first_approach_col, last_approach_col)
+            apply_row_heatmap(ws, row_cursor, str(item["better"]), baseline_col, max(baseline_col, last_approach_col))
             row_cursor += 1
         if block_rows:
             direction = str(block_rows[0]["better"] or "higher")
@@ -224,8 +224,7 @@ def write_comparison_sheet(ws, *, summary_rows: list[dict[str, str]], eval_rows:
             for c in range(1, len(headers) + 1):
                 ws.cell(row_cursor, c).fill = AVERAGE_FILL
                 ws.cell(row_cursor, c).font = AVERAGE_FONT
-            if approach_cols:
-                apply_row_heatmap(ws, row_cursor, direction, first_approach_col, last_approach_col)
+            apply_row_heatmap(ws, row_cursor, direction, baseline_col, max(baseline_col, last_approach_col))
             row_cursor += 1
         return row_cursor + 1
 
@@ -265,7 +264,9 @@ def write_comparison_sheet(ws, *, summary_rows: list[dict[str, str]], eval_rows:
                 tier_rows = [item for item in all_rows if resource_tier(item.get("resource_availability")) == tier]
                 if tier_rows:
                     group_map[("CROSS", tier)] = tier_rows
-        benchmarks = sorted({*{key[0] for key in group_map}, "CROSS"})
+        benchmarks = sorted({key[0] for key in group_map if key[0] != "CROSS"})
+        if any(key[0] == "CROSS" for key in group_map):
+            benchmarks.append("CROSS")
         ordered_keys: list[tuple[str, str]] = []
         for benchmark_name in benchmarks:
             for tier in ("ALL", "HIGH", "MID", "LOW"):
@@ -294,8 +295,7 @@ def write_comparison_sheet(ws, *, summary_rows: list[dict[str, str]], eval_rows:
             approach_avg_map = {label: (sum(vals) / len(vals)) for label, vals in approach_acc.items() if vals}
             best_label, best_value = select_best(approach_avg_map, "higher")
             ws.append([benchmark_name, tier, "normalized_avg" if normalized else "raw_avg", baseline_avg, *[approach_avg_map.get(label, "") for label in approach_cols], best_label or "", best_value if isinstance(best_value, float) else ""])
-            if approach_cols:
-                apply_row_heatmap(ws, row_idx, "higher", 5, 4 + len(approach_cols))
+            apply_row_heatmap(ws, row_idx, "higher", 4, 4 + len(approach_cols))
             row_idx += 1
         return row_idx + 1
 

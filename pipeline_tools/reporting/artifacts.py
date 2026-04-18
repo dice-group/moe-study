@@ -67,15 +67,17 @@ def resolve_trainable_stats(run_id: str, run_dir: Path, logs_root: Path | None) 
         return payload
     if logs_root is None:
         return {}
-    run_log_dir = logs_root / "train_runs" / run_id
-    if not run_log_dir.exists():
-        return {}
-    candidates = sorted(run_log_dir.glob("*.train.log"), key=lambda path: path.stat().st_mtime, reverse=True)
-    for candidate in candidates:
-        payload = load_trainable_stats_from_log(candidate)
-        if payload:
-            payload["source_log"] = str(candidate)
-            return payload
+
+    candidate_sets = [
+        sorted((logs_root / "train_runs" / run_id).glob("*.train.log"), key=lambda path: path.stat().st_mtime, reverse=True),
+        sorted((logs_root / "chain" / "slurm").glob(f"chain_train.{run_id}.*.slurm.log"), key=lambda path: path.stat().st_mtime, reverse=True),
+    ]
+    for candidates in candidate_sets:
+        for candidate in candidates:
+            payload = load_trainable_stats_from_log(candidate)
+            if payload:
+                payload["source_log"] = str(candidate)
+                return payload
     return {}
 
 
