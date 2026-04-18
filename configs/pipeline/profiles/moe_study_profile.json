@@ -584,7 +584,7 @@
             "moelora_task_embedding_dim": 64
           },
           "train": {
-            "batch_size": 24,
+            "batch_size": 6,
             "grad_accum": 2
           }
         },
