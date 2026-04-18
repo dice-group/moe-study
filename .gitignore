@@ -31,3 +31,4 @@ scripts/comparison_scripts_htyllm
 sampled_data/*
 tokenized_data/*
 logs/*
+.codex
