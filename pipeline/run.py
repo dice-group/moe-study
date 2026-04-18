@@ -516,7 +516,10 @@ def _submit_chain(args: argparse.Namespace) -> int:
                 combined.extend(stage_job_ids_by_stage.get(dep_stage, []))
             if combined:
                 dependency_source_ids = combined
-        dependency = f"afterok:{':'.join(dependency_source_ids)}" if dependency_source_ids else None
+        dependency_mode = "afterok"
+        if stage in {"final_eval_loss", "benchmark"}:
+            dependency_mode = "afterany"
+        dependency = f"{dependency_mode}:{':'.join(dependency_source_ids)}" if dependency_source_ids else None
         stage_job_ids: list[str] = []
 
         if stage == "train":
@@ -563,7 +566,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
                 stage_job_ids_by_stage[stage] = list(stage_job_ids)
             continue
 
-        if stage in {"train", "benchmark"} and len(run_ids) > 1:
+        if stage in {"train", "benchmark", "final_eval_loss"} and len(run_ids) > 1:
             for run_id in run_ids:
                 cmd = [
                     sys.executable,
@@ -590,7 +593,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
                 slurm_output = chain_slurm_root / f"chain_{stage}.{run_id}.{chain_timestamp}.slurm.log"
                 job_name = f"{stage_tag}{lang_tag}_{run_id}"
                 job_dependency = dependency
-                if stage == "benchmark":
+                if stage in {"final_eval_loss", "benchmark"}:
                     prior_job = last_stage_job_ids_by_run.get(run_id)
                     if prior_job:
                         job_dependency = f"afterany:{prior_job}" # use afterany dependency to allow benchmark to run even after training is aborted due to time limit
@@ -632,7 +635,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
                 cmd.extend(["--run-id", run_id])
             log_path = chain_logs_root / f"chain_{stage}.{chain_timestamp}.log"
             slurm_output = chain_slurm_root / f"chain_{stage}.{chain_timestamp}.slurm.log"
-            if stage in {"train", "benchmark", "baseline_eval"}:
+            if stage in {"train", "benchmark", "final_eval_loss", "baseline_eval"}:
                 if len(run_ids) == 1:
                     approach = run_ids[0]
                 elif run_ids:
