@@ -37,22 +37,29 @@ def _read_tasks(path: Path) -> list[str]:
     return tasks
 
 
-def _pick_metric(task: str, metrics: dict[str, Any]) -> tuple[str, float] | None:
+def _pick_metrics(task: str, metrics: dict[str, Any]) -> list[tuple[str, float]]:
     if not isinstance(metrics, dict):
-        return None
+        return []
     preferred: list[str]
     if task.startswith("belebele_"):
         preferred = ["acc_norm,none", "acc,none"]
+    elif task.startswith("flores_en_perplexity_"):
+        preferred = ["word_perplexity,none", "byte_perplexity,none", "bits_per_byte,none", "perplexity,none"]
     else:
         preferred = ["word_perplexity,none", "byte_perplexity,none", "perplexity,none"]
+    selected: list[tuple[str, float]] = []
     for key in preferred:
         val = metrics.get(key)
         if isinstance(val, (int, float)):
-            return key, float(val)
+            selected.append((key, float(val)))
+    if selected:
+        if task.startswith("belebele_"):
+            return selected[:1]
+        return selected
     for key, val in metrics.items():
         if isinstance(val, (int, float)):
-            return str(key), float(val)
-    return None
+            return [(str(key), float(val))]
+    return []
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -98,14 +105,13 @@ def _load_precomputed_sources(manifest_paths: list[Path]) -> dict[str, dict[str,
     return sources
 
 
-def _materialize_metrics_jsonl_from_csv(
+def _collect_metrics_rows_from_csv(
     *,
     csv_path: Path,
-    jsonl_path: Path,
     model: str,
     model_slug: str,
     requested_tasks: list[str],
-) -> int:
+) -> list[dict[str, Any]]:
     if not csv_path.exists():
         raise FileNotFoundError(f"Precomputed CSV not found: {csv_path}")
     requested = {task.strip() for task in requested_tasks if task.strip()}
@@ -119,8 +125,8 @@ def _materialize_metrics_jsonl_from_csv(
                 return True
         return False
 
-    rows_written = 0
-    with csv_path.open("r", encoding="utf-8", newline="") as handle, jsonl_path.open("w", encoding="utf-8") as out:
+    rows: list[dict[str, Any]] = []
+    with csv_path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
             task = str(row.get("task", "")).strip()
@@ -146,9 +152,52 @@ def _materialize_metrics_jsonl_from_csv(
                 "model": model,
                 "model_slug": model_slug,
             }
-            out.write(json.dumps(payload, ensure_ascii=False) + "\n")
-            rows_written += 1
-    return rows_written
+            rows.append(payload)
+    return rows
+
+
+def _load_existing_metrics_jsonl(path: Path) -> dict[tuple[str, str], dict[str, Any]]:
+    rows: dict[tuple[str, str], dict[str, Any]] = {}
+    if not path.exists():
+        return rows
+    for line in path.read_text(encoding="utf-8").splitlines():
+        raw = line.strip()
+        if not raw:
+            continue
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        task = str(payload.get("task", "")).strip()
+        metric = str(payload.get("metric", "")).strip()
+        value = payload.get("value")
+        if not task or not metric or not isinstance(value, (int, float)):
+            continue
+        rows[(task, metric)] = payload
+    return rows
+
+
+def _merge_metrics_rows(
+    existing_rows: dict[tuple[str, str], dict[str, Any]],
+    new_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    merged = dict(existing_rows)
+    for row in new_rows:
+        task = str(row.get("task", "")).strip()
+        metric = str(row.get("metric", "")).strip()
+        value = row.get("value")
+        if not task or not metric or not isinstance(value, (int, float)):
+            continue
+        merged[(task, metric)] = row
+    return [merged[key] for key in sorted(merged.keys())]
+
+
+def _write_metrics_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    with path.open("w", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 def _run_cmd(cmd: list[str], env: dict[str, str], dry_run: bool) -> None:
@@ -189,22 +238,36 @@ def _cache_entry_matches_request(
 ) -> bool:
     if not manifest_payload:
         return False
-    if str(manifest_payload.get("tasks_file", "")) != str(tasks_file.resolve()):
-        return False
-    if str(manifest_payload.get("batch_size", "")) != str(batch_size):
-        return False
-    if int(manifest_payload.get("seed", -1)) != int(seed):
-        return False
     rows = manifest_payload.get("rows", [])
     if not isinstance(rows, list):
         return False
     expected_metrics = str(metrics_jsonl.resolve())
+    expected_tasks_file = str(tasks_file.resolve())
+    expected_batch_size = str(batch_size)
+    expected_seed = int(seed)
     for row in rows:
         if not isinstance(row, dict):
             continue
         if str(row.get("model_slug", "")).strip() != model_slug:
             continue
-        if str(row.get("metrics_long_jsonl", "")).strip() == expected_metrics:
+        if str(row.get("metrics_long_jsonl", "")).strip() != expected_metrics:
+            continue
+        row_tasks_file = str(row.get("tasks_file", "")).strip()
+        row_batch_size = str(row.get("batch_size", "")).strip()
+        row_seed = row.get("seed")
+        if row_tasks_file or row_batch_size or row_seed is not None:
+            if row_tasks_file != expected_tasks_file:
+                continue
+            if row_batch_size != expected_batch_size:
+                continue
+            if int(row_seed) != expected_seed:
+                continue
+            return True
+        if (
+            str(manifest_payload.get("tasks_file", "")) == expected_tasks_file
+            and str(manifest_payload.get("batch_size", "")) == expected_batch_size
+            and int(manifest_payload.get("seed", -1)) == expected_seed
+        ):
             return True
     return False
 
@@ -218,6 +281,12 @@ def main() -> int:
     parser.add_argument("--lm-eval-bin", default="lm_eval")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--extra-args", default="")
+    parser.add_argument(
+        "--task-prefix",
+        action="append",
+        default=[],
+        help="Restrict the tasks file to entries whose names start with one of these prefixes. Can be provided multiple times.",
+    )
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
@@ -233,6 +302,9 @@ def main() -> int:
         raise SystemExit("No models provided.")
     tasks_file = Path(args.tasks_file)
     tasks = _read_tasks(tasks_file)
+    task_prefixes = [str(prefix).strip() for prefix in args.task_prefix if str(prefix).strip()]
+    if task_prefixes:
+        tasks = [task for task in tasks if any(task.startswith(prefix) for prefix in task_prefixes)]
     if not tasks:
         raise SystemExit(f"No tasks found in {tasks_file}")
     tasks_csv = ",".join(tasks)
@@ -286,16 +358,22 @@ def main() -> int:
             continue
 
         precomputed = precomputed_by_slug.get(slug)
+        existing_rows = _load_existing_metrics_jsonl(metrics_jsonl) if not args.dry_run else {}
         if precomputed and not args.force and not args.dry_run:
             csv_path = Path(precomputed["metrics_csv"]).resolve()
-            row_count = _materialize_metrics_jsonl_from_csv(
+            new_rows = _collect_metrics_rows_from_csv(
                 csv_path=csv_path,
-                jsonl_path=metrics_jsonl,
                 model=model,
                 model_slug=slug,
                 requested_tasks=tasks,
             )
-            print(f"[SKIP] using precomputed baseline CSV for {model}: {csv_path} -> {metrics_jsonl} ({row_count} rows)")
+            merged_rows = _merge_metrics_rows(existing_rows, new_rows)
+            _write_metrics_jsonl(metrics_jsonl, merged_rows)
+            row_count = len(new_rows)
+            print(
+                f"[SKIP] using precomputed baseline CSV for {model}: {csv_path} -> {metrics_jsonl} "
+                f"({row_count} requested rows, {len(merged_rows)} cached rows total)"
+            )
             raw_output_value = str(precomputed.get("raw_output_json", "")).strip() or str(raw_json.resolve())
             manifest_rows.append(
                 {
@@ -306,6 +384,9 @@ def main() -> int:
                     "num_tasks": row_count,
                     "source": "precomputed_csv",
                     "source_manifest": str(precomputed.get("manifest_path", "")),
+                    "tasks_file": str(tasks_file.resolve()),
+                    "batch_size": str(args.batch_size),
+                    "seed": int(args.seed),
                 }
             )
             continue
@@ -336,25 +417,24 @@ def main() -> int:
             rows: list[dict[str, Any]] = []
             if isinstance(results, dict):
                 for task, metrics in results.items():
-                    picked = _pick_metric(str(task), metrics if isinstance(metrics, dict) else {})
-                    if picked is None:
+                    picked_metrics = _pick_metrics(str(task), metrics if isinstance(metrics, dict) else {})
+                    if not picked_metrics:
                         continue
-                    metric_name, metric_value = picked
-                    rows.append(
-                        {
-                            "run_id": f"baseline::{slug}",
-                            "task": str(task),
-                            "metric": metric_name,
-                            "value": metric_value,
-                            "wandb_project": "",
-                            "wandb_prefix": "",
-                            "model": model,
-                            "model_slug": slug,
-                        }
-                    )
-            with metrics_jsonl.open("w", encoding="utf-8") as handle:
-                for row in rows:
-                    handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    for metric_name, metric_value in picked_metrics:
+                        rows.append(
+                            {
+                                "run_id": f"baseline::{slug}",
+                                "task": str(task),
+                                "metric": metric_name,
+                                "value": metric_value,
+                                "wandb_project": "",
+                                "wandb_prefix": "",
+                                "model": model,
+                                "model_slug": slug,
+                            }
+                        )
+            merged_rows = _merge_metrics_rows(existing_rows, rows)
+            _write_metrics_jsonl(metrics_jsonl, merged_rows)
             task_count = len(rows)
             raw_output_value = str(payload_path.resolve())
         else:
@@ -368,15 +448,41 @@ def main() -> int:
                 "metrics_long_jsonl": str(metrics_jsonl.resolve()),
                 "num_tasks": task_count,
                 "source": "lm_eval",
+                "tasks_file": str(tasks_file.resolve()),
+                "batch_size": str(args.batch_size),
+                "seed": int(args.seed),
             }
         )
+
+    existing_manifest_rows = output_manifest_payload.get("rows", []) if isinstance(output_manifest_payload, dict) else []
+    merged_manifest_rows: dict[tuple[str, str, str, str, int], dict[str, Any]] = {}
+    for row in existing_manifest_rows:
+        if not isinstance(row, dict):
+            continue
+        key = (
+            str(row.get("model_slug", "")).strip(),
+            str(row.get("metrics_long_jsonl", "")).strip(),
+            str(row.get("tasks_file", "")).strip(),
+            str(row.get("batch_size", "")).strip(),
+            int(row.get("seed", -1)),
+        )
+        merged_manifest_rows[key] = row
+    for row in manifest_rows:
+        key = (
+            str(row.get("model_slug", "")).strip(),
+            str(row.get("metrics_long_jsonl", "")).strip(),
+            str(row.get("tasks_file", "")).strip(),
+            str(row.get("batch_size", "")).strip(),
+            int(row.get("seed", -1)),
+        )
+        merged_manifest_rows[key] = row
 
     manifest = {
         "tasks_file": str(tasks_file.resolve()),
         "num_tasks": len(tasks),
         "seed": args.seed,
         "batch_size": args.batch_size,
-        "rows": manifest_rows,
+        "rows": list(merged_manifest_rows.values()),
     }
     manifest_path = output_root / "manifest.json"
     if not args.dry_run:

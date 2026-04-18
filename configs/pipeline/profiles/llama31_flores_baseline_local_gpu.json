@@ -1,0 +1,48 @@
+{
+  "llama31_flores_baseline_local_gpu": {
+    "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
+    "output_root": "outputs/pipeline_runs/llama31_flores_baseline_local_gpu",
+    "logs_dir": "outputs/pipeline_runs/llama31_flores_baseline_local_gpu/logs",
+    "executor": {
+      "type": "local",
+      "cuda_visible_devices": "0"
+    },
+    "sample": {
+      "enabled": false
+    },
+    "tokenizer_extension": {
+      "enabled": false
+    },
+    "embedding_init": {
+      "enabled": false
+    },
+    "tokenization": {
+      "enabled": false
+    },
+    "audit": {
+      "enabled": false
+    },
+    "training": {
+      "enabled": false,
+      "runs": []
+    },
+    "benchmark": {
+      "enabled": false
+    },
+    "baseline_eval": {
+      "enabled": true,
+      "models": [
+        "meta-llama/Llama-3.1-8B"
+      ],
+      "tasks_file": "configs/baselines/llama31_8b_full_eval/all_tasks_belebele_xnli_flores.txt",
+      "task_prefixes": [
+        "flores_en_perplexity_"
+      ],
+      "output_root": "outputs/baselines",
+      "batch_size": "auto",
+      "lm_eval_bin": "lm_eval",
+      "seed": 42,
+      "extra_args": "--device cuda --include_path scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks"
+    }
+  }
+}

@@ -42,6 +42,12 @@ def stage_baseline_eval(ctx: PipelineContext) -> None:
                 "--extra-args",
                 str(ctx.baseline_eval_cfg.get("extra_args", "")),
             ]
+            task_prefixes = ctx.baseline_eval_cfg.get("task_prefixes", [])
+            if isinstance(task_prefixes, list):
+                for prefix in task_prefixes:
+                    value = str(prefix).strip()
+                    if value:
+                        cmd.extend(["--task-prefix", value])
             single_manifest = str(ctx.baseline_eval_cfg.get("precomputed_manifest", "")).strip()
             if single_manifest:
                 cmd.extend(["--precomputed-manifest", str(_abs(ctx.repo_root, single_manifest))])
