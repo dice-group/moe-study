@@ -283,6 +283,7 @@
       "flores_mode": "both",
       "include_belebele": true,
       "include_flores": true,
+      "lang_mode": "no_ids",
       "lm_eval_bin": "lm_eval",
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster/benchmarks",
       "tasks_file": "configs/lm_eval_tasks_10_langs.txt",
@@ -443,6 +444,7 @@
       }
     },
     "benchmark": {
+      "lang_mode": "no_ids",
       "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/benchmarks"
     },
     "baseline_eval": {
@@ -698,6 +700,7 @@
     },
     "benchmark": {
       "enabled": true,
+      "lang_mode": "no_ids",
       "tasks_file": "configs/lm_eval_tasks_10_langs.txt",
       "include_belebele": true,
       "include_sib200": true,
@@ -990,6 +993,7 @@
     },
     "benchmark": {
       "enabled": true,
+      "lang_mode": "no_ids",
       "tasks_file": "configs/lm_eval_tasks_96_langs.txt",
       "include_belebele": true,
       "include_sib200": true,
@@ -1289,6 +1293,7 @@
     },
     "benchmark": {
       "enabled": true,
+      "lang_mode": "no_ids",
       "tasks_file": "configs/lm_eval_tasks_200_langs.txt",
       "include_belebele": true,
       "include_sib200": true,
