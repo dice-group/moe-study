@@ -262,6 +262,7 @@ def _approach_specific_train_args(
         return approach_args
     if kind == 'mtllora':
         approach_args.extend([
+            '--language_map', str(language_map_path),
             '--mtllora_task_num', str(int(_cfg_value(cfg, 'mtllora_task_num', 1, 'task_num'))),
             '--mtllora_num_up_projections', str(int(_cfg_value(cfg, 'mtllora_num_up_projections', experts, 'num_up_projections'))),
             '--mtllora_temperature', str(float(_cfg_value(cfg, 'mtllora_temperature', 0.1, 'temperature'))),
