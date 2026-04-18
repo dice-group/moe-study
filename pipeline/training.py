@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from .runtime import _abs, _build_run_label, _count_experts, _deep_merge, _load_json, _run_with_tee
+from pipeline_tools.adapter_config_verify import verify_adapter_lora_hparams
 
 if TYPE_CHECKING:
     from .executor import Executor
@@ -253,6 +254,8 @@ def _approach_specific_train_args(
         return approach_args
     if kind == 'moelora':
         approach_args.extend([
+            '--language_column', str(common.get('language_column', 'language')),
+            '--language_map', str(language_map_path),
             '--moelora_num_experts', str(int(_cfg_value(cfg, 'moelora_num_experts', 8, 'num_experts'))),
             '--moelora_task_num', str(int(_cfg_value(cfg, 'moelora_task_num', 1, 'task_num'))),
             '--moelora_task_embedding_dim', str(int(_cfg_value(cfg, 'moelora_task_embedding_dim', 64, 'task_embedding_dim'))),
@@ -375,18 +378,20 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         experts = max(1, int(num_experts_raw))
     disable_gradient_checkpointing = bool(train.get('disable_gradient_checkpointing', False))
     use_reentrant_gc = bool(train.get('use_reentrant_gc', True))
-    # AdaMoLE auxiliary losses are incompatible with re-entrant checkpointing.
-    if kind == 'adamole' and (not disable_gradient_checkpointing) and use_reentrant_gc:
+    # MoE-LoRA's shared routing gate is reused by all adapted layers. Under FSDP,
+    # checkpoint recomputation can see different shared-gate tensor metadata than
+    # the original forward, so keep checkpointing off for this method.
+    if kind == 'moelora' and bool(run_cfg.get("params", {}).get("moelora_force_disable_gradient_checkpointing", True)):
+        disable_gradient_checkpointing = True
+    # Adapter routing modules that are shared outside the wrapped decoder layer can
+    # be accessed during checkpoint recomputation; non-reentrant GC avoids FSDP
+    # seeing sharded shared gate/embedding weights in those recompute calls.
+    if kind in {'adamole', 'moelora'} and (not disable_gradient_checkpointing) and use_reentrant_gc:
         use_reentrant_gc = False
     use_bf16 = bool(train.get('bf16', True))
     use_fp16 = bool(train.get('fp16', False))
-    try:
-        import torch
-        if not torch.cuda.is_available() and (use_bf16 or use_fp16):
-            use_bf16 = False
-            use_fp16 = False
-    except Exception:
-        pass
+    if kind in {"moelora", "adamole"}:
+        env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     train_args = [
         '--stage', 'sft',
         '--do_train',
@@ -457,7 +462,7 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
             experts=experts,
         )
     )
-    dist = common.get('distributed', {})
+    dist = _deep_merge(common.get("distributed", {}), run_cfg.get("distributed", {}))
     if bool(dist.get('enabled', False)):
         num_processes = int(dist.get('num_processes', 2))
         num_machines = int(dist.get('num_machines', 1))
@@ -593,6 +598,7 @@ def build_final_eval_cmd(
     model_name_or_path: str,
     adapter_name_or_path: str,
     per_device_eval_batch_size: int = 1,
+    max_samples: int | None = None,
 ) -> tuple[list[str], dict[str, str]]:
     """Build an eval-only command that computes validation loss from tokenized data.
 
@@ -612,14 +618,16 @@ def build_final_eval_cmd(
 
     use_bf16 = bool(train.get("bf16", True))
     use_fp16 = bool(train.get("fp16", False))
-    try:
-        import torch
+    if kind in {"moelora", "adamole"}:
+        env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
-        if not torch.cuda.is_available() and (use_bf16 or use_fp16):
-            use_bf16 = False
-            use_fp16 = False
-    except Exception:
-        pass
+    verify_adapter_lora_hparams(
+        adapter_dir=Path(str(adapter_name_or_path)),
+        expected_rank=int(lora.get("rank", 16)),
+        expected_alpha=int(lora.get("alpha", 32)),
+        expected_dropout=float(lora.get("dropout", 0.05)),
+        expected_targets=lora.get("target", "q_proj,k_proj,v_proj,o_proj"),
+    )
 
     eval_args: list[str] = [
         "--stage",
@@ -652,6 +660,14 @@ def build_final_eval_cmd(
         str(int(per_device_eval_batch_size)),
         "--eval_strategy",
         "no",
+        "--lora_rank",  # Match the adapter's LoRA hyperparams. Some tuners (e.g. MoE-LoRA) validate lora_rank against their expert configuration during arg parsing.
+        str(int(lora.get("rank", 16))),
+        "--lora_alpha",
+        str(int(lora.get("alpha", 32))),
+        "--lora_dropout",
+        str(float(lora.get("dropout", 0.05))),
+        "--lora_target",
+        str(lora.get("target", "q_proj,k_proj,v_proj,o_proj")),
         "--bf16",
         str(use_bf16),
         "--fp16",
@@ -661,6 +677,9 @@ def build_final_eval_cmd(
         "--report_to",
         "none",
     ]
+
+    if max_samples is not None and int(max_samples) > 0:
+        eval_args.extend(["--max_samples", str(int(max_samples))])
 
     if bool(embedding_training_cfg.get("enabled", False)):
         additional_target = str(embedding_training_cfg.get("additional_target", "embed_tokens,lm_head")).strip()
@@ -677,24 +696,19 @@ def build_final_eval_cmd(
         )
     )
 
-    dist = common.get("distributed", {})
+    dist = _deep_merge(common.get("distributed", {}), run_cfg.get("distributed", {}))
     if bool(dist.get("enabled", False)):
-        num_processes = int(dist.get("num_processes", 2))
-        num_machines = int(dist.get("num_machines", 1))
-        machine_rank = int(dist.get("machine_rank", 0))
+        num_processes = 1   # for final eval, only use 1 GPU
+        num_machines = 1
+        machine_rank = 0
         main_process_ip = str(dist.get("main_process_ip", "127.0.0.1"))
         main_process_port = int(dist.get("main_process_port", 29501))
         cuda_visible_devices = dist.get("cuda_visible_devices")
         if cuda_visible_devices is not None:
             env["CUDA_VISIBLE_DEVICES"] = str(cuda_visible_devices)
-        config_file = dist.get("config_file") or dist.get("accelerate_config_file")
-        config_args: list[str] = []
-        if config_file:
-            config_args = ["--config_file", str(config_file)]
         cmd = [
             "accelerate",
             "launch",
-            *config_args,
             "--num_processes",
             str(num_processes),
             "--num_machines",

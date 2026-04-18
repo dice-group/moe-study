@@ -90,6 +90,7 @@ def stage_final_eval_loss(ctx: PipelineContext) -> None:
             model_name_or_path=model_name_or_path,
             adapter_name_or_path=str(adapter_path),
             per_device_eval_batch_size=int(ctx.final_eval_loss_cfg.get("batch_size", 1)),
+            max_samples=int(ctx.final_eval_loss_cfg["limit"]) if ctx.final_eval_loss_cfg.get("limit") is not None else None,
         )
         _run_stage_cmd(
             cmd=cmd,

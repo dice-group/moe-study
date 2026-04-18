@@ -1,0 +1,138 @@
+{
+  "moe_study_profile_otus_cluster_10_langs_smoke": {
+    "extends": "moe_study_profile_otus_cluster_10_langs",
+    "output_root": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs_smoke",
+    "logs_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs_smoke/logs",
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs_smoke/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs_smoke/runs",
+      "report_to": "none",
+      "eval": {
+        "enabled": false,
+        "strategy": "no"
+      },
+      "train": {
+        "max_steps": 5,
+        "logging_steps": 1,
+        "save_steps": 2,
+        "save_total_limit": 1
+      }
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_subdir": "final_eval_loss",
+      "batch_size": 1,
+      "limit": 32
+    },
+    "benchmark": {
+      "enabled": true,
+      "tasks_file": "configs/lm_eval_tasks_10_langs_smoke.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs_smoke/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "lora_r8",
+      "gate_json": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs_smoke/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs_smoke/summary.csv"
+    },
+    "report": {
+      "enabled": true,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs_smoke/report.xlsx"
+    },
+    "wandb": {
+      "enabled": false
+    },
+    "wandb_mode": "disabled"
+  },
+  "moe_study_profile_otus_cluster_96_langs_smoke": {
+    "extends": "moe_study_profile_otus_cluster_96_langs",
+    "output_root": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs_smoke",
+    "logs_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs_smoke/logs",
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs_smoke/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs_smoke/runs",
+      "report_to": "none",
+      "eval": {
+        "enabled": false,
+        "strategy": "no"
+      },
+      "train": {
+        "max_steps": 5,
+        "logging_steps": 1,
+        "save_steps": 2,
+        "save_total_limit": 1
+      }
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_subdir": "final_eval_loss",
+      "batch_size": 1,
+      "limit": 32
+    },
+    "benchmark": {
+      "enabled": true,
+      "tasks_file": "configs/lm_eval_tasks_96_langs_smoke.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs_smoke/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs_smoke/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs_smoke/summary.csv"
+    },
+    "report": {
+      "enabled": true,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs_smoke/report.xlsx"
+    },
+    "wandb": {
+      "enabled": false
+    },
+    "wandb_mode": "disabled"
+  },
+  "moe_study_profile_otus_cluster_200_langs_smoke": {
+    "extends": "moe_study_profile_otus_cluster_200_langs",
+    "output_root": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs_smoke",
+    "logs_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs_smoke/logs",
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs_smoke/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs_smoke/runs",
+      "report_to": "none",
+      "eval": {
+        "enabled": false,
+        "strategy": "no"
+      },
+      "train": {
+        "max_steps": 5,
+        "logging_steps": 1,
+        "save_steps": 2,
+        "save_total_limit": 1
+      }
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_subdir": "final_eval_loss",
+      "batch_size": 1,
+      "limit": 32
+    },
+    "benchmark": {
+      "enabled": true,
+      "tasks_file": "configs/lm_eval_tasks_200_langs_smoke.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs_smoke/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs_smoke/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs_smoke/summary.csv"
+    },
+    "report": {
+      "enabled": true,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_otus_cluster_200_langs_smoke/report.xlsx"
+    },
+    "wandb": {
+      "enabled": false
+    },
+    "wandb_mode": "disabled"
+  }
+}
