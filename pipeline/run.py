@@ -169,6 +169,23 @@ def _configure_pipeline_logger(logs_root: Path, run_timestamp: str) -> logging.L
     return logger
 
 
+def _resolve_report_xlsx_path(
+    *,
+    repo_root: Path,
+    output_root: Path,
+    report_cfg: dict[str, Any],
+    profile_name: str,
+) -> Path:
+    configured = str(report_cfg.get("output_xlsx", "")).strip()
+    if configured:
+        report_xlsx = _abs(repo_root, configured)
+        # Treat the legacy generic filename as an instruction to use the profile-derived default.
+        if report_xlsx.name != "report.xlsx":
+            return report_xlsx
+        return report_xlsx.with_name(f"{profile_name}.xlsx")
+    return output_root / f"{profile_name}.xlsx"
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run multilingual proof pipeline.")
     parser.add_argument("--profile", default="local_mini", help="Profile key in proof config.")
@@ -333,7 +350,12 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     )
     benchmark_root = _abs(repo_root, benchmark_cfg.get("output_dir", str(output_root / "benchmarks")))
     baseline_cache_root = _abs(repo_root, baseline_eval_cfg.get("output_root", "outputs/baselines"))
-    report_xlsx = _abs(repo_root, report_cfg.get("output_xlsx", str(output_root / "report.xlsx")))
+    report_xlsx = _resolve_report_xlsx_path(
+        repo_root=repo_root,
+        output_root=output_root,
+        report_cfg=report_cfg,
+        profile_name=args.profile,
+    )
     lpr_contract_path = output_root / "audit" / "lpr_contract.json"
 
     extension_root = _abs(repo_root, tokenizer_extension_cfg.get("output_dir", str(output_root / "tokenizer_extension")))

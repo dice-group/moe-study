@@ -265,7 +265,8 @@ def _validate_profile(profile_name: str, merged_profile: dict[str, Any], errors:
             )
 
     report_enabled = _check_bool(report.get("enabled", False), f"{prefix}.report.enabled", errors)
-    _check_non_empty_string(report.get("output_xlsx"), f"{prefix}.report.output_xlsx", errors)
+    if "output_xlsx" in report and report.get("output_xlsx") is not None:
+        _check_non_empty_string(report.get("output_xlsx"), f"{prefix}.report.output_xlsx", errors)
 
     if embedding_init_enabled and not tokenizer_extension_enabled:
         errors.append(
