@@ -45,6 +45,17 @@ def _normalize_device_map(value: Optional[str]) -> Optional[str]:
     return val
 
 
+def _parse_bool(value: Optional[str], default: bool = False) -> bool:
+    if value is None:
+        return default
+    val = str(value).strip().lower()
+    if val in {"1", "true", "yes", "y", "on"}:
+        return True
+    if val in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
 def _resolve_adapter_dir(path: Path) -> Path:
     if (path / "adapter_config.json").exists():
         return path
@@ -62,10 +73,62 @@ def _load_base_model_name(adapter_dir: Path) -> str:
     return str(cfg.get("base_model_name_or_path", "")).strip()
 
 
+def _resolve_pretrained_model_path(adapter_dir: Path, fallback: str) -> str:
+    candidates = [
+        Path(str(adapter_dir).removesuffix("_adapter")),
+        adapter_dir.parent,
+    ]
+    seen: set[Path] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except FileNotFoundError:
+            resolved = candidate
+        if resolved in seen or not candidate.exists() or not candidate.is_dir():
+            continue
+        seen.add(resolved)
+        if (candidate / "config.json").exists():
+            return str(candidate)
+    return fallback
+
+
+def _resolve_saved_peft_state_path(adapter_dir: Path) -> Optional[Path]:
+    candidates = [
+        Path(str(adapter_dir).removesuffix("_adapter")) / "pytorch_model.bin",
+        adapter_dir.parent / "pytorch_model.bin",
+    ]
+    seen: set[Path] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except FileNotFoundError:
+            resolved = candidate
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if candidate.exists() and candidate.is_file():
+            return candidate
+    return None
+
+
 def _parse_tasks(raw: str) -> list[str]:
     if os.path.isfile(raw):
         return [line.strip() for line in Path(raw).read_text(encoding="utf-8").splitlines() if line.strip()]
     return [task.strip() for task in raw.split(",") if task.strip()]
+
+
+def _infer_vocab_size_from_state_dict(state_dict: dict[str, object]) -> Optional[int]:
+    for key in (
+        "base_model.model.model.embed_tokens.original_module.weight",
+        "base_model.model.model.embed_tokens.modules_to_save.default.weight",
+        "base_model.model.embed_tokens.original_module.weight",
+        "base_model.model.embed_tokens.modules_to_save.default.weight",
+    ):
+        value = state_dict.get(key)
+        shape = getattr(value, "shape", None)
+        if shape and len(shape) >= 1:
+            return int(shape[0])
+    return None
 
 
 def _build_hflm_with_task_class(HFLM):
@@ -117,9 +180,37 @@ def _build_hflm_with_task_class(HFLM):
 
         def _model_generate(self, context, max_length, stop, **generation_kwargs):
             task_ids = self._inject_task_ids(context)
-            if task_ids is not None:
-                generation_kwargs["task_ids"] = task_ids
-            return super()._model_generate(context, max_length, stop, **generation_kwargs)
+            if task_ids is None:
+                return super()._model_generate(context, max_length, stop, **generation_kwargs)
+
+            from lm_eval.models.huggingface import stop_sequences_criteria
+
+            generation_kwargs["temperature"] = generation_kwargs.get("temperature", 0.0)
+            do_sample = generation_kwargs.get("do_sample")
+            if (temp := generation_kwargs.get("temperature")) == 0.0 and do_sample is None:
+                generation_kwargs["do_sample"] = do_sample = False
+            if do_sample is False and temp == 0.0:
+                generation_kwargs.pop("temperature", None)
+
+            stopping_criteria = stop_sequences_criteria(
+                self.tokenizer, stop, context.shape[1], context.shape[0]
+            )
+            with (
+                self.model._enable_peft_forward_hooks(input_ids=context, task_ids=task_ids),
+                torch.autocast(
+                    device_type=self.device.type,
+                    dtype=self.mixed_precision_dtype,
+                    enabled=self.mixed_precision_dtype is not None,
+                ),
+            ):
+                return self.model.get_base_model().generate(
+                    input_ids=context,
+                    max_length=max_length,
+                    stopping_criteria=stopping_criteria,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    use_cache=True,
+                    **generation_kwargs,
+                )
 
     return HFLMWithTask
 
@@ -142,6 +233,7 @@ def _run_eval(
     numpy_seed: int,
     torch_seed: int,
     fewshot_seed: int,
+    trust_remote_code: bool,
 ) -> None:
     repo_root = None
     for parent in Path(__file__).resolve().parents:
@@ -169,15 +261,19 @@ def _run_eval(
     sys.modules["peft"] = module
     spec.loader.exec_module(module)
 
+    import datasets as hf_datasets
     from lm_eval import evaluator
     from lm_eval.models.huggingface import HFLM
-    from transformers import AutoModelForCausalLM
-    from peft import PeftModel
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import PeftConfig, PeftModel, get_peft_model
 
+    hf_datasets.config.HF_DATASETS_TRUST_REMOTE_CODE = trust_remote_code
     task_manager = TaskManager(include_path=include_path)
+    saved_peft_state_path = _resolve_saved_peft_state_path(Path(peft))
     model_key = (
         pretrained,
         peft,
+        str(saved_peft_state_path) if saved_peft_state_path is not None else "none",
         str(device_map) if device_map is not None else "none",
         str(torch_dtype) if torch_dtype is not None else "none",
     )
@@ -188,7 +284,23 @@ def _run_eval(
         if device_map is not None:
             load_kwargs["device_map"] = device_map
         base_model = AutoModelForCausalLM.from_pretrained(pretrained, **load_kwargs)
-        peft_model = PeftModel.from_pretrained(base_model, peft, is_trainable=False)
+        peft_state_dict = torch.load(saved_peft_state_path, map_location="cpu") if saved_peft_state_path is not None else None
+        tokenizer_obj = AutoTokenizer.from_pretrained(tokenizer)
+        target_vocab_size = len(tokenizer_obj)
+        if peft_state_dict is not None:
+            state_vocab_size = _infer_vocab_size_from_state_dict(peft_state_dict)
+            if state_vocab_size is not None:
+                target_vocab_size = max(target_vocab_size, state_vocab_size)
+        current_vocab_size = base_model.get_input_embeddings().weight.shape[0]
+        if target_vocab_size != current_vocab_size:
+            base_model.resize_token_embeddings(target_vocab_size)
+        if saved_peft_state_path is not None:
+            peft_config = PeftConfig.from_pretrained(peft)
+            peft_model = get_peft_model(base_model, peft_config)
+            assert peft_state_dict is not None
+            peft_model.load_state_dict(peft_state_dict, strict=False)
+        else:
+            peft_model = PeftModel.from_pretrained(base_model, peft, is_trainable=False)
         if device.startswith("cuda") and torch.cuda.is_available() and device_map is None:
             peft_model = peft_model.to(device)
         peft_model.eval()
@@ -235,11 +347,18 @@ def main() -> int:
     parser.add_argument("--numpy-seed", type=int, default=int(os.environ.get("LM_EVAL_NUMPY_SEED", 42)))
     parser.add_argument("--torch-seed", type=int, default=int(os.environ.get("LM_EVAL_TORCH_SEED", 42)))
     parser.add_argument("--fewshot-seed", type=int, default=int(os.environ.get("LM_EVAL_FEWSHOT_SEED", 42)))
+    parser.add_argument(
+        "--trust-remote-code",
+        default=os.environ.get("LM_EVAL_TRUST_REMOTE_CODE", "true"),
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s|%(asctime)s|%(message)s")
     checkpoint = _resolve_adapter_dir(Path(args.checkpoint))
-    base_model = _load_base_model_name(checkpoint) or args.tokenizer
+    base_model = _resolve_pretrained_model_path(
+        checkpoint,
+        _load_base_model_name(checkpoint) or args.tokenizer,
+    )
     tasks = _parse_tasks(args.tasks)
     torch_dtype = _parse_torch_dtype(args.torch_dtype)
     if torch_dtype is None and args.device.startswith("cuda"):
@@ -247,7 +366,7 @@ def main() -> int:
     _run_eval(
         pretrained=base_model,
         peft=str(checkpoint),
-        tokenizer=base_model,
+        tokenizer=args.tokenizer,
         tasks=tasks,
         batch_size=args.batch_size,
         output_path=Path(args.output_path),
@@ -261,6 +380,7 @@ def main() -> int:
         numpy_seed=args.numpy_seed,
         torch_seed=args.torch_seed,
         fewshot_seed=args.fewshot_seed,
+        trust_remote_code=_parse_bool(args.trust_remote_code, default=True),
     )
     return 0
 

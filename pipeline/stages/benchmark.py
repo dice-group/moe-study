@@ -239,6 +239,7 @@ def _metric_preference(task_cfg: dict[str, object]) -> list[str]:
     return [
         "acc_norm,none",
         "acc,none",
+        "spearman,none",
         "matthews_correlation,none",
         "f1,none",
         "pearson,none",
@@ -246,13 +247,20 @@ def _metric_preference(task_cfg: dict[str, object]) -> list[str]:
     ]
 
 
-def _extract_primary_metric(task_cfg: dict[str, object], payload: dict[str, object]) -> tuple[str, float | None]:
+def _task_result_payload(task_cfg: dict[str, object], payload: dict[str, object]) -> dict[str, object] | None:
     results = payload.get("results", {})
     if not isinstance(results, dict):
-        return "", None
+        return None
     lm_eval_task = str(task_cfg.get("lm_eval_task", task_cfg.get("task_name", ""))).strip()
     task_result = results.get(lm_eval_task, {})
     if not isinstance(task_result, dict):
+        return None
+    return task_result
+
+
+def _extract_primary_metric(task_cfg: dict[str, object], payload: dict[str, object]) -> tuple[str, float | None]:
+    task_result = _task_result_payload(task_cfg, payload)
+    if task_result is None:
         return "", None
     for metric_key in _metric_preference(task_cfg):
         value = task_result.get(metric_key)
@@ -283,6 +291,60 @@ def _write_fixed_task_metrics_csv(path: Path, rows: list[dict[str, object]]) -> 
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
+
+
+def _read_fixed_task_metrics_csv(path: Path) -> list[dict[str, object]]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        return [dict(row) for row in reader]
+
+
+def _merge_rows_by_key(
+    existing_rows: list[dict[str, object]],
+    new_rows: list[dict[str, object]],
+    *,
+    key_fields: tuple[str, ...],
+) -> list[dict[str, object]]:
+    merged: dict[tuple[str, ...], dict[str, object]] = {}
+    order: list[tuple[str, ...]] = []
+    for row in existing_rows + new_rows:
+        key = tuple(str(row.get(field, "")) for field in key_fields)
+        if key not in merged:
+            order.append(key)
+        merged[key] = row
+    return [merged[key] for key in order]
+
+
+def _read_fixed_task_benchmark_rows(path: Path) -> list[dict[str, object]]:
+    if not path.exists():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    rows = payload.get("runs", [])
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def _resolve_eval_tokenizer_for_run(default_tokenizer: str, run_dir: Path, adapter_dir: Path) -> str:
+    candidates = [
+        adapter_dir,
+        Path(str(adapter_dir).removesuffix("_adapter")),
+        run_dir,
+    ]
+    seen: set[Path] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except FileNotFoundError:
+            resolved = candidate
+        if resolved in seen or not candidate.exists() or not candidate.is_dir():
+            continue
+        seen.add(resolved)
+        if (candidate / "tokenizer_config.json").exists():
+            return str(candidate)
+    return default_tokenizer
 
 
 def _stage_benchmark_fixed_task_set(
@@ -331,15 +393,22 @@ def _stage_benchmark_fixed_task_set(
     task_aware_kinds = {"mtllora", "moelora", "hmora"}
     include_dirs = _default_lm_eval_include_dirs(ctx.repo_root, lm_eval_tasks)
     include_path = ":".join(str(path) for path in include_dirs) if include_dirs else None
+    lm_eval_limit = str(ctx.benchmark_cfg.get("limit", ctx.env.get("LM_EVAL_LIMIT", ""))).strip()
     for run in runs:
         run_id = str(run["id"])
         checkpoint_dir = ctx.train_root / run_id
         if not checkpoint_dir.exists():
             raise SystemExit(f"Benchmark checkpoint directory missing: {checkpoint_dir}")
         adapter_dir = checkpoint_dir if ctx.args.dry_run else resolve_adapter_eval_path(checkpoint_dir)
+        tokenizer_for_run = _resolve_eval_tokenizer_for_run(
+            resolved_eval_tokenizer,
+            checkpoint_dir,
+            adapter_dir,
+        )
         out_dir = ctx.benchmark_root / run_id
         out_dir.mkdir(parents=True, exist_ok=True)
         seen_tasks: set[str] = set()
+        scored_tasks: set[str] = set()
         task_metric_values: dict[str, list[float]] = {}
         for task_cfg in task_cfgs:
             task_name = str(task_cfg.get("task_name", "")).strip()
@@ -353,7 +422,7 @@ def _stage_benchmark_fixed_task_set(
                 "--checkpoint",
                 str(adapter_dir),
                 "--tokenizer",
-                resolved_eval_tokenizer,
+                tokenizer_for_run,
                 "--tasks",
                 lm_eval_task,
                 "--output-path",
@@ -363,6 +432,8 @@ def _stage_benchmark_fixed_task_set(
             ]
             if include_path:
                 cmd.extend(["--include-path", include_path])
+            if lm_eval_limit:
+                cmd.extend(["--limit", lm_eval_limit])
             if str(run.get("kind", "")).strip() in task_aware_kinds and task_id is not None:
                 cmd.extend(["--task-id", str(int(task_id))])
             _run_stage_cmd(
@@ -377,21 +448,23 @@ def _stage_benchmark_fixed_task_set(
             if ctx.args.dry_run or not output_path.exists():
                 continue
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            primary_metric_key, primary_metric_value = _extract_primary_metric(task_cfg, payload)
-            if primary_metric_value is not None:
+            if _task_result_payload(task_cfg, payload) is not None:
                 seen_tasks.add(lm_eval_task)
-                metric_rows.append(
-                    {
-                        "run_id": run_id,
-                        "task_name": task_name,
-                        "lm_eval_task": lm_eval_task,
-                        "group": task_group,
-                        "task_id": task_id,
-                        "primary_metric_key": primary_metric_key,
-                        "primary_metric_value": primary_metric_value,
-                        "result_json": str(output_path.resolve()),
-                    }
-                )
+            primary_metric_key, primary_metric_value = _extract_primary_metric(task_cfg, payload)
+            metric_rows.append(
+                {
+                    "run_id": run_id,
+                    "task_name": task_name,
+                    "lm_eval_task": lm_eval_task,
+                    "group": task_group,
+                    "task_id": task_id,
+                    "primary_metric_key": primary_metric_key,
+                    "primary_metric_value": primary_metric_value,
+                    "result_json": str(output_path.resolve()),
+                }
+            )
+            if primary_metric_value is not None:
+                scored_tasks.add(lm_eval_task)
                 task_metric_values.setdefault(task_group, []).append(primary_metric_value)
 
         group_scores = {group: sum(values) / len(values) for group, values in task_metric_values.items() if values}
@@ -400,19 +473,31 @@ def _stage_benchmark_fixed_task_set(
             {
                 "run_id": run_id,
                 "evaluated_checkpoint": str(adapter_dir.resolve()),
-                "evaluated_tokenizer": resolved_eval_tokenizer,
+                "evaluated_tokenizer": tokenizer_for_run,
                 "output_dir": str(out_dir.resolve()),
                 "num_output_files": len(list(out_dir.glob("*.json"))),
                 "num_tasks_expected": len(task_cfgs),
                 "num_tasks_seen": len(seen_tasks),
+                "num_tasks_scored": len(scored_tasks),
                 "missing_tasks": sorted(set(lm_eval_tasks) - seen_tasks),
+                "unscored_tasks": sorted(seen_tasks - scored_tasks),
                 "group_scores": group_scores,
                 "track_score": track_score,
             }
         )
 
     if not ctx.args.dry_run:
-        _write_fixed_task_metrics_csv(metrics_csv_path, metric_rows)
+        merged_metric_rows = _merge_rows_by_key(
+            _read_fixed_task_metrics_csv(metrics_csv_path),
+            metric_rows,
+            key_fields=("run_id", "task_name"),
+        )
+        merged_benchmark_rows = _merge_rows_by_key(
+            _read_fixed_task_benchmark_rows(benchmark_summary_path),
+            benchmark_rows,
+            key_fields=("run_id",),
+        )
+        _write_fixed_task_metrics_csv(metrics_csv_path, merged_metric_rows)
         _dump_json(
             benchmark_summary_path,
             {
@@ -421,9 +506,10 @@ def _stage_benchmark_fixed_task_set(
                 "selected_tasks_file": str(selected_tasks_file.resolve()),
                 "selected_tasks_summary": str(selected_tasks_summary.resolve()),
                 "resolved_eval_tokenizer": resolved_eval_tokenizer,
+                "lm_eval_limit": lm_eval_limit,
                 "metrics_csv": str(metrics_csv_path.resolve()),
                 "num_selected_tasks": len(task_cfgs),
-                "runs": benchmark_rows,
+                "runs": merged_benchmark_rows,
             },
         )
         _save_stage_state(ctx.state_path, "benchmark", signature, [str(path) for path in expected])

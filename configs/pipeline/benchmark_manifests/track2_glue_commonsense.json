@@ -16,6 +16,6 @@
     {"task_name": "mnli", "lm_eval_task": "mnli", "task_id": 12, "group": "glue", "metric_preference": ["acc,none"]},
     {"task_name": "qnli", "lm_eval_task": "qnli", "task_id": 13, "group": "glue", "metric_preference": ["acc,none"]},
     {"task_name": "rte", "lm_eval_task": "rte", "task_id": 14, "group": "glue", "metric_preference": ["acc,none"]},
-    {"task_name": "stsb", "lm_eval_task": "stsb", "task_id": 15, "group": "glue", "metric_preference": ["pearson,none", "score,none"]}
+    {"task_name": "stsb", "lm_eval_task": "stsb", "task_id": 15, "group": "glue", "metric_preference": ["spearman,none", "pearson,none", "score,none"]}
   ]
 }

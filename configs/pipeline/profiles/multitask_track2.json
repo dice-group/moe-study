@@ -47,7 +47,7 @@
     "training": {
       "task_id_mode": "required",
       "output_dir": "outputs/pipeline_runs/multitask_track2_base/runs",
-      "model_name_or_path": "meta-llama/Llama-3.2-1B-Instruct",
+      "model_name_or_path": "meta-llama/Llama-3.1-8B",
       "num_experts": 8,
       "lora": {
         "alpha": 16,
@@ -117,7 +117,7 @@
     },
     "training": {
       "output_dir": "outputs/pipeline_runs/multitask_track2_local_quick/runs",
-      "model_name_or_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+      "resize_vocab": true,
       "num_experts": 4,
       "runs": [
         {"id": "lora_r8", "kind": "lora"},
@@ -131,7 +131,7 @@
         "logging_steps": 1,
         "max_steps": 2,
         "save_steps": 1,
-        "bf16": false,
+        "bf16": true,
         "fp16": false,
         "flash_attn": "disabled",
         "disable_gradient_checkpointing": true,
@@ -148,6 +148,65 @@
       "gate_json": "outputs/pipeline_runs/multitask_track2_local_quick/gate.json",
       "primary_metric": "eval_loss",
       "summary_csv": "outputs/pipeline_runs/multitask_track2_local_quick/summary.csv"
+    }
+  },
+  "multitask_track2_local_tiny_smoke": {
+    "extends": "multitask_track2_base",
+    "output_root": "outputs/pipeline_runs/multitask_track2_local_tiny_smoke",
+    "sample": {
+      "task_mix_name": "track2_glue_commonsense_quick",
+      "task_mix_spec_path": "configs/pipeline/task_mix/track2_glue_commonsense_quick.json",
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_tiny_smoke/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_tiny_smoke/tokenized"
+    },
+    "tokenizer_extension": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_tiny_smoke/tokenizer_extension"
+    },
+    "embedding_init": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_tiny_smoke/embedding_init"
+    },
+    "embedding_training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_tiny_smoke/embedding_training"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_tiny_smoke/benchmarks"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_tiny_smoke/runs",
+      "model_name_or_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+      "resize_vocab": true,
+      "num_experts": 4,
+      "runs": [
+        {"id": "lora_r8", "kind": "lora"},
+        {"id": "mtllora", "kind": "mtllora", "params": {"num_up_projections": 4, "temperature": 0.1, "lambda_format": "full"}},
+        {"id": "hmora", "kind": "hmora", "params": {"num_experts": 4, "dropout": 0.1, "top_k_routing_strategy": true, "top_k": 2, "use_task_router": true, "task_router_only": false, "share_router_for_qkv": true, "share_router_for_w_i": true, "num_router_mlp_layers": 1, "router_hidden_dim": 16, "epsilon_alpha": 4.0, "alpha_shift": -2.0, "alpha_low_bound": 0.2, "alpha_up_bound": 0.8, "use_load_balancing_loss": false, "use_div_loss": true, "gamma_div_certain_t": 0.4, "gamma_div_balance_t": 1.0, "gamma_div_certain_s": 0.4, "gamma_div_balance_s": 1.0, "lambda_auxiliary": 0.003, "lambda_lm": 1.0, "use_hydra_lora": false, "eta_b": 1.0, "task_token": "?", "num_encoder_layer": 1}}
+      ],
+      "train": {
+        "batch_size": 1,
+        "grad_accum": 1,
+        "learning_rate": "2e-4",
+        "logging_steps": 1,
+        "max_steps": 2,
+        "save_steps": 1,
+        "bf16": true,
+        "fp16": false,
+        "flash_attn": "disabled",
+        "disable_gradient_checkpointing": true,
+        "use_reentrant_gc": false
+      },
+      "eval": {
+        "strategy": "steps",
+        "eval_steps": 1,
+        "batch_size": 1
+      }
+    },
+    "summary": {
+      "baseline_id": "lora_r8",
+      "gate_json": "outputs/pipeline_runs/multitask_track2_local_tiny_smoke/gate.json",
+      "primary_metric": "eval_loss",
+      "summary_csv": "outputs/pipeline_runs/multitask_track2_local_tiny_smoke/summary.csv"
     }
   },
   "multitask_track2_gpuvm": {
@@ -204,7 +263,7 @@
     },
     "training": {
       "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/runs",
-      "model_name_or_path": "meta-llama/Llama-3.1-8B-Instruct"
+      "model_name_or_path": "meta-llama/Llama-3.1-8B"
     },
     "summary": {
       "baseline_id": "lora_r8",

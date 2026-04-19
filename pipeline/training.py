@@ -466,6 +466,9 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         '--include_num_input_tokens_seen', 'true',
         '--include_effective_tokens_per_second', 'true',
     ]
+    resize_vocab = common.get('resize_vocab')
+    if resize_vocab is not None:
+        train_args.extend(['--resize_vocab', str(bool(resize_vocab))])
     # Enable signal-triggered final checkpointing. This is a no-op unless the process receives SIGTERM/SIGUSR1.
     train_args.extend(["--enable_jit_checkpoint", "true"])
     save_strategy = train.get('save_strategy')
