@@ -227,6 +227,7 @@
             "hmora_num_encoder_layer": 1
           },
           "train": {
+            "disable_gradient_checkpointing": true,
             "batch_size": 8,
             "grad_accum": 6
           }
@@ -673,6 +674,7 @@
             "hmora_num_encoder_layer": 1
           },
           "train": {
+            "disable_gradient_checkpointing": true,
             "batch_size": 24,
             "grad_accum": 2
           }
@@ -966,7 +968,8 @@
             "hmora_num_encoder_layer": 1
           },
           "train": {
-            "batch_size": 24,
+            "disable_gradient_checkpointing": true,
+            "batch_size": 4,
             "grad_accum": 2
           }
         },

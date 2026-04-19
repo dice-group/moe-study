@@ -386,11 +386,11 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
     # Adapter routing modules that are shared outside the wrapped decoder layer can
     # be accessed during checkpoint recomputation; non-reentrant GC avoids FSDP
     # seeing sharded shared gate/embedding weights in those recompute calls.
-    if kind in {'adamole', 'moelora'} and (not disable_gradient_checkpointing) and use_reentrant_gc:
+    if kind in {'adamole', 'moelora', 'hmora'} and (not disable_gradient_checkpointing) and use_reentrant_gc:
         use_reentrant_gc = False
     use_bf16 = bool(train.get('bf16', True))
     use_fp16 = bool(train.get('fp16', False))
-    if kind in {"moelora", "adamole"}:
+    if kind in {"moelora", "adamole", "hmora"}:
         env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     train_args = [
         '--stage', 'sft',
