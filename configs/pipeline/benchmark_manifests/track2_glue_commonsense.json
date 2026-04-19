@@ -1,0 +1,21 @@
+{
+  "track_name": "track2_glue_commonsense",
+  "tasks": [
+    {"task_name": "boolq", "lm_eval_task": "boolq", "task_id": 0, "group": "commonsense", "metric_preference": ["acc,none"]},
+    {"task_name": "piqa", "lm_eval_task": "piqa", "task_id": 1, "group": "commonsense", "metric_preference": ["acc,none"]},
+    {"task_name": "social_iqa", "lm_eval_task": "social_iqa", "task_id": 2, "group": "commonsense", "metric_preference": ["acc,none"]},
+    {"task_name": "hellaswag", "lm_eval_task": "hellaswag", "task_id": 3, "group": "commonsense", "metric_preference": ["acc_norm,none", "acc,none"]},
+    {"task_name": "winogrande", "lm_eval_task": "winogrande", "task_id": 4, "group": "commonsense", "metric_preference": ["acc,none"]},
+    {"task_name": "arc_challenge", "lm_eval_task": "arc_challenge", "task_id": 5, "group": "commonsense", "metric_preference": ["acc_norm,none", "acc,none"]},
+    {"task_name": "arc_easy", "lm_eval_task": "arc_easy", "task_id": 6, "group": "commonsense", "metric_preference": ["acc_norm,none", "acc,none"]},
+    {"task_name": "openbookqa", "lm_eval_task": "openbookqa", "task_id": 7, "group": "commonsense", "metric_preference": ["acc_norm,none", "acc,none"]},
+    {"task_name": "cola", "lm_eval_task": "cola", "task_id": 8, "group": "glue", "metric_preference": ["matthews_correlation,none", "acc,none"]},
+    {"task_name": "sst2", "lm_eval_task": "sst2", "task_id": 9, "group": "glue", "metric_preference": ["acc,none"]},
+    {"task_name": "mrpc", "lm_eval_task": "mrpc", "task_id": 10, "group": "glue", "metric_preference": ["f1,none", "acc,none"]},
+    {"task_name": "qqp", "lm_eval_task": "qqp", "task_id": 11, "group": "glue", "metric_preference": ["f1,none", "acc,none"]},
+    {"task_name": "mnli", "lm_eval_task": "mnli", "task_id": 12, "group": "glue", "metric_preference": ["acc,none"]},
+    {"task_name": "qnli", "lm_eval_task": "qnli", "task_id": 13, "group": "glue", "metric_preference": ["acc,none"]},
+    {"task_name": "rte", "lm_eval_task": "rte", "task_id": 14, "group": "glue", "metric_preference": ["acc,none"]},
+    {"task_name": "stsb", "lm_eval_task": "stsb", "task_id": 15, "group": "glue", "metric_preference": ["pearson,none", "score,none"]}
+  ]
+}

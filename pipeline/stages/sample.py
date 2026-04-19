@@ -10,7 +10,7 @@ from .runtime import (
     _should_skip_stage,
     _stage_signature,
 )
-from ..checks import check_sample
+from ..checks import check_sample, check_task_mix_sample
 from ..context import PipelineContext
 
 
@@ -166,6 +166,29 @@ def stage_sample(ctx: PipelineContext) -> None:
                         "data_files": data_files,
                     }
                     _dump_json(ctx.sampled_manifest, manifest_payload)
+            elif source_type == "task_mix":
+                spec_path = _abs(ctx.repo_root, str(ctx.sample_cfg.get("task_mix_spec_path", "")))
+                if not spec_path.exists():
+                    raise SystemExit(f"Task-mix spec not found: {spec_path}")
+                cmd = [
+                    "python3",
+                    str(ctx.repo_root / "pipeline_tools" / "build_task_mix.py"),
+                    "--spec",
+                    str(spec_path),
+                    "--output-dir",
+                    str(ctx.sampled_dir),
+                    "--repo-root",
+                    str(ctx.repo_root),
+                ]
+                _run_stage_cmd(
+                    cmd=cmd,
+                    env=ctx.env,
+                    dry_run=ctx.args.dry_run,
+                    logs_root=ctx.logs_root,
+                    stage="sample",
+                    suffix="task_mix",
+                    executor=ctx.executor,
+                )
             else:
                 cmd = [
                     "python3",
@@ -218,4 +241,7 @@ def stage_sample(ctx: PipelineContext) -> None:
                 _run_stage_cmd(cmd=cmd, env=ctx.env, dry_run=ctx.args.dry_run, logs_root=ctx.logs_root, stage="sample", executor=ctx.executor)
             if not ctx.args.dry_run:
                 _save_stage_state(ctx.state_path, "sample", signature, [str(ctx.sampled_manifest)])
-            check_sample(ctx.sampled_dir, ctx.sample_shard_dir, dry_run=ctx.args.dry_run)
+            if source_type == "task_mix":
+                check_task_mix_sample(ctx.sampled_dir, ctx.sampled_manifest, dry_run=ctx.args.dry_run)
+            else:
+                check_sample(ctx.sampled_dir, ctx.sample_shard_dir, dry_run=ctx.args.dry_run)

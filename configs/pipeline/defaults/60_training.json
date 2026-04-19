@@ -20,6 +20,7 @@
     "num_experts": 4,
     "output_dir": "outputs/pipeline_runs/default/runs",
     "report_to": "none",
+    "task_id_mode": "forbidden",
     "runs": [
       {
         "id": "lora_baseline",

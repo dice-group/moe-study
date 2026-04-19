@@ -24,6 +24,20 @@ def _cfg_value(cfg: dict[str, Any], key: str, default: Any, *aliases: str) -> An
     return default
 
 
+def _task_mix_mode(common: dict[str, Any]) -> bool:
+    return str(common.get("task_id_mode", "")).strip().lower() == "required"
+
+
+def _count_tasks_from_task_map(task_map_path: str) -> int:
+    if not str(task_map_path).strip():
+        return 0
+    payload = _load_json(Path(task_map_path))
+    tasks = payload.get("tasks", [])
+    if not isinstance(tasks, list):
+        return 0
+    return len([task for task in tasks if isinstance(task, dict)])
+
+
 def _format_steps_arg(value: Any, path: str) -> str:
     """Format step interval values for Trainer args.
 
@@ -105,6 +119,7 @@ def _lpr_args(
     language_map_path: Path,
     experts: int,
     prefix: str | None = None,
+    enable_language_routing: bool = True,
 ) -> list[str]:
     """Build the shared Language Prior Routing CLI args used by both CoLA and HydraLoRA."""
     router_mode = _cfg_value(cfg, f'{prefix}_router_mode', 'learned', 'router_mode') if prefix else cfg.get('router_mode', 'learned')
@@ -113,9 +128,7 @@ def _lpr_args(
     bias_value = _cfg_value(cfg, f'{prefix}_bias_value', 0.0, 'bias_value') if prefix else cfg.get('bias_value', 0.0)
     head_bias_value = _cfg_value(cfg, f'{prefix}_head_bias_value', 0.0, 'head_bias_value') if prefix else cfg.get('head_bias_value', 0.0)
     guidance_scope = _cfg_value(cfg, f'{prefix}_guidance_scope', 'all', 'guidance_scope') if prefix else cfg.get('guidance_scope', 'all')
-    return [
-        '--language_column', str(common.get('language_column', 'language')),
-        '--language_map', str(language_map_path),
+    args = [
         '--language_router_mode', str(router_mode),
         '--language_head_router_mode', str(head_router_mode),
         '--language_prior_weight', str(float(prior_weight)),
@@ -123,6 +136,12 @@ def _lpr_args(
         '--language_head_bias_value', str(float(head_bias_value)),
         '--language_guidance_scope', str(guidance_scope),
     ]
+    if enable_language_routing:
+        args[:0] = [
+            '--language_column', str(common.get('language_column', 'language')),
+            '--language_map', str(language_map_path),
+        ]
+    return args
 
 
 def _approach_specific_train_args(
@@ -134,6 +153,8 @@ def _approach_specific_train_args(
     experts: int,
 ) -> list[str]:
     cfg = run_cfg.get('params', {})
+    task_mix_mode = _task_mix_mode(common)
+    task_count = int(common.get("task_count", 0) or 0)
     approach_args: list[str] = []
     if kind == 'lora':
         return approach_args
@@ -146,7 +167,7 @@ def _approach_specific_train_args(
             '--use_cola_experts', str(use_experts),
             '--cola_num_experts', str(int(_cfg_value(cfg, 'cola_num_experts', experts if use_experts else 1, 'num_experts'))),
             '--cola_top_k', str(int(_cfg_value(cfg, 'cola_top_k', 1, 'top_k'))),
-            *_lpr_args(cfg, common, language_map_path, experts, prefix='cola'),
+            *_lpr_args(cfg, common, language_map_path, experts, prefix='cola', enable_language_routing=not task_mix_mode),
         ])
         use_cola_pissa_init = _cfg_value(cfg, 'use_cola_pissa_init', None, 'use_cola_pissa_init')
         if use_cola_pissa_init is not None:
@@ -172,7 +193,16 @@ def _approach_specific_train_args(
         ])
         # Only pass language-prior routing args when HydraLoRA experts are enabled.
         if use_experts:
-            approach_args.extend(_lpr_args(cfg, common, language_map_path, experts, prefix='hydralora'))
+            approach_args.extend(
+                _lpr_args(
+                    cfg,
+                    common,
+                    language_map_path,
+                    experts,
+                    prefix='hydralora',
+                    enable_language_routing=not task_mix_mode,
+                )
+            )
         if expert_lora_nums_arg.strip():
             approach_args.extend(['--hydralora_expert_lora_nums', expert_lora_nums_arg])
         return approach_args
@@ -253,24 +283,30 @@ def _approach_specific_train_args(
             approach_args.extend(['--moelpr_debug_mode', 'True'])
         return approach_args
     if kind == 'moelora':
+        if not task_mix_mode:
+            approach_args.extend([
+                '--language_column', str(common.get('language_column', 'language')),
+                '--language_map', str(language_map_path),
+            ])
         approach_args.extend([
-            '--language_column', str(common.get('language_column', 'language')),
-            '--language_map', str(language_map_path),
             '--moelora_num_experts', str(int(_cfg_value(cfg, 'moelora_num_experts', 8, 'num_experts'))),
-            '--moelora_task_num', str(int(_cfg_value(cfg, 'moelora_task_num', 1, 'task_num'))),
+            '--moelora_task_num', str(int(_cfg_value(cfg, 'moelora_task_num', task_count or 1, 'task_num'))),
             '--moelora_task_embedding_dim', str(int(_cfg_value(cfg, 'moelora_task_embedding_dim', 64, 'task_embedding_dim'))),
             '--moelora_sparse_top_k', str(int(_cfg_value(cfg, 'moelora_sparse_top_k', 0, 'sparse_top_k'))),
             '--moelora_gate_temperature', str(float(_cfg_value(cfg, 'moelora_gate_temperature', 1.0, 'gate_temperature'))),
         ])
         return approach_args
     if kind == 'mtllora':
+        if not task_mix_mode:
+            approach_args.extend(['--language_map', str(language_map_path)])
         approach_args.extend([
-            '--language_map', str(language_map_path),
-            '--mtllora_task_num', str(int(_cfg_value(cfg, 'mtllora_task_num', 1, 'task_num'))),
+            '--mtllora_task_num', str(int(_cfg_value(cfg, 'mtllora_task_num', task_count or 1, 'task_num'))),
             '--mtllora_num_up_projections', str(int(_cfg_value(cfg, 'mtllora_num_up_projections', experts, 'num_up_projections'))),
             '--mtllora_temperature', str(float(_cfg_value(cfg, 'mtllora_temperature', 0.1, 'temperature'))),
             '--mtllora_lambda_format', str(_cfg_value(cfg, 'mtllora_lambda_format', 'full', 'lambda_format')),
-            '--mtllora_use_language_ids_as_task_ids', str(bool(_cfg_value(cfg, 'mtllora_use_language_ids_as_task_ids', True, 'use_language_ids_as_task_ids'))),
+            '--mtllora_use_language_ids_as_task_ids', str(
+                False if task_mix_mode else bool(_cfg_value(cfg, 'mtllora_use_language_ids_as_task_ids', True, 'use_language_ids_as_task_ids'))
+            ),
         ])
         return approach_args
     if kind == 'movlora':
@@ -310,7 +346,9 @@ def _approach_specific_train_args(
             '--hmora_lambda_lm', str(float(_cfg_value(cfg, 'hmora_lambda_lm', 1.0, 'lambda_lm'))),
             '--hmora_use_hydra_lora', str(bool(_cfg_value(cfg, 'hmora_use_hydra_lora', False, 'use_hydra_lora'))),
             '--hmora_eta_b', str(float(_cfg_value(cfg, 'hmora_eta_b', 1.0, 'eta_b'))),
-            '--hmora_use_language_ids_as_task_ids', str(bool(_cfg_value(cfg, 'hmora_use_language_ids_as_task_ids', False, 'use_language_ids_as_task_ids'))),
+            '--hmora_use_language_ids_as_task_ids', str(
+                False if task_mix_mode else bool(_cfg_value(cfg, 'hmora_use_language_ids_as_task_ids', False, 'use_language_ids_as_task_ids'))
+            ),
             '--hmora_task_token', str(_cfg_value(cfg, 'hmora_task_token', '?', 'task_token')),
             '--hmora_num_encoder_layer', str(int(_cfg_value(cfg, 'hmora_num_encoder_layer', 1, 'num_encoder_layer'))),
         ])
@@ -373,7 +411,7 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
     report_to = str(run_cfg.get('report_to', common.get('report_to', 'none')))
     num_experts_raw = common.get('num_experts')
     if num_experts_raw is None:
-        experts = max(1, int(_count_experts(language_map_path)))
+        experts = 1 if _task_mix_mode(common) else max(1, int(_count_experts(language_map_path)))
     else:
         experts = max(1, int(num_experts_raw))
     disable_gradient_checkpointing = bool(train.get('disable_gradient_checkpointing', False))
@@ -533,6 +571,25 @@ def resolve_training_stage_config(ctx: "PipelineContext") -> tuple[dict[str, Any
         resolved_model_path = str(embedding_manifest.get("initialized_model_dir", resolved_model_path))
 
     train_cfg_for_stage["model_name_or_path"] = resolved_model_path
+    if str(ctx.sample_cfg.get("source_type", "")).strip() == "task_mix":
+        if not ctx.sampled_manifest.exists():
+            raise SystemExit(
+                f"task_mix training requires sample manifest at {ctx.sampled_manifest}. Run sample stage first."
+            )
+        sample_manifest = _load_json(ctx.sampled_manifest)
+        dataset_dir = str(sample_manifest.get("dataset_dir", "")).strip()
+        dataset_name = str(sample_manifest.get("dataset_name", "")).strip()
+        eval_dataset_name = str(sample_manifest.get("eval_dataset_name", "")).strip() or dataset_name
+        task_map_path = str(sample_manifest.get("task_map_path", "")).strip()
+        task_count = int(sample_manifest.get("task_count", 0) or 0)
+        if not dataset_dir or not dataset_name or not task_map_path:
+            raise SystemExit(f"task_mix sample manifest is incomplete: {ctx.sampled_manifest}")
+        train_cfg_for_stage["dataset_dir"] = dataset_dir
+        train_cfg_for_stage["dataset_name"] = dataset_name
+        train_cfg_for_stage["eval_dataset_name"] = eval_dataset_name
+        train_cfg_for_stage["task_map_path"] = task_map_path
+        train_cfg_for_stage["task_count"] = task_count or _count_tasks_from_task_map(task_map_path)
+        train_cfg_for_stage.setdefault("task_id_mode", "required")
     runs = train_cfg_local.get("runs", [])
     if not runs:
         raise SystemExit("No training runs configured in profile.training.runs")

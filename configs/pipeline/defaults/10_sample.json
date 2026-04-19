@@ -5,6 +5,8 @@
     "max_scan": 5000,
     "output_dir": "outputs/pipeline_runs/default/sampled",
     "per_language_target": 8,
-    "source_type": "json"
+    "source_type": "json",
+    "task_mix_name": "",
+    "task_mix_spec_path": ""
   }
 }

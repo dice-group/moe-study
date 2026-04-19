@@ -1,0 +1,216 @@
+{
+  "multitask_track2_base": {
+    "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
+    "output_root": "outputs/pipeline_runs/multitask_track2_base",
+    "sample": {
+      "source_type": "task_mix",
+      "task_mix_name": "track2_glue_commonsense",
+      "task_mix_spec_path": "configs/pipeline/task_mix/track2_glue_commonsense.json",
+      "output_dir": "outputs/pipeline_runs/multitask_track2_base/sampled"
+    },
+    "tokenization": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/multitask_track2_base/tokenized"
+    },
+    "tokenizer_extension": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/multitask_track2_base/tokenizer_extension"
+    },
+    "embedding_init": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/multitask_track2_base/embedding_init"
+    },
+    "embedding_training": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/multitask_track2_base/embedding_training",
+      "additional_target": "embed_tokens,lm_head"
+    },
+    "audit": {
+      "enabled": false
+    },
+    "benchmark": {
+      "enabled": true,
+      "mode": "fixed_task_set",
+      "task_manifest_path": "configs/pipeline/benchmark_manifests/track2_glue_commonsense.json",
+      "output_dir": "outputs/pipeline_runs/multitask_track2_base/benchmarks",
+      "batch_size": "1"
+    },
+    "final_eval_loss": {
+      "enabled": false
+    },
+    "baseline_eval": {
+      "enabled": false
+    },
+    "report": {
+      "enabled": false
+    },
+    "training": {
+      "task_id_mode": "required",
+      "output_dir": "outputs/pipeline_runs/multitask_track2_base/runs",
+      "model_name_or_path": "meta-llama/Llama-3.2-1B-Instruct",
+      "num_experts": 8,
+      "lora": {
+        "alpha": 16,
+        "dropout": 0.05,
+        "rank": 8,
+        "target": "q_proj,k_proj,v_proj,o_proj"
+      },
+      "runs": [
+        {"id": "lora_r8", "kind": "lora"},
+        {"id": "lora_r64", "kind": "lora", "lora": {"rank": 64, "alpha": 128}},
+        {"id": "cola", "kind": "cola", "params": {"num_A": 1, "num_B": 3, "strategy": "fully", "use_experts": true, "top_k": 1}},
+        {"id": "hydralora", "kind": "hydralora", "params": {"lora_num": 3, "use_experts": true, "top_k": 1}},
+        {"id": "moelora", "kind": "moelora", "params": {"num_experts": 8, "task_embedding_dim": 64, "sparse_top_k": 0, "gate_temperature": 1.0}},
+        {"id": "adamole", "kind": "adamole", "params": {"num_experts": 8, "aux_loss_coef": 0.001, "max_threshold": 0.25}},
+        {"id": "adamoe_1", "kind": "mola", "params": {"num_experts": 8, "top_k": 2, "router_aux_loss_coef": 0.01}},
+        {"id": "mov", "kind": "movlora", "lora": {"target": "k_proj,v_proj,down_proj"}, "params": {"num_experts": 8, "top_k": 0, "router_temperature": 1.0, "router_jitter_noise": 0.0, "router_bias": false, "router_init_std": 0.02, "router_ignore_padding_tokens": false}},
+        {"id": "mixlora", "kind": "mixlora", "params": {"num_experts": 8, "top_k": 2, "router_init_range": 0.02, "jitter_noise": 0.0, "router_loss": true, "router_aux_loss_coef": 0.001, "moe_target_modules": "gate_proj,down_proj,up_proj"}},
+        {"id": "hmora", "kind": "hmora", "params": {"num_experts": 8, "dropout": 0.1, "top_k_routing_strategy": true, "top_k": 2, "use_task_router": true, "task_router_only": false, "share_router_for_qkv": true, "share_router_for_w_i": true, "num_router_mlp_layers": 1, "router_hidden_dim": 32, "epsilon_alpha": 4.0, "alpha_shift": -2.0, "alpha_low_bound": 0.2, "alpha_up_bound": 0.8, "use_load_balancing_loss": false, "use_div_loss": true, "gamma_div_certain_t": 0.4, "gamma_div_balance_t": 1.0, "gamma_div_certain_s": 0.4, "gamma_div_balance_s": 1.0, "lambda_auxiliary": 0.003, "lambda_lm": 1.0, "use_hydra_lora": false, "eta_b": 1.0, "task_token": "?", "num_encoder_layer": 1}},
+        {"id": "mtllora", "kind": "mtllora", "params": {"num_up_projections": 8, "temperature": 0.1, "lambda_format": "full"}}
+      ],
+      "eval": {
+        "strategy": "steps",
+        "eval_steps": 50,
+        "batch_size": 1
+      },
+      "train": {
+        "batch_size": 1,
+        "grad_accum": 8,
+        "learning_rate": "2e-4",
+        "logging_steps": 10,
+        "num_train_epochs": 1.0,
+        "save_steps": 100,
+        "bf16": true,
+        "fp16": false,
+        "flash_attn": "fa2"
+      }
+    },
+    "summary": {
+      "baseline_id": "lora_r8",
+      "gate_json": "outputs/pipeline_runs/multitask_track2_base/gate.json",
+      "primary_metric": "eval_loss",
+      "summary_csv": "outputs/pipeline_runs/multitask_track2_base/summary.csv"
+    }
+  },
+  "multitask_track2_local_quick": {
+    "extends": "multitask_track2_base",
+    "output_root": "outputs/pipeline_runs/multitask_track2_local_quick",
+    "sample": {
+      "task_mix_name": "track2_glue_commonsense_quick",
+      "task_mix_spec_path": "configs/pipeline/task_mix/track2_glue_commonsense_quick.json",
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_quick/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_quick/tokenized"
+    },
+    "tokenizer_extension": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_quick/tokenizer_extension"
+    },
+    "embedding_init": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_quick/embedding_init"
+    },
+    "embedding_training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_quick/embedding_training"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_quick/benchmarks"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_local_quick/runs",
+      "model_name_or_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+      "num_experts": 4,
+      "runs": [
+        {"id": "lora_r8", "kind": "lora"},
+        {"id": "mtllora", "kind": "mtllora", "params": {"num_up_projections": 4, "temperature": 0.1, "lambda_format": "full"}},
+        {"id": "hmora", "kind": "hmora", "params": {"num_experts": 4, "dropout": 0.1, "top_k_routing_strategy": true, "top_k": 2, "use_task_router": true, "task_router_only": false, "share_router_for_qkv": true, "share_router_for_w_i": true, "num_router_mlp_layers": 1, "router_hidden_dim": 16, "epsilon_alpha": 4.0, "alpha_shift": -2.0, "alpha_low_bound": 0.2, "alpha_up_bound": 0.8, "use_load_balancing_loss": false, "use_div_loss": true, "gamma_div_certain_t": 0.4, "gamma_div_balance_t": 1.0, "gamma_div_certain_s": 0.4, "gamma_div_balance_s": 1.0, "lambda_auxiliary": 0.003, "lambda_lm": 1.0, "use_hydra_lora": false, "eta_b": 1.0, "task_token": "?", "num_encoder_layer": 1}}
+      ],
+      "train": {
+        "batch_size": 1,
+        "grad_accum": 1,
+        "learning_rate": "2e-4",
+        "logging_steps": 1,
+        "max_steps": 2,
+        "save_steps": 1,
+        "bf16": false,
+        "fp16": false,
+        "flash_attn": "disabled",
+        "disable_gradient_checkpointing": true,
+        "use_reentrant_gc": false
+      },
+      "eval": {
+        "strategy": "steps",
+        "eval_steps": 1,
+        "batch_size": 1
+      }
+    },
+    "summary": {
+      "baseline_id": "lora_r8",
+      "gate_json": "outputs/pipeline_runs/multitask_track2_local_quick/gate.json",
+      "primary_metric": "eval_loss",
+      "summary_csv": "outputs/pipeline_runs/multitask_track2_local_quick/summary.csv"
+    }
+  },
+  "multitask_track2_gpuvm": {
+    "extends": "multitask_track2_base",
+    "output_root": "outputs/pipeline_runs/multitask_track2_gpuvm",
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_gpuvm/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_gpuvm/tokenized"
+    },
+    "tokenizer_extension": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_gpuvm/tokenizer_extension"
+    },
+    "embedding_init": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_gpuvm/embedding_init"
+    },
+    "embedding_training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_gpuvm/embedding_training"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_gpuvm/benchmarks"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_gpuvm/runs"
+    },
+    "summary": {
+      "baseline_id": "lora_r8",
+      "gate_json": "outputs/pipeline_runs/multitask_track2_gpuvm/gate.json",
+      "primary_metric": "eval_loss",
+      "summary_csv": "outputs/pipeline_runs/multitask_track2_gpuvm/summary.csv"
+    }
+  },
+  "multitask_track2_cluster": {
+    "extends": "multitask_track2_base",
+    "output_root": "outputs/pipeline_runs/multitask_track2_cluster",
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/tokenized"
+    },
+    "tokenizer_extension": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/tokenizer_extension"
+    },
+    "embedding_init": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/embedding_init"
+    },
+    "embedding_training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/embedding_training"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/benchmarks"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/runs",
+      "model_name_or_path": "meta-llama/Llama-3.1-8B-Instruct"
+    },
+    "summary": {
+      "baseline_id": "lora_r8",
+      "gate_json": "outputs/pipeline_runs/multitask_track2_cluster/gate.json",
+      "primary_metric": "eval_loss",
+      "summary_csv": "outputs/pipeline_runs/multitask_track2_cluster/summary.csv"
+    }
+  }
+}

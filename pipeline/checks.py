@@ -87,6 +87,89 @@ def check_sample(sampled_dir: Path, shard_dir: Path, *, dry_run: bool) -> None:
     _write_check(sampled_dir / "_check.json", out)
 
 
+def check_task_mix_sample(sampled_dir: Path, manifest_path: Path, *, dry_run: bool) -> None:
+    """Verify multitask sample outputs and task coverage."""
+
+    if dry_run:
+        return
+
+    if not manifest_path.exists():
+        raise SystemExit(f"[CHECK FAIL] sample(task_mix): missing manifest: {manifest_path}")
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    dataset_dir = Path(str(manifest.get("dataset_dir", "")).strip())
+    train_file = Path(str(manifest.get("train_file", "")).strip())
+    eval_file = Path(str(manifest.get("eval_file", "")).strip())
+    task_map_path = Path(str(manifest.get("task_map_path", "")).strip())
+    dataset_name = str(manifest.get("dataset_name", "")).strip()
+    eval_dataset_name = str(manifest.get("eval_dataset_name", "")).strip()
+
+    out: dict[str, Any] = {
+        "stage": "sample",
+        "source_type": "task_mix",
+        "pass": True,
+        "dataset_dir": str(dataset_dir),
+        "dataset_name": dataset_name,
+        "eval_dataset_name": eval_dataset_name,
+    }
+
+    required_paths = [dataset_dir / "dataset_info.json", train_file, eval_file, task_map_path]
+    missing = [str(path) for path in required_paths if not path.exists()]
+    if missing:
+        out["pass"] = False
+        out["missing_paths"] = missing
+        _write_check(sampled_dir / "_check.json", out)
+        raise SystemExit(f"[CHECK FAIL] sample(task_mix): missing artifacts: {missing}")
+
+    with train_file.open("r", encoding="utf-8") as handle:
+        train_rows = [json.loads(line) for line in handle if line.strip()]
+    with eval_file.open("r", encoding="utf-8") as handle:
+        eval_rows = [json.loads(line) for line in handle if line.strip()]
+
+    if not train_rows:
+        out["pass"] = False
+        _write_check(sampled_dir / "_check.json", out)
+        raise SystemExit("[CHECK FAIL] sample(task_mix): empty train file")
+    if not eval_rows:
+        out["pass"] = False
+        _write_check(sampled_dir / "_check.json", out)
+        raise SystemExit("[CHECK FAIL] sample(task_mix): empty eval file")
+
+    task_map_payload = json.loads(task_map_path.read_text(encoding="utf-8"))
+    tasks = task_map_payload.get("tasks", [])
+    expected_task_ids = sorted(
+        {
+            int(task["task_id"])
+            for task in tasks
+            if isinstance(task, dict) and "task_id" in task and str(task.get("task_id", "")).strip() != ""
+        }
+    )
+    train_task_ids = sorted({int(row["task_id"]) for row in train_rows if "task_id" in row})
+    eval_task_ids = sorted({int(row["task_id"]) for row in eval_rows if "task_id" in row})
+
+    out["num_train_rows"] = len(train_rows)
+    out["num_eval_rows"] = len(eval_rows)
+    out["expected_task_ids"] = expected_task_ids
+    out["train_task_ids"] = train_task_ids
+    out["eval_task_ids"] = eval_task_ids
+    out["num_tasks"] = len(expected_task_ids)
+
+    if expected_task_ids and train_task_ids != expected_task_ids:
+        out["pass"] = False
+        _write_check(sampled_dir / "_check.json", out)
+        raise SystemExit(
+            f"[CHECK FAIL] sample(task_mix): train task ids mismatch. expected={expected_task_ids} seen={train_task_ids}"
+        )
+    if expected_task_ids and eval_task_ids != expected_task_ids:
+        out["pass"] = False
+        _write_check(sampled_dir / "_check.json", out)
+        raise SystemExit(
+            f"[CHECK FAIL] sample(task_mix): eval task ids mismatch. expected={expected_task_ids} seen={eval_task_ids}"
+        )
+
+    _write_check(sampled_dir / "_check.json", out)
+
+
 # ---------------------------------------------------------------------------
 # tokenize
 # ---------------------------------------------------------------------------

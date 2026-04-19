@@ -6,7 +6,8 @@
       "output_dir": "outputs/pipeline_runs/local_mini_quick/sampled"
     },
     "tokenization": {
-      "output_dir": "outputs/pipeline_runs/local_mini_quick/tokenized"
+      "output_dir": "outputs/pipeline_runs/local_mini_quick/tokenized",
+      "shard_counts_from_sampled": true
     },
     "training": {
       "output_dir": "outputs/pipeline_runs/local_mini_quick/runs",

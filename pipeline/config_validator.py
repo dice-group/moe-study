@@ -14,7 +14,6 @@ REQUIRED_TOP_LEVEL_KEYS = (
 
 REQUIRED_MERGED_PROFILE_KEYS = (
     "output_root",
-    "language_map_path",
     "sample",
     "tokenization",
     "training",
@@ -27,7 +26,8 @@ REQUIRED_MERGED_PROFILE_KEYS = (
 )
 
 ALLOWED_RUN_KINDS = {"lora", "cola", "hydralora", "adamole", "mola", "moelpr", "moelora", "mtllora", "movlora", "mixlora", "hmora"}
-ALLOWED_SAMPLE_SOURCE_TYPES = {"hf", "json", "fineweb_datatrove"}
+ALLOWED_SAMPLE_SOURCE_TYPES = {"hf", "json", "fineweb_datatrove", "task_mix"}
+ALLOWED_BENCHMARK_MODES = {"multilingual", "fixed_task_set"}
 ALLOWED_FLORES_MODES = {"both", "into_en", "from_en"}
 ALLOWED_PROFILE_EXTRA_KEYS = {"run_naming", "logs_dir", "extends"}
 
@@ -162,8 +162,6 @@ def _validate_profile(profile_name: str, merged_profile: dict[str, Any], errors:
             errors.append(f"{prefix} is missing merged required key '{key}'")
 
     _check_non_empty_string(merged_profile.get("output_root"), f"{prefix}.output_root", errors)
-    _check_non_empty_string(merged_profile.get("language_map_path"), f"{prefix}.language_map_path", errors)
-
     sample = _check_dict(merged_profile.get("sample"), f"{prefix}.sample", errors)
     tokenization = _check_dict(merged_profile.get("tokenization"), f"{prefix}.tokenization", errors)
     training = _check_dict(merged_profile.get("training"), f"{prefix}.training", errors)
@@ -185,6 +183,11 @@ def _validate_profile(profile_name: str, merged_profile: dict[str, Any], errors:
             f"(got '{source_type}')"
         )
     _check_non_empty_string(sample.get("output_dir"), f"{prefix}.sample.output_dir", errors)
+    if source_type == "task_mix":
+        _check_non_empty_string(sample.get("task_mix_name"), f"{prefix}.sample.task_mix_name", errors)
+        _check_non_empty_string(sample.get("task_mix_spec_path"), f"{prefix}.sample.task_mix_spec_path", errors)
+    else:
+        _check_non_empty_string(merged_profile.get("language_map_path"), f"{prefix}.language_map_path", errors)
 
     _check_non_empty_string(tokenization.get("output_dir"), f"{prefix}.tokenization.output_dir", errors)
     _check_non_empty_string(tokenization.get("model_name"), f"{prefix}.tokenization.model_name", errors)
@@ -196,6 +199,12 @@ def _validate_profile(profile_name: str, merged_profile: dict[str, Any], errors:
         f"{prefix}.training.model_name_or_path",
         errors,
     )
+    task_id_mode = str(training.get("task_id_mode", "")).strip()
+    if source_type == "task_mix":
+        if task_id_mode not in {"required", "forbidden"}:
+            errors.append(
+                f"{prefix}.training.task_id_mode must be one of ['forbidden', 'required'] when sample.source_type=task_mix"
+            )
     num_experts = training.get("num_experts")
     if not _is_int(num_experts) or int(num_experts) <= 0:
         errors.append(f"{prefix}.training.num_experts must be a positive integer")
@@ -254,9 +263,21 @@ def _validate_profile(profile_name: str, merged_profile: dict[str, Any], errors:
     )
 
     benchmark_enabled = _check_bool(benchmark.get("enabled", False), f"{prefix}.benchmark.enabled", errors)
-    _check_non_empty_string(benchmark.get("tasks_file"), f"{prefix}.benchmark.tasks_file", errors)
+    benchmark_mode = str(benchmark.get("mode", "multilingual")).strip() or "multilingual"
+    if benchmark_mode not in ALLOWED_BENCHMARK_MODES:
+        errors.append(
+            f"{prefix}.benchmark.mode must be one of {sorted(ALLOWED_BENCHMARK_MODES)} (got '{benchmark_mode}')"
+        )
+    if benchmark_mode == "fixed_task_set":
+        _check_non_empty_string(
+            benchmark.get("task_manifest_path"),
+            f"{prefix}.benchmark.task_manifest_path",
+            errors,
+        )
+    else:
+        _check_non_empty_string(benchmark.get("tasks_file"), f"{prefix}.benchmark.tasks_file", errors)
     _check_non_empty_string(benchmark.get("output_dir"), f"{prefix}.benchmark.output_dir", errors)
-    if bool(benchmark.get("include_flores", True)):
+    if benchmark_mode == "multilingual" and bool(benchmark.get("include_flores", True)):
         flores_mode = _check_non_empty_string(benchmark.get("flores_mode"), f"{prefix}.benchmark.flores_mode", errors)
         if flores_mode and flores_mode not in ALLOWED_FLORES_MODES:
             errors.append(

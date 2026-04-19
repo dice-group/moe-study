@@ -1,0 +1,280 @@
+{
+  "mix_name": "track2_glue_commonsense",
+  "seed": 42,
+  "train_dataset_name": "track2_glue_commonsense_train",
+  "eval_dataset_name": "track2_glue_commonsense_eval",
+  "tasks": [
+    {
+      "task_id": 0,
+      "task_name": "boolq",
+      "benchmark_task": "boolq",
+      "task_family": "commonsense",
+      "source_dataset": "mtl_lora_commonsense",
+      "builder": "local_alpaca",
+      "holdout_examples": 1000,
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "json",
+        "path": "MTL-LoRA/commonsense_170k_taskid.json",
+        "filter_key": "task_id",
+        "filter_value": 0
+      }
+    },
+    {
+      "task_id": 1,
+      "task_name": "piqa",
+      "benchmark_task": "piqa",
+      "task_family": "commonsense",
+      "source_dataset": "mtl_lora_commonsense",
+      "builder": "local_alpaca",
+      "holdout_examples": 1000,
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "json",
+        "path": "MTL-LoRA/commonsense_170k_taskid.json",
+        "filter_key": "task_id",
+        "filter_value": 1
+      }
+    },
+    {
+      "task_id": 2,
+      "task_name": "social_iqa",
+      "benchmark_task": "social_iqa",
+      "task_family": "commonsense",
+      "source_dataset": "mtl_lora_commonsense",
+      "builder": "local_alpaca",
+      "holdout_examples": 1000,
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "json",
+        "path": "MTL-LoRA/commonsense_170k_taskid.json",
+        "filter_key": "task_id",
+        "filter_value": 2
+      }
+    },
+    {
+      "task_id": 3,
+      "task_name": "hellaswag",
+      "benchmark_task": "hellaswag",
+      "task_family": "commonsense",
+      "source_dataset": "mtl_lora_commonsense",
+      "builder": "local_alpaca",
+      "holdout_examples": 1000,
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "json",
+        "path": "MTL-LoRA/commonsense_170k_taskid.json",
+        "filter_key": "task_id",
+        "filter_value": 3
+      }
+    },
+    {
+      "task_id": 4,
+      "task_name": "winogrande",
+      "benchmark_task": "winogrande",
+      "task_family": "commonsense",
+      "source_dataset": "mtl_lora_commonsense",
+      "builder": "local_alpaca",
+      "holdout_examples": 1000,
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "json",
+        "path": "MTL-LoRA/commonsense_170k_taskid.json",
+        "filter_key": "task_id",
+        "filter_value": 4
+      }
+    },
+    {
+      "task_id": 5,
+      "task_name": "arc_challenge",
+      "benchmark_task": "arc_challenge",
+      "task_family": "commonsense",
+      "source_dataset": "mtl_lora_commonsense",
+      "builder": "local_alpaca",
+      "holdout_examples": 1000,
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "json",
+        "path": "MTL-LoRA/commonsense_170k_taskid.json",
+        "filter_key": "task_id",
+        "filter_value": 5
+      }
+    },
+    {
+      "task_id": 6,
+      "task_name": "arc_easy",
+      "benchmark_task": "arc_easy",
+      "task_family": "commonsense",
+      "source_dataset": "mtl_lora_commonsense",
+      "builder": "local_alpaca",
+      "holdout_examples": 1000,
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "json",
+        "path": "MTL-LoRA/commonsense_170k_taskid.json",
+        "filter_key": "task_id",
+        "filter_value": 6
+      }
+    },
+    {
+      "task_id": 7,
+      "task_name": "openbookqa",
+      "benchmark_task": "openbookqa",
+      "task_family": "commonsense",
+      "source_dataset": "mtl_lora_commonsense",
+      "builder": "local_alpaca",
+      "holdout_examples": 1000,
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "json",
+        "path": "MTL-LoRA/commonsense_170k_taskid.json",
+        "filter_key": "task_id",
+        "filter_value": 7
+      }
+    },
+    {
+      "task_id": 8,
+      "task_name": "cola",
+      "benchmark_task": "cola",
+      "task_family": "glue",
+      "source_dataset": "glue/cola",
+      "builder": "cola",
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "hf",
+        "path": "glue",
+        "name": "cola",
+        "train_split": "train",
+        "validation_split": "validation"
+      }
+    },
+    {
+      "task_id": 9,
+      "task_name": "sst2",
+      "benchmark_task": "sst2",
+      "task_family": "glue",
+      "source_dataset": "glue/sst2",
+      "builder": "sst2",
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "hf",
+        "path": "glue",
+        "name": "sst2",
+        "train_split": "train",
+        "validation_split": "validation"
+      }
+    },
+    {
+      "task_id": 10,
+      "task_name": "mrpc",
+      "benchmark_task": "mrpc",
+      "task_family": "glue",
+      "source_dataset": "glue/mrpc",
+      "builder": "mrpc",
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "hf",
+        "path": "glue",
+        "name": "mrpc",
+        "train_split": "train",
+        "validation_split": "validation"
+      }
+    },
+    {
+      "task_id": 11,
+      "task_name": "qqp",
+      "benchmark_task": "qqp",
+      "task_family": "glue",
+      "source_dataset": "glue/qqp",
+      "builder": "qqp",
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "hf",
+        "path": "glue",
+        "name": "qqp",
+        "train_split": "train",
+        "validation_split": "validation"
+      }
+    },
+    {
+      "task_id": 12,
+      "task_name": "mnli",
+      "benchmark_task": "mnli",
+      "task_family": "glue",
+      "source_dataset": "glue/mnli",
+      "builder": "mnli",
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "hf",
+        "path": "glue",
+        "name": "mnli",
+        "train_split": "train",
+        "validation_split": "validation_matched"
+      }
+    },
+    {
+      "task_id": 13,
+      "task_name": "qnli",
+      "benchmark_task": "qnli",
+      "task_family": "glue",
+      "source_dataset": "glue/qnli",
+      "builder": "qnli",
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "hf",
+        "path": "glue",
+        "name": "qnli",
+        "train_split": "train",
+        "validation_split": "validation"
+      }
+    },
+    {
+      "task_id": 14,
+      "task_name": "rte",
+      "benchmark_task": "rte",
+      "task_family": "glue",
+      "source_dataset": "glue/rte",
+      "builder": "rte",
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "hf",
+        "path": "glue",
+        "name": "rte",
+        "train_split": "train",
+        "validation_split": "validation"
+      }
+    },
+    {
+      "task_id": 15,
+      "task_name": "stsb",
+      "benchmark_task": "stsb",
+      "task_family": "glue",
+      "source_dataset": "glue/stsb",
+      "builder": "stsb",
+      "train_target_examples": 25000,
+      "eval_target_examples": 1000,
+      "source": {
+        "type": "hf",
+        "path": "glue",
+        "name": "stsb",
+        "train_split": "train",
+        "validation_split": "validation"
+      }
+    }
+  ]
+}

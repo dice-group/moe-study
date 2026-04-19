@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import shlex
 import shutil
 import subprocess
@@ -221,6 +222,214 @@ def _resolve_benchmark_languages(ctx: PipelineContext) -> list[str]:
     return []
 
 
+def _load_fixed_task_manifest(path: Path) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise SystemExit(f"Fixed-task benchmark manifest must be a JSON object: {path}")
+    tasks = payload.get("tasks")
+    if not isinstance(tasks, list) or not tasks:
+        raise SystemExit(f"Fixed-task benchmark manifest missing tasks list: {path}")
+    return payload
+
+
+def _metric_preference(task_cfg: dict[str, object]) -> list[str]:
+    configured = task_cfg.get("metric_preference", [])
+    if isinstance(configured, list) and configured:
+        return [str(item) for item in configured if str(item).strip()]
+    return [
+        "acc_norm,none",
+        "acc,none",
+        "matthews_correlation,none",
+        "f1,none",
+        "pearson,none",
+        "score,none",
+    ]
+
+
+def _extract_primary_metric(task_cfg: dict[str, object], payload: dict[str, object]) -> tuple[str, float | None]:
+    results = payload.get("results", {})
+    if not isinstance(results, dict):
+        return "", None
+    lm_eval_task = str(task_cfg.get("lm_eval_task", task_cfg.get("task_name", ""))).strip()
+    task_result = results.get(lm_eval_task, {})
+    if not isinstance(task_result, dict):
+        return "", None
+    for metric_key in _metric_preference(task_cfg):
+        value = task_result.get(metric_key)
+        if isinstance(value, (int, float)) and not math.isnan(float(value)):
+            return metric_key, float(value)
+    for key, value in task_result.items():
+        if key.endswith("stderr") or key == "alias":
+            continue
+        if isinstance(value, (int, float)) and not math.isnan(float(value)):
+            return str(key), float(value)
+    return "", None
+
+
+def _write_fixed_task_metrics_csv(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = [
+        "run_id",
+        "task_name",
+        "lm_eval_task",
+        "group",
+        "task_id",
+        "primary_metric_key",
+        "primary_metric_value",
+        "result_json",
+    ]
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+
+def _stage_benchmark_fixed_task_set(
+    ctx: PipelineContext,
+    *,
+    resolved_eval_tokenizer: str,
+    signature: str,
+    runs: list[dict[str, object]],
+) -> None:
+    manifest_path = _abs(ctx.repo_root, str(ctx.benchmark_cfg.get("task_manifest_path", "")))
+    manifest = _load_fixed_task_manifest(manifest_path)
+    task_cfgs = [task for task in manifest.get("tasks", []) if isinstance(task, dict)]
+    selected_tasks_file = ctx.benchmark_root / "selected_tasks.txt"
+    selected_tasks_summary = ctx.benchmark_root / "selected_tasks_summary.json"
+    benchmark_summary_path = ctx.benchmark_root / "benchmark_summary.json"
+    metrics_csv_path = ctx.benchmark_root / "benchmark_metrics.csv"
+    expected = [selected_tasks_file, selected_tasks_summary, benchmark_summary_path, metrics_csv_path]
+    expected.extend([ctx.benchmark_root / str(run["id"]) for run in runs])
+    if _should_skip_stage(
+        state_path=ctx.state_path,
+        stage="benchmark",
+        signature=signature,
+        expected_artifacts=expected,
+        force_stages=ctx.force_stages,
+        dry_run=ctx.args.dry_run,
+    ):
+        ctx.logger.info("[SKIP] benchmark stage (cache hit)")
+        return
+
+    ctx.benchmark_root.mkdir(parents=True, exist_ok=True)
+    lm_eval_tasks = [str(task.get("lm_eval_task", task.get("task_name", ""))).strip() for task in task_cfgs]
+    selected_tasks_file.write_text("\n".join(lm_eval_tasks) + "\n", encoding="utf-8")
+    _dump_json(
+        selected_tasks_summary,
+        {
+            "mode": "fixed_task_set",
+            "task_manifest_path": str(manifest_path.resolve()),
+            "num_tasks": len(task_cfgs),
+            "groups": sorted({str(task.get("group", task.get("task_family", ""))).strip() for task in task_cfgs}),
+            "tasks": lm_eval_tasks,
+        },
+    )
+
+    benchmark_rows: list[dict[str, object]] = []
+    metric_rows: list[dict[str, object]] = []
+    task_aware_kinds = {"mtllora", "moelora", "hmora"}
+    include_dirs = _default_lm_eval_include_dirs(ctx.repo_root, lm_eval_tasks)
+    include_path = ":".join(str(path) for path in include_dirs) if include_dirs else None
+    for run in runs:
+        run_id = str(run["id"])
+        checkpoint_dir = ctx.train_root / run_id
+        if not checkpoint_dir.exists():
+            raise SystemExit(f"Benchmark checkpoint directory missing: {checkpoint_dir}")
+        adapter_dir = checkpoint_dir if ctx.args.dry_run else resolve_adapter_eval_path(checkpoint_dir)
+        out_dir = ctx.benchmark_root / run_id
+        out_dir.mkdir(parents=True, exist_ok=True)
+        seen_tasks: set[str] = set()
+        task_metric_values: dict[str, list[float]] = {}
+        for task_cfg in task_cfgs:
+            task_name = str(task_cfg.get("task_name", "")).strip()
+            lm_eval_task = str(task_cfg.get("lm_eval_task", task_name)).strip()
+            task_group = str(task_cfg.get("group", task_cfg.get("task_family", ""))).strip()
+            task_id = task_cfg.get("task_id")
+            output_path = out_dir / f"{task_name}.json"
+            cmd = [
+                "python3",
+                str(ctx.repo_root / "scripts" / "eval" / "lm_eval_task_ids.py"),
+                "--checkpoint",
+                str(adapter_dir),
+                "--tokenizer",
+                resolved_eval_tokenizer,
+                "--tasks",
+                lm_eval_task,
+                "--output-path",
+                str(output_path),
+                "--batch-size",
+                str(ctx.benchmark_cfg.get("batch_size", "auto")),
+            ]
+            if include_path:
+                cmd.extend(["--include-path", include_path])
+            if str(run.get("kind", "")).strip() in task_aware_kinds and task_id is not None:
+                cmd.extend(["--task-id", str(int(task_id))])
+            _run_stage_cmd(
+                cmd=cmd,
+                env=ctx.env,
+                dry_run=ctx.args.dry_run,
+                logs_root=ctx.logs_root,
+                stage="benchmark",
+                suffix=f"{run_id}.{task_name}",
+                executor=ctx.executor,
+            )
+            if ctx.args.dry_run or not output_path.exists():
+                continue
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            primary_metric_key, primary_metric_value = _extract_primary_metric(task_cfg, payload)
+            if primary_metric_value is not None:
+                seen_tasks.add(lm_eval_task)
+                metric_rows.append(
+                    {
+                        "run_id": run_id,
+                        "task_name": task_name,
+                        "lm_eval_task": lm_eval_task,
+                        "group": task_group,
+                        "task_id": task_id,
+                        "primary_metric_key": primary_metric_key,
+                        "primary_metric_value": primary_metric_value,
+                        "result_json": str(output_path.resolve()),
+                    }
+                )
+                task_metric_values.setdefault(task_group, []).append(primary_metric_value)
+
+        group_scores = {group: sum(values) / len(values) for group, values in task_metric_values.items() if values}
+        track_score = sum(group_scores.values()) / len(group_scores) if group_scores else None
+        benchmark_rows.append(
+            {
+                "run_id": run_id,
+                "evaluated_checkpoint": str(adapter_dir.resolve()),
+                "evaluated_tokenizer": resolved_eval_tokenizer,
+                "output_dir": str(out_dir.resolve()),
+                "num_output_files": len(list(out_dir.glob("*.json"))),
+                "num_tasks_expected": len(task_cfgs),
+                "num_tasks_seen": len(seen_tasks),
+                "missing_tasks": sorted(set(lm_eval_tasks) - seen_tasks),
+                "group_scores": group_scores,
+                "track_score": track_score,
+            }
+        )
+
+    if not ctx.args.dry_run:
+        _write_fixed_task_metrics_csv(metrics_csv_path, metric_rows)
+        _dump_json(
+            benchmark_summary_path,
+            {
+                "mode": "fixed_task_set",
+                "task_manifest_path": str(manifest_path.resolve()),
+                "selected_tasks_file": str(selected_tasks_file.resolve()),
+                "selected_tasks_summary": str(selected_tasks_summary.resolve()),
+                "resolved_eval_tokenizer": resolved_eval_tokenizer,
+                "metrics_csv": str(metrics_csv_path.resolve()),
+                "num_selected_tasks": len(task_cfgs),
+                "runs": benchmark_rows,
+            },
+        )
+        _save_stage_state(ctx.state_path, "benchmark", signature, [str(path) for path in expected])
+        check_benchmark(ctx.benchmark_root, benchmark_summary_path, dry_run=ctx.args.dry_run)
+
+
 def stage_benchmark(ctx: PipelineContext) -> None:
     if "benchmark" in ctx.active_stages and bool(ctx.benchmark_cfg.get("enabled", False)):
         resolved_eval_tokenizer = str(ctx.benchmark_cfg.get("tokenizer", "")).strip()
@@ -252,6 +461,15 @@ def stage_benchmark(ctx: PipelineContext) -> None:
             runs = [run for run in all_runs if str(run.get("id")) in run_id_set]
         else:
             runs = all_runs
+        benchmark_mode = str(ctx.benchmark_cfg.get("mode", "multilingual")).strip() or "multilingual"
+        if benchmark_mode == "fixed_task_set":
+            _stage_benchmark_fixed_task_set(
+                ctx,
+                resolved_eval_tokenizer=resolved_eval_tokenizer,
+                signature=signature,
+                runs=runs,
+            )
+            return
         expected = [selected_tasks_file, selected_tasks_summary, benchmark_summary_path]
         expected.extend([ctx.benchmark_root / str(run["id"]) for run in runs])
         if _should_skip_stage(

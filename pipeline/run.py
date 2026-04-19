@@ -151,6 +151,14 @@ def _build_language_map_from_csv(
     return output_path
 
 
+def _ensure_task_mix_language_map(output_root: Path) -> Path:
+    path = output_root / "task_mix_language_map.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text("{}\n", encoding="utf-8")
+    return path
+
+
 def _configure_pipeline_logger(logs_root: Path, run_timestamp: str) -> logging.Logger:
     logger = logging.getLogger("proof_pipeline")
     logger.setLevel(logging.INFO)
@@ -238,8 +246,12 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     output_root.mkdir(parents=True, exist_ok=True)
 
     # stage wise config resolution
+    sample_cfg = profile.get("sample", {})
+    sample_source_type = str(sample_cfg.get("source_type", "hf")).strip() or "hf"
     language_map_csv = profile.get("language_map_csv")
-    if isinstance(language_map_csv, str) and language_map_csv.strip():
+    if sample_source_type == "task_mix" and not str(profile.get("language_map_path", "")).strip():
+        language_map_path = _ensure_task_mix_language_map(output_root)
+    elif isinstance(language_map_csv, str) and language_map_csv.strip():
         csv_path = _abs(repo_root, language_map_csv)
         extra_raw = profile.get("language_map_extra_languages", {})
         extra: dict[str, str] = {}
@@ -262,7 +274,6 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
         )
     else:
         language_map_path = _abs(repo_root, profile["language_map_path"])
-    sample_cfg = profile.get("sample", {})
     tokenize_cfg = profile.get("tokenization", {})
     audit_cfg = profile.get("audit", {})
     train_cfg = profile.get("training", {})
@@ -386,7 +397,20 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     )
     model_slug = _model_slug(str(train_cfg.get("model_name_or_path", "model")))
     exp_tag = _sanitize_slug(str(run_naming_cfg.get("experiment_tag", "proof")))
-    base_run_label = f"{model_slug}-{lang_count}langs-{exp_tag}-{run_timestamp}"
+    if sample_source_type == "task_mix":
+        spec_path_raw = str(sample_cfg.get("task_mix_spec_path", "")).strip()
+        task_count = 0
+        if spec_path_raw:
+            try:
+                spec_payload = json.loads(_abs(repo_root, spec_path_raw).read_text(encoding="utf-8"))
+                task_entries = spec_payload.get("tasks", [])
+                if isinstance(task_entries, list):
+                    task_count = len(task_entries)
+            except Exception:
+                task_count = 0
+        base_run_label = f"{model_slug}-{max(1, task_count)}tasks-{exp_tag}-{run_timestamp}"
+    else:
+        base_run_label = f"{model_slug}-{lang_count}langs-{exp_tag}-{run_timestamp}"
     logger = _configure_pipeline_logger(logs_root, run_timestamp)
 
     return PipelineContext(
