@@ -30,6 +30,7 @@ ALLOWED_SAMPLE_SOURCE_TYPES = {"hf", "json", "fineweb_datatrove", "task_mix"}
 ALLOWED_BENCHMARK_MODES = {"multilingual", "fixed_task_set"}
 ALLOWED_FLORES_MODES = {"both", "into_en", "from_en"}
 ALLOWED_PROFILE_EXTRA_KEYS = {"run_naming", "logs_dir", "extends"}
+ALLOWED_EXECUTOR_TYPES = {"local", "slurm"}
 
 
 def _deep_merge(base: Any, override: Any) -> Any:
@@ -120,6 +121,36 @@ def _check_list(value: Any, path: str, errors: list[str]) -> list[Any]:
     return value
 
 
+def _validate_executor(executor: Any, path: str, errors: list[str]) -> None:
+    executor_cfg = _check_dict(executor, path, errors)
+    executor_type = _check_non_empty_string(executor_cfg.get("type"), f"{path}.type", errors)
+    if executor_type and executor_type not in ALLOWED_EXECUTOR_TYPES:
+        errors.append(
+            f"{path}.type must be one of {sorted(ALLOWED_EXECUTOR_TYPES)} (got '{executor_type}')"
+        )
+    if executor_type != "slurm":
+        return
+
+    _check_non_empty_string(executor_cfg.get("partition"), f"{path}.partition", errors)
+    _check_non_empty_string(executor_cfg.get("gres"), f"{path}.gres", errors)
+    _check_non_empty_string(executor_cfg.get("mem"), f"{path}.mem", errors)
+    _check_non_empty_string(executor_cfg.get("time"), f"{path}.time", errors)
+    cpus_per_task = executor_cfg.get("cpus_per_task")
+    if not _is_int(cpus_per_task) or int(cpus_per_task) <= 0:
+        errors.append(f"{path}.cpus_per_task must be a positive integer")
+    modules = _check_list(executor_cfg.get("modules", []), f"{path}.modules", errors)
+    for index, module_name in enumerate(modules):
+        _check_non_empty_string(module_name, f"{path}.modules[{index}]", errors)
+    if "conda_base" in executor_cfg and executor_cfg.get("conda_base") is not None:
+        _check_non_empty_string(executor_cfg.get("conda_base"), f"{path}.conda_base", errors)
+    if "conda_env" in executor_cfg and executor_cfg.get("conda_env") is not None:
+        _check_non_empty_string(executor_cfg.get("conda_env"), f"{path}.conda_env", errors)
+    if "extra_sbatch_flags" in executor_cfg:
+        flags = _check_list(executor_cfg.get("extra_sbatch_flags"), f"{path}.extra_sbatch_flags", errors)
+        for index, flag in enumerate(flags):
+            _check_non_empty_string(flag, f"{path}.extra_sbatch_flags[{index}]", errors)
+
+
 def _load_proof_pipeline_payload(path: Path) -> dict[str, Any]:
     return _shared_load_pipeline_config(path)
 
@@ -162,6 +193,8 @@ def _validate_profile(profile_name: str, merged_profile: dict[str, Any], errors:
             errors.append(f"{prefix} is missing merged required key '{key}'")
 
     _check_non_empty_string(merged_profile.get("output_root"), f"{prefix}.output_root", errors)
+    if "executor" in merged_profile:
+        _validate_executor(merged_profile.get("executor"), f"{prefix}.executor", errors)
     sample = _check_dict(merged_profile.get("sample"), f"{prefix}.sample", errors)
     tokenization = _check_dict(merged_profile.get("tokenization"), f"{prefix}.tokenization", errors)
     training = _check_dict(merged_profile.get("training"), f"{prefix}.training", errors)

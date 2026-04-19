@@ -1,0 +1,7 @@
+{
+  "track_name": "track2_glue_commonsense_smoke",
+  "tasks": [
+    {"task_name": "boolq", "lm_eval_task": "boolq", "task_id": 0, "group": "commonsense", "metric_preference": ["acc,none"]},
+    {"task_name": "piqa", "lm_eval_task": "piqa", "task_id": 1, "group": "commonsense", "metric_preference": ["acc,none"]}
+  ]
+}

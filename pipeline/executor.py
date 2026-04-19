@@ -261,6 +261,7 @@ class SlurmExecutor:
         job_name: str | None = None,
         script_dir: Path | None = None,
         slurm_output: str | Path | None = None,
+        workdir: Path | None = None,
     ) -> str | None:
         """Submit a single job, optionally with a dependency (e.g. afterok:<jobid>)."""
         return self._sbatch_submit(
@@ -272,6 +273,7 @@ class SlurmExecutor:
             job_name=job_name,
             script_dir=script_dir,
             slurm_output=slurm_output,
+            workdir=workdir,
         )
 
     def submit_array(
@@ -286,6 +288,7 @@ class SlurmExecutor:
         slurm_output: str | Path | None = None,
         job_name: str | None = None,
         script_dir: Path | None = None,
+        workdir: Path | None = None,
     ) -> str | None:
         """Submit a SLURM array job. Array should be a spec like '0-31'."""
         return self._sbatch_submit(
@@ -298,6 +301,7 @@ class SlurmExecutor:
             slurm_output=slurm_output,
             job_name=job_name,
             script_dir=script_dir,
+            workdir=workdir,
         )
 
     def wait_for_jobs(self, jobs: list[tuple[str, Path]], dry_run: bool = False) -> None:
@@ -315,6 +319,7 @@ class SlurmExecutor:
         slurm_output: str | Path | None = None,
         job_name: str | None = None,
         script_dir: Path | None = None,
+        workdir: Path | None = None,
     ) -> str | None:
         """Write a job script and submit it.  Returns the Slurm job ID."""
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -328,12 +333,17 @@ class SlurmExecutor:
                 fh.write("[END] dry_run=true exit_code=0 duration_seconds=0.000\n")
             return None
 
+        normalized_cmd = list(cmd)
+        python_executable = str(env.get("PYTHON_EXECUTABLE", "")).strip()
+        if python_executable and normalized_cmd and normalized_cmd[0] in {"python", "python3"}:
+            normalized_cmd[0] = python_executable
+
         job_name = _sanitize_job_name(job_name) if job_name else _job_name_from_log(log_path)
         if slurm_output is None:
             slurm_log = str(log_path.with_suffix(".slurm.log"))
         else:
             slurm_log = str(slurm_output)
-        script = self._build_job_script(cmd, env, job_name, slurm_log)
+        script = self._build_job_script(normalized_cmd, env, job_name, slurm_log, workdir)
 
         # Write the job script to a temp file next to the log.
         script_root = script_dir if script_dir is not None else log_path.parent
@@ -367,7 +377,7 @@ class SlurmExecutor:
                     fh.write(f"[SBATCH_STDOUT] {stdout}\n")
                 if stderr:
                     fh.write(f"[SBATCH_STDERR] {stderr}\n")
-                fh.write(f"[CMD] {' '.join(cmd)}\n")
+                fh.write(f"[CMD] {' '.join(normalized_cmd)}\n")
             raise
         job_id = result.stdout.strip().split(";")[0]
         LOGGER.info("[SBATCH] Submitted job %s for %s", job_id, job_name)
@@ -375,7 +385,7 @@ class SlurmExecutor:
         with log_path.open("a", encoding="utf-8") as fh:
             fh.write(f"\n[START_UTC] {started_at}\n")
             fh.write(f"[SBATCH] job_id={job_id} script={script_path}\n")
-            fh.write(f"[CMD] {' '.join(cmd)}\n")
+            fh.write(f"[CMD] {' '.join(normalized_cmd)}\n")
 
         return job_id
 
@@ -385,6 +395,7 @@ class SlurmExecutor:
         env: dict[str, str],
         job_name: str,
         slurm_log: str,
+        workdir: Path | None = None,
     ) -> str:
         """Produce a complete sbatch shell script."""
         extra_sbatch_flags = list(self.extra_sbatch_flags)
@@ -429,7 +440,7 @@ class SlurmExecutor:
         env_exports = []
         for key in sorted(env):
             # Only export vars the pipeline explicitly sets.
-            if key.startswith(("PYTHONPATH", "PROOF_PIPELINE_", "WANDB_", "CUDA_", "HF_")):
+            if key.startswith(("PYTHONPATH", "PROOF_PIPELINE_", "WANDB_", "CUDA_", "HF_", "LM_EVAL_")) or key in {"PYTHON_EXECUTABLE", "TMPDIR"}:
                 env_exports.append(f'export {key}="{env[key]}"')
 
         cmd_str = " ".join(_shell_quote(c) for c in cmd)
@@ -464,6 +475,8 @@ class SlurmExecutor:
             script_lines.append('echo "[SLURM_INFO] conda disabled for this job script."')
         if env_exports:
             script_lines.extend(env_exports)
+        if workdir is not None:
+            script_lines.extend(["", f"cd {_shell_quote(str(workdir))}"])
         script_lines.extend(
             [
                 "",

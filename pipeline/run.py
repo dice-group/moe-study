@@ -194,6 +194,37 @@ def _resolve_report_xlsx_path(
     return output_root / f"{profile_name}.xlsx"
 
 
+def _submit_chain_job_name(*, experiment_tag: str, stage_tag: str, target: str) -> str:
+    exp_token = _sanitize_slug(experiment_tag)[:20] or "proof"
+    stage_token = _sanitize_slug(stage_tag)[:10] or "stage"
+    target_token = _sanitize_slug(target)[:28] or "all"
+    return _sanitize_slug(f"{exp_token}_{stage_token}_{target_token}")[:64]
+
+
+def _append_submit_chain_job(
+    entries: list[dict[str, Any]],
+    *,
+    stage: str,
+    run_id: str,
+    job_name: str,
+    dependency: str | None,
+    log_path: Path,
+    slurm_output: Path,
+    job_id: str | None,
+) -> None:
+    entries.append(
+        {
+            "stage": stage,
+            "run_id": run_id,
+            "job_name": job_name,
+            "dependency": dependency or "",
+            "job_id": job_id or "",
+            "log_path": str(log_path),
+            "slurm_output": str(slurm_output),
+        }
+    )
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run multilingual proof pipeline.")
     parser.add_argument("--profile", default="local_mini", help="Profile key in proof config.")
@@ -474,9 +505,12 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
 
 
 def _submit_chain(args: argparse.Namespace) -> int:
-    repo_root = Path(__file__).resolve().parents[1]
+    chain_args = argparse.Namespace(**vars(args))
+    chain_args.submit_chain = False
+    chain_ctx = _build_context(chain_args)
+    repo_root = chain_ctx.repo_root
     config = _load_pipeline_config(_abs(repo_root, args.config))
-    profile = dict(_resolve_profile(config, args.profile))
+    profile = dict(chain_ctx.profile)
     run_ids = _parse_run_ids(args.run_id)
 
     executor_cfg_raw = profile.get("executor", {})
@@ -507,6 +541,9 @@ def _submit_chain(args: argparse.Namespace) -> int:
     chain_logs_root.mkdir(parents=True, exist_ok=True)
     chain_sbatch_root.mkdir(parents=True, exist_ok=True)
     chain_slurm_root.mkdir(parents=True, exist_ok=True)
+    state_root = output_root / "state"
+    state_root.mkdir(parents=True, exist_ok=True)
+    submit_manifest_path = state_root / "submit_chain_jobs.json"
 
     sample_cfg = profile.get("sample", {}) if isinstance(profile.get("sample", {}), dict) else {}
     sampled_dir = _abs(repo_root, sample_cfg.get("output_dir", str(output_root / "sampled")))
@@ -517,6 +554,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
         sampled_dir=sampled_dir,
     )
     run_naming_cfg = profile.get("run_naming", {}) if isinstance(profile.get("run_naming", {}), dict) else {}
+    experiment_tag = str(run_naming_cfg.get("experiment_tag", args.profile)).strip() or args.profile
     lang_count = (
         len(naming_languages)
         if naming_languages
@@ -544,6 +582,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
     submitted: list[str] = []
     last_stage_job_ids_by_run: dict[str, str] = {}
     stage_job_ids_by_stage: dict[str, list[str]] = {}
+    submit_entries: list[dict[str, Any]] = []
 
     for stage in active_stages:
         stage_cfg = _resolve_stage_cfg(profile, stage)
@@ -599,9 +638,28 @@ def _submit_chain(args: argparse.Namespace) -> int:
                     args.dry_run,
                     log_path,
                     dependency=dependency,
-                    job_name=f"{stage_tag}{lang_tag}_{run_id}",
+                    job_name=_submit_chain_job_name(
+                        experiment_tag=experiment_tag,
+                        stage_tag=stage_tag,
+                        target=f"{lang_tag}_{run_id}",
+                    ),
                     script_dir=chain_sbatch_root,
                     slurm_output=slurm_output,
+                    workdir=train_ctx.repo_root,
+                )
+                _append_submit_chain_job(
+                    submit_entries,
+                    stage=stage,
+                    run_id=run_id,
+                    job_name=_submit_chain_job_name(
+                        experiment_tag=experiment_tag,
+                        stage_tag=stage_tag,
+                        target=f"{lang_tag}_{run_id}",
+                    ),
+                    dependency=dependency,
+                    log_path=log_path,
+                    slurm_output=slurm_output,
+                    job_id=job_id,
                 )
                 if job_id:
                     stage_job_ids.append(job_id)
@@ -637,7 +695,11 @@ def _submit_chain(args: argparse.Namespace) -> int:
                     cmd.append("--dry-run")
                 log_path = chain_logs_root / f"chain_{stage}.{run_id}.{chain_timestamp}.log"
                 slurm_output = chain_slurm_root / f"chain_{stage}.{run_id}.{chain_timestamp}.slurm.log"
-                job_name = f"{stage_tag}{lang_tag}_{run_id}"
+                job_name = _submit_chain_job_name(
+                    experiment_tag=experiment_tag,
+                    stage_tag=stage_tag,
+                    target=f"{lang_tag}_{run_id}",
+                )
                 job_dependency = dependency
                 if stage in {"final_eval_loss", "benchmark"}:
                     prior_job = last_stage_job_ids_by_run.get(run_id)
@@ -645,13 +707,24 @@ def _submit_chain(args: argparse.Namespace) -> int:
                         job_dependency = f"afterany:{prior_job}" # use afterany dependency to allow benchmark to run even after training is aborted due to time limit
                 job_id = executor.submit(
                     cmd,
-                    os.environ.copy(),
+                    dict(chain_ctx.env),
                     args.dry_run,
                     log_path,
                     dependency=job_dependency,
                     job_name=job_name,
                     script_dir=chain_sbatch_root,
                     slurm_output=slurm_output,
+                    workdir=repo_root,
+                )
+                _append_submit_chain_job(
+                    submit_entries,
+                    stage=stage,
+                    run_id=run_id,
+                    job_name=job_name,
+                    dependency=job_dependency,
+                    log_path=log_path,
+                    slurm_output=slurm_output,
+                    job_id=job_id,
                 )
                 if job_id:
                     stage_job_ids.append(job_id)
@@ -690,16 +763,31 @@ def _submit_chain(args: argparse.Namespace) -> int:
                     approach = "all"
             else:
                 approach = "all"
-            job_name = f"{stage_tag}{lang_tag}_{approach}"
+            job_name = _submit_chain_job_name(
+                experiment_tag=experiment_tag,
+                stage_tag=stage_tag,
+                target=f"{lang_tag}_{approach}",
+            )
             job_id = executor.submit(
                 cmd,
-                os.environ.copy(),
+                dict(chain_ctx.env),
                 args.dry_run,
                 log_path,
                 dependency=dependency,
                 job_name=job_name,
                 script_dir=chain_sbatch_root,
                 slurm_output=slurm_output,
+                workdir=repo_root,
+            )
+            _append_submit_chain_job(
+                submit_entries,
+                stage=stage,
+                run_id=approach,
+                job_name=job_name,
+                dependency=dependency,
+                log_path=log_path,
+                slurm_output=slurm_output,
+                job_id=job_id,
             )
             if job_id:
                 stage_job_ids.append(job_id)
@@ -708,6 +796,22 @@ def _submit_chain(args: argparse.Namespace) -> int:
         dependency_ids = stage_job_ids if stage_job_ids else dependency_ids
         if stage_job_ids:
             stage_job_ids_by_stage[stage] = list(stage_job_ids)
+
+    submit_manifest_path.write_text(
+        json.dumps(
+            {
+                "profile": args.profile,
+                "experiment_tag": experiment_tag,
+                "chain_timestamp": chain_timestamp,
+                "dry_run": bool(args.dry_run),
+                "submitted_job_ids": submitted,
+                "jobs": submit_entries,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     if submitted:
         print(f"Submitted {len(submitted)} job(s): {' -> '.join(submitted)}")

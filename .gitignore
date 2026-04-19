@@ -32,3 +32,4 @@ sampled_data/*
 tokenized_data/*
 logs/*
 .codex
+tmp/

@@ -242,34 +242,205 @@
   },
   "multitask_track2_cluster": {
     "extends": "multitask_track2_base",
-    "output_root": "outputs/pipeline_runs/multitask_track2_cluster",
+    "output_root": "outputs/pipeline_runs/multitask_track2_cluster_a100",
+    "logs_dir": "outputs/pipeline_runs/multitask_track2_cluster_a100/logs",
+    "run_naming": {
+      "experiment_tag": "track2-a100-cluster"
+    },
+    "executor": {
+      "type": "slurm",
+      "partition": "gpu",
+      "gres": "gpu:a100:1",
+      "mem": "128G",
+      "cpus_per_task": 32,
+      "time": "27:00:00",
+      "modules": [
+        "toolchain/foss/2024a",
+        "system/CUDA/12.6.0"
+      ],
+      "conda_base": "none",
+      "conda_env": "none"
+    },
     "sample": {
-      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/sampled"
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_a100/sampled"
     },
     "tokenization": {
-      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/tokenized"
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_a100/tokenized"
     },
     "tokenizer_extension": {
-      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/tokenizer_extension"
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_a100/tokenizer_extension"
     },
     "embedding_init": {
-      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/embedding_init"
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_a100/embedding_init"
     },
     "embedding_training": {
-      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/embedding_training"
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_a100/embedding_training"
     },
     "benchmark": {
-      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/benchmarks"
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_a100/benchmarks"
     },
     "training": {
-      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster/runs",
-      "model_name_or_path": "meta-llama/Llama-3.1-8B"
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_a100/runs",
+      "model_name_or_path": "/scratch/hpc-prf-merlin/shared_cache/huggingface/hub/models--meta-llama--Llama-3.1-8B/snapshots/d04e592bb4f6aa9cfee91e2e20afa771667e1d4b",
+      "resize_vocab": false,
+      "train": {
+        "flash_attn": "sdpa"
+      }
     },
     "summary": {
       "baseline_id": "lora_r8",
-      "gate_json": "outputs/pipeline_runs/multitask_track2_cluster/gate.json",
+      "gate_json": "outputs/pipeline_runs/multitask_track2_cluster_a100/gate.json",
       "primary_metric": "eval_loss",
-      "summary_csv": "outputs/pipeline_runs/multitask_track2_cluster/summary.csv"
+      "summary_csv": "outputs/pipeline_runs/multitask_track2_cluster_a100/summary.csv"
+    }
+  },
+  "multitask_track2_cluster_smoke": {
+    "extends": "multitask_track2_cluster",
+    "output_root": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100",
+    "logs_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/logs",
+    "run_naming": {
+      "experiment_tag": "track2-a100-smoke5"
+    },
+    "executor": {
+      "extra_sbatch_flags": [
+        "--signal=B:USR1@300"
+      ]
+    },
+    "sample": {
+      "task_mix_name": "track2_glue_commonsense_quick",
+      "task_mix_spec_path": "configs/pipeline/task_mix/track2_glue_commonsense_quick.json",
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/tokenized"
+    },
+    "tokenizer_extension": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/tokenizer_extension"
+    },
+    "embedding_init": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/embedding_init"
+    },
+    "embedding_training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/embedding_training"
+    },
+    "benchmark": {
+      "limit": 5,
+      "task_manifest_path": "configs/pipeline/benchmark_manifests/track2_glue_commonsense_smoke.json",
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/benchmarks"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/runs",
+      "resize_vocab": false,
+      "train": {
+        "max_steps": 5,
+        "save_steps": 5,
+        "logging_steps": 1,
+        "save_total_limit": 1,
+        "flash_attn": "sdpa"
+      },
+      "eval": {
+        "eval_steps": 5
+      }
+    },
+    "summary": {
+      "baseline_id": "lora_r8",
+      "gate_json": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/gate.json",
+      "primary_metric": "eval_loss",
+      "summary_csv": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/summary.csv"
+    }
+  },
+  "multitask_track2_cluster_pilot": {
+    "extends": "multitask_track2_cluster",
+    "output_root": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100",
+    "logs_dir": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100/logs",
+    "run_naming": {
+      "experiment_tag": "track2-a100-pilot"
+    },
+    "executor": {
+      "extra_sbatch_flags": [
+        "--signal=B:USR1@900"
+      ]
+    },
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100/tokenized"
+    },
+    "tokenizer_extension": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100/tokenizer_extension"
+    },
+    "embedding_init": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100/embedding_init"
+    },
+    "embedding_training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100/embedding_training"
+    },
+    "benchmark": {
+      "limit": 5,
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100/benchmarks"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100/runs",
+      "resize_vocab": false,
+      "train": {
+        "max_steps": 50,
+        "save_steps": 50,
+        "flash_attn": "sdpa"
+      },
+      "eval": {
+        "eval_steps": 50
+      }
+    },
+    "summary": {
+      "baseline_id": "lora_r8",
+      "gate_json": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100/gate.json",
+      "primary_metric": "eval_loss",
+      "summary_csv": "outputs/pipeline_runs/multitask_track2_cluster_pilot_a100/summary.csv"
+    }
+  },
+  "multitask_track2_cluster_full_s1": {
+    "extends": "multitask_track2_cluster",
+    "output_root": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100",
+    "logs_dir": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100/logs",
+    "run_naming": {
+      "experiment_tag": "track2-a100-full-s1"
+    },
+    "executor": {
+      "extra_sbatch_flags": [
+        "--signal=B:USR1@900"
+      ]
+    },
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100/sampled"
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100/tokenized"
+    },
+    "tokenizer_extension": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100/tokenizer_extension"
+    },
+    "embedding_init": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100/embedding_init"
+    },
+    "embedding_training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100/embedding_training"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100/benchmarks"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100/runs",
+      "resize_vocab": false,
+      "train": {
+        "flash_attn": "sdpa"
+      }
+    },
+    "summary": {
+      "baseline_id": "lora_r8",
+      "gate_json": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100/gate.json",
+      "primary_metric": "eval_loss",
+      "summary_csv": "outputs/pipeline_runs/multitask_track2_cluster_full_s1_a100/summary.csv"
     }
   }
 }
