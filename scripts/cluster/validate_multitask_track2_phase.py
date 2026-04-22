@@ -45,6 +45,7 @@ def main() -> int:
     output_root = repo_root / (args.output_root or str(_expected_output_root(args.phase)))
     benchmark_summary_path = output_root / "benchmarks" / "benchmark_summary.json"
     metrics_csv_path = output_root / "benchmarks" / "benchmark_metrics.csv"
+    selected_tasks_summary_path = output_root / "benchmarks" / "selected_tasks_summary.json"
 
     failures: list[str] = []
     if not benchmark_summary_path.exists():
@@ -58,6 +59,10 @@ def main() -> int:
 
     if benchmark_summary_path.exists():
         payload = _load_json(benchmark_summary_path)
+        selected_payload = _load_json(selected_tasks_summary_path) if selected_tasks_summary_path.exists() else {}
+        selected_tasks = [str(task) for task in selected_payload.get("tasks", []) if str(task).strip()]
+        expected_task_count = int(selected_payload.get("num_tasks", 16 if args.phase != "full_single_seed" else 16))
+        expected_unscored = ["stsb"] if args.phase in {"smoke", "pilot"} and "stsb" in selected_tasks else []
         run_rows = {
             str(row.get("run_id")): row
             for row in payload.get("runs", [])
@@ -68,19 +73,21 @@ def main() -> int:
             if row is None:
                 failures.append(f"missing benchmark row for {run_id}")
                 continue
-            if int(row.get("num_tasks_expected", 0)) != 16:
-                failures.append(f"{run_id} expected 16 tasks")
-            if int(row.get("num_tasks_seen", 0)) != 16:
-                failures.append(f"{run_id} did not see all 16 tasks")
+            if int(row.get("num_tasks_expected", 0)) != expected_task_count:
+                failures.append(f"{run_id} expected {expected_task_count} tasks")
+            if int(row.get("num_tasks_seen", 0)) != expected_task_count:
+                failures.append(f"{run_id} did not see all {expected_task_count} tasks")
             if list(row.get("missing_tasks", [])) != []:
                 failures.append(f"{run_id} has missing tasks: {row.get('missing_tasks')}")
 
             if args.phase in {"smoke", "pilot"}:
-                if list(row.get("unscored_tasks", [])) != ["stsb"]:
-                    failures.append(f"{run_id} should have only ['stsb'] unscored in {args.phase}")
+                if list(row.get("unscored_tasks", [])) != expected_unscored:
+                    failures.append(
+                        f"{run_id} should have only {expected_unscored} unscored in {args.phase}"
+                    )
             else:
-                if int(row.get("num_tasks_scored", 0)) != 16:
-                    failures.append(f"{run_id} did not score all 16 tasks")
+                if int(row.get("num_tasks_scored", 0)) != expected_task_count:
+                    failures.append(f"{run_id} did not score all {expected_task_count} tasks")
                 if list(row.get("unscored_tasks", [])) != []:
                     failures.append(f"{run_id} has unscored tasks in full_single_seed: {row.get('unscored_tasks')}")
 

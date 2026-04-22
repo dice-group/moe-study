@@ -172,6 +172,35 @@ def _default_lm_eval_include_dirs(repo_root: Path, selected_tasks: list[str]) ->
     return include_dirs
 
 
+def _configured_lm_eval_include_dirs(ctx: PipelineContext) -> list[Path]:
+    configured = ctx.benchmark_cfg.get("include_paths", [])
+    if isinstance(configured, str):
+        values = [configured]
+    elif isinstance(configured, list):
+        values = [str(item) for item in configured]
+    else:
+        values = []
+    include_dirs: list[Path] = []
+    for value in values:
+        candidate = value.strip()
+        if not candidate:
+            continue
+        include_dirs.append(_abs(ctx.repo_root, candidate))
+    return include_dirs
+
+
+def _resolve_lm_eval_include_dirs(ctx: PipelineContext, selected_tasks: list[str]) -> list[Path]:
+    merged: list[Path] = []
+    seen: set[Path] = set()
+    for path in _default_lm_eval_include_dirs(ctx.repo_root, selected_tasks) + _configured_lm_eval_include_dirs(ctx):
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        merged.append(path)
+    return merged
+
+
 def _resolve_benchmark_languages(ctx: PipelineContext) -> list[str]:
     langs = _resolve_profile_languages(
         sample_cfg=ctx.sample_cfg,
@@ -327,6 +356,18 @@ def _read_fixed_task_benchmark_rows(path: Path) -> list[dict[str, object]]:
     return [row for row in rows if isinstance(row, dict)]
 
 
+def _split_fixed_task_payload(payload: dict[str, object], lm_eval_task: str) -> dict[str, object]:
+    split_payload: dict[str, object] = {}
+    for field in ("results", "versions", "n-shot", "configs"):
+        value = payload.get(field)
+        if isinstance(value, dict) and lm_eval_task in value:
+            split_payload[field] = {lm_eval_task: value[lm_eval_task]}
+    for field in ("config", "git_hash", "date"):
+        if field in payload:
+            split_payload[field] = payload[field]
+    return split_payload
+
+
 def _resolve_eval_tokenizer_for_run(default_tokenizer: str, run_dir: Path, adapter_dir: Path) -> str:
     candidates = [
         adapter_dir,
@@ -391,7 +432,7 @@ def _stage_benchmark_fixed_task_set(
     benchmark_rows: list[dict[str, object]] = []
     metric_rows: list[dict[str, object]] = []
     task_aware_kinds = {"mtllora", "moelora", "hmora"}
-    include_dirs = _default_lm_eval_include_dirs(ctx.repo_root, lm_eval_tasks)
+    include_dirs = _resolve_lm_eval_include_dirs(ctx, lm_eval_tasks)
     include_path = ":".join(str(path) for path in include_dirs) if include_dirs else None
     lm_eval_limit = str(ctx.benchmark_cfg.get("limit", ctx.env.get("LM_EVAL_LIMIT", ""))).strip()
     for run in runs:
@@ -407,47 +448,60 @@ def _stage_benchmark_fixed_task_set(
         )
         out_dir = ctx.benchmark_root / run_id
         out_dir.mkdir(parents=True, exist_ok=True)
+        combined_output_path = out_dir / "_combined_results.json"
+        task_id_map: dict[str, int] = {}
+        if str(run.get("kind", "")).strip() in task_aware_kinds:
+            for task_cfg in task_cfgs:
+                task_name = str(task_cfg.get("task_name", "")).strip()
+                lm_eval_task = str(task_cfg.get("lm_eval_task", task_name)).strip()
+                task_id = task_cfg.get("task_id")
+                if task_id is None or str(task_id).strip() == "":
+                    continue
+                task_id_map[lm_eval_task] = int(task_id)
+        cmd = [
+            "python3",
+            str(ctx.repo_root / "scripts" / "eval" / "lm_eval_task_ids.py"),
+            "--checkpoint",
+            str(adapter_dir),
+            "--tokenizer",
+            tokenizer_for_run,
+            "--tasks",
+            ",".join(lm_eval_tasks),
+            "--output-path",
+            str(combined_output_path),
+            "--batch-size",
+            str(ctx.benchmark_cfg.get("batch_size", "auto")),
+        ]
+        if include_path:
+            cmd.extend(["--include-path", include_path])
+        if lm_eval_limit:
+            cmd.extend(["--limit", lm_eval_limit])
+        if task_id_map:
+            cmd.extend(["--task-id-map", json.dumps(task_id_map, sort_keys=True)])
+        _run_stage_cmd(
+            cmd=cmd,
+            env=ctx.env,
+            dry_run=ctx.args.dry_run,
+            logs_root=ctx.logs_root,
+            stage="benchmark",
+            suffix=run_id,
+            executor=ctx.executor,
+        )
         seen_tasks: set[str] = set()
         scored_tasks: set[str] = set()
         task_metric_values: dict[str, list[float]] = {}
+        if ctx.args.dry_run or not combined_output_path.exists():
+            continue
+        payload = json.loads(combined_output_path.read_text(encoding="utf-8"))
         for task_cfg in task_cfgs:
             task_name = str(task_cfg.get("task_name", "")).strip()
             lm_eval_task = str(task_cfg.get("lm_eval_task", task_name)).strip()
             task_group = str(task_cfg.get("group", task_cfg.get("task_family", ""))).strip()
             task_id = task_cfg.get("task_id")
             output_path = out_dir / f"{task_name}.json"
-            cmd = [
-                "python3",
-                str(ctx.repo_root / "scripts" / "eval" / "lm_eval_task_ids.py"),
-                "--checkpoint",
-                str(adapter_dir),
-                "--tokenizer",
-                tokenizer_for_run,
-                "--tasks",
-                lm_eval_task,
-                "--output-path",
-                str(output_path),
-                "--batch-size",
-                str(ctx.benchmark_cfg.get("batch_size", "auto")),
-            ]
-            if include_path:
-                cmd.extend(["--include-path", include_path])
-            if lm_eval_limit:
-                cmd.extend(["--limit", lm_eval_limit])
-            if str(run.get("kind", "")).strip() in task_aware_kinds and task_id is not None:
-                cmd.extend(["--task-id", str(int(task_id))])
-            _run_stage_cmd(
-                cmd=cmd,
-                env=ctx.env,
-                dry_run=ctx.args.dry_run,
-                logs_root=ctx.logs_root,
-                stage="benchmark",
-                suffix=f"{run_id}.{task_name}",
-                executor=ctx.executor,
-            )
-            if ctx.args.dry_run or not output_path.exists():
-                continue
-            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            split_payload = _split_fixed_task_payload(payload, lm_eval_task)
+            if split_payload:
+                output_path.write_text(json.dumps(split_payload, indent=2, sort_keys=True), encoding="utf-8")
             if _task_result_payload(task_cfg, payload) is not None:
                 seen_tasks.add(lm_eval_task)
             primary_metric_key, primary_metric_value = _extract_primary_metric(task_cfg, payload)
@@ -460,7 +514,7 @@ def _stage_benchmark_fixed_task_set(
                     "task_id": task_id,
                     "primary_metric_key": primary_metric_key,
                     "primary_metric_value": primary_metric_value,
-                    "result_json": str(output_path.resolve()),
+                    "result_json": str((output_path if split_payload else combined_output_path).resolve()),
                 }
             )
             if primary_metric_value is not None:
@@ -634,7 +688,7 @@ def stage_benchmark(ctx: PipelineContext) -> None:
             if any(task.startswith(("sib200_", "taxi1500_")) for task in selected_tasks):
                 _ensure_external_task_configs(ctx.repo_root)
             selected_flores_tasks = [task for task in selected_tasks if task.startswith("flores_en_perplexity_")]
-            include_dirs = _default_lm_eval_include_dirs(ctx.repo_root, selected_tasks)
+            include_dirs = _resolve_lm_eval_include_dirs(ctx, selected_tasks)
             for include_dir in include_dirs:
                 if include_dir.parent.name == "flores_en_perplexity" and selected_flores_tasks:
                     _validate_flores_task_data_paths(ctx.repo_root, include_dir, selected_flores_tasks)

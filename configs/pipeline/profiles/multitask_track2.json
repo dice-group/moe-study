@@ -32,6 +32,7 @@
       "enabled": true,
       "mode": "fixed_task_set",
       "task_manifest_path": "configs/pipeline/benchmark_manifests/track2_glue_commonsense.json",
+      "include_paths": ["configs/pipeline/lm_eval_tasks/track2"],
       "output_dir": "outputs/pipeline_runs/multitask_track2_base/benchmarks",
       "batch_size": "1"
     },
@@ -299,7 +300,7 @@
     "output_root": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100",
     "logs_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/logs",
     "run_naming": {
-      "experiment_tag": "track2-a100-smoke5"
+      "experiment_tag": "track2-a100-smoke1"
     },
     "executor": {
       "extra_sbatch_flags": [
@@ -324,7 +325,7 @@
       "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/embedding_training"
     },
     "benchmark": {
-      "limit": 5,
+      "limit": 1,
       "task_manifest_path": "configs/pipeline/benchmark_manifests/track2_glue_commonsense_smoke.json",
       "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/benchmarks"
     },
@@ -347,6 +348,31 @@
       "gate_json": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/gate.json",
       "primary_metric": "eval_loss",
       "summary_csv": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/summary.csv"
+    }
+  },
+  "multitask_track2_cluster_benchmark_sanity": {
+    "extends": "multitask_track2_cluster_smoke",
+    "output_root": "outputs/pipeline_runs/multitask_track2_cluster_benchmark_sanity_a100",
+    "logs_dir": "outputs/pipeline_runs/multitask_track2_cluster_benchmark_sanity_a100/logs",
+    "run_naming": {
+      "experiment_tag": "track2-a100-benchsanity"
+    },
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/sampled"
+    },
+    "benchmark": {
+      "limit": "",
+      "task_manifest_path": "configs/pipeline/benchmark_manifests/track2_glue_commonsense.json",
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_benchmark_sanity_a100/benchmarks"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/multitask_track2_cluster_smoke_a100/runs"
+    },
+    "summary": {
+      "baseline_id": "lora_r8",
+      "gate_json": "outputs/pipeline_runs/multitask_track2_cluster_benchmark_sanity_a100/gate.json",
+      "primary_metric": "eval_loss",
+      "summary_csv": "outputs/pipeline_runs/multitask_track2_cluster_benchmark_sanity_a100/summary.csv"
     }
   },
   "multitask_track2_cluster_pilot": {

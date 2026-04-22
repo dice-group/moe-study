@@ -1,0 +1,23 @@
+task: track2_stsb
+dataset_path: nyu-mll/glue
+dataset_name: stsb
+output_type: generate_until
+training_split: train
+validation_split: validation
+doc_to_text: "Sentence 1: {{sentence1}}\nSentence 2: {{sentence2}}\nQuestion: On a scale from 0.0 to 5.0, how semantically similar are these two sentences?\nAnswer:"
+doc_to_target: "{{label}}"
+target_delimiter: " "
+process_results: !function stsb_utils.process_results
+generation_kwargs:
+  until:
+    - "\n"
+  max_gen_toks: 8
+metric_list:
+  - metric: pearson
+    aggregation: !function stsb_utils.agg_pearson
+    higher_is_better: true
+  - metric: spearman
+    aggregation: !function stsb_utils.agg_spearman
+    higher_is_better: true
+metadata:
+  version: 1.0

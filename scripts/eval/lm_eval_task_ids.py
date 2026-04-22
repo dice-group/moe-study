@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -117,6 +118,24 @@ def _parse_tasks(raw: str) -> list[str]:
     return [task.strip() for task in raw.split(",") if task.strip()]
 
 
+def _parse_task_id_map(raw: Optional[str]) -> dict[str, int]:
+    if raw is None:
+        return {}
+    value = str(raw).strip()
+    if not value:
+        return {}
+    payload = json.loads(value)
+    if not isinstance(payload, dict):
+        raise ValueError("--task-id-map must be a JSON object mapping task name to integer task id")
+    mapping: dict[str, int] = {}
+    for key, task_id in payload.items():
+        task_name = str(key).strip()
+        if not task_name:
+            continue
+        mapping[task_name] = int(task_id)
+    return mapping
+
+
 def _infer_vocab_size_from_state_dict(state_dict: dict[str, object]) -> Optional[int]:
     for key in (
         "base_model.model.model.embed_tokens.original_module.weight",
@@ -215,6 +234,31 @@ def _build_hflm_with_task_class(HFLM):
     return HFLMWithTask
 
 
+def _merge_eval_payloads(task_payloads: dict[str, dict[str, object]]) -> dict[str, object]:
+    merged: dict[str, object] = {
+        "results": {},
+        "versions": {},
+        "n-shot": {},
+        "configs": {},
+        "task_payloads": task_payloads,
+        "tasks": list(task_payloads.keys()),
+        "config": {
+            "model": "local_hflm_with_task_ids",
+            "batch_size": "custom",
+        },
+        "git_hash": "",
+        "date": datetime.now(timezone.utc).isoformat(),
+    }
+    for payload in task_payloads.values():
+        for field in ("results", "versions", "n-shot", "configs"):
+            value = payload.get(field)
+            if isinstance(value, dict):
+                casted = merged[field]
+                assert isinstance(casted, dict)
+                casted.update(value)
+    return merged
+
+
 def _run_eval(
     *,
     pretrained: str,
@@ -234,6 +278,7 @@ def _run_eval(
     torch_seed: int,
     fewshot_seed: int,
     trust_remote_code: bool,
+    task_id_map: dict[str, int] | None = None,
 ) -> None:
     repo_root = None
     for parent in Path(__file__).resolve().parents:
@@ -314,18 +359,31 @@ def _run_eval(
         device=device,
         batch_size=batch_size,
     )
-    results = evaluator.simple_evaluate(
-        model=model,
-        tasks=tasks,
-        batch_size=batch_size,
-        device=device,
-        limit=limit,
-        task_manager=task_manager,
-        random_seed=seed,
-        numpy_random_seed=numpy_seed,
-        torch_random_seed=torch_seed,
-        fewshot_random_seed=fewshot_seed,
-    )
+    task_payloads: dict[str, dict[str, object]] = {}
+    resolved_task_id_map = task_id_map or {}
+    for task_name in tasks:
+        current_task_id = resolved_task_id_map.get(task_name, task_id)
+        model = HFLMWithTask(
+            task_id=current_task_id,
+            pretrained=_MODEL_CACHE[model_key],
+            tokenizer=tokenizer,
+            device=device,
+            batch_size=batch_size,
+        )
+        task_payload = evaluator.simple_evaluate(
+            model=model,
+            tasks=[task_name],
+            batch_size=batch_size,
+            device=device,
+            limit=limit,
+            task_manager=task_manager,
+            random_seed=seed,
+            numpy_random_seed=numpy_seed,
+            torch_random_seed=torch_seed,
+            fewshot_random_seed=fewshot_seed,
+        )
+        task_payloads[task_name] = task_payload
+    results = _merge_eval_payloads(task_payloads)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(results, indent=2, sort_keys=True, default=str), encoding="utf-8")
 
@@ -340,6 +398,7 @@ def main() -> int:
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--limit", type=float, default=None)
     parser.add_argument("--task-id", type=int, default=None)
+    parser.add_argument("--task-id-map", default=None)
     parser.add_argument("--include-path", default=None)
     parser.add_argument("--torch-dtype", default=os.environ.get("LM_EVAL_TORCH_DTYPE"))
     parser.add_argument("--device-map", default=os.environ.get("LM_EVAL_DEVICE_MAP"))
@@ -381,6 +440,7 @@ def main() -> int:
         torch_seed=args.torch_seed,
         fewshot_seed=args.fewshot_seed,
         trust_remote_code=_parse_bool(args.trust_remote_code, default=True),
+        task_id_map=_parse_task_id_map(args.task_id_map),
     )
     return 0
 

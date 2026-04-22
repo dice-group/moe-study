@@ -17,7 +17,6 @@ Do not submit any Track 2 run until that file exists in the cluster workspace.
 ## Required External Access
 
 - Hugging Face access to `meta-llama/Llama-3.1-8B`
-- remote-code trust for benchmark tasks such as `social_iqa`
 
 ## Environment Rules
 
@@ -97,6 +96,7 @@ Interpretation rules:
 - `summary.csv` and `gate.json` are operational sanity outputs, not the scientific ranking source
 - benchmark artifacts after a timed-out training job are not a pass
 - `state/submit_chain_jobs.json` is the source of truth for the Slurm job names and job ids created by `--submit-chain`
+- Track 2 uses repo-local lm-eval task overrides for `social_iqa` and `stsb` via `configs/pipeline/lm_eval_tasks/track2`
 
 ## Commands
 
