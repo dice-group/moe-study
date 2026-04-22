@@ -20,7 +20,7 @@ DEFAULT_BASELINE_METRICS_CSVS = [
 
 def stage_report(ctx: PipelineContext) -> None:
     if "report" in ctx.active_stages and bool(ctx.report_cfg.get("enabled", False)):
-        missing = _missing_modules(["openpyxl"])
+        missing = _missing_modules(["openpyxl", "scipy"])
         if missing:
             raise SystemExit(f"Missing Python modules for report stage: {missing}")
         benchmark_summary_path = ctx.benchmark_root / "benchmark_summary.json"

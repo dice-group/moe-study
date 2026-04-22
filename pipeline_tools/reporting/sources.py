@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .common import safe_float
+from .common import is_finite_number, nonfinite_display, safe_float
 
 
 def read_summary_csv(path: Path) -> list[dict[str, str]]:
@@ -37,6 +37,19 @@ def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
                 metric = str(payload.get("metric", ""))
                 if _skip_metric(task, metric):
                     return
+                if not is_finite_number(value):
+                    rows.append(
+                        {
+                            "run_id": run_id,
+                            "task": task,
+                            "metric": metric,
+                            "value": None,
+                            "display_value": nonfinite_display(value),
+                            "wandb_project": str(payload.get("wandb_project", "")),
+                            "wandb_prefix": str(payload.get("wandb_prefix", "")),
+                        }
+                    )
+                    return
                 rows.append(
                     {
                         "run_id": run_id,
@@ -65,6 +78,19 @@ def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
                 val = metrics.get(candidate)
                 if isinstance(val, (int, float)):
                     if _skip_metric(task, candidate):
+                        continue
+                    if not is_finite_number(val):
+                        rows.append(
+                            {
+                                "run_id": run_id,
+                                "task": task,
+                                "metric": candidate,
+                                "value": None,
+                                "display_value": nonfinite_display(val),
+                                "wandb_project": "",
+                                "wandb_prefix": "",
+                            }
+                        )
                         continue
                     rows.append(
                         {
@@ -166,10 +192,23 @@ def load_baseline_rows(baseline_cache_root: Path, model_name_or_path: str) -> li
             continue
         value = payload.get("value")
         task = payload.get("task")
-        if not isinstance(task, str) or not isinstance(value, (int, float)):
+        if not isinstance(task, str):
             continue
         metric = str(payload.get("metric", ""))
         if _skip_metric(task, metric):
+            continue
+        if not is_finite_number(value):
+            rows.append(
+                {
+                    "run_id": str(payload.get("run_id", f"baseline::{slug}")),
+                    "task": task,
+                    "metric": metric,
+                    "value": None,
+                    "display_value": nonfinite_display(value),
+                    "wandb_project": str(payload.get("wandb_project", "")),
+                    "wandb_prefix": str(payload.get("wandb_prefix", "")),
+                }
+            )
             continue
         rows.append(
             {
@@ -258,6 +297,19 @@ def load_baseline_rows_from_lm_eval_json(path: Path, model_name_or_path: str) ->
             value = metrics.get(metric)
             if isinstance(value, (int, float)):
                 if _skip_metric(task, metric):
+                    continue
+                if not is_finite_number(value):
+                    rows.append(
+                        {
+                            "run_id": run_id,
+                            "task": task,
+                            "metric": metric,
+                            "value": None,
+                            "display_value": nonfinite_display(value),
+                            "wandb_project": "",
+                            "wandb_prefix": "",
+                        }
+                    )
                     continue
                 rows.append(
                     {
