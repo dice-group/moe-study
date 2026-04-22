@@ -16,6 +16,14 @@ def read_summary_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def _skip_metric(task: str, metric: str) -> bool:
+    task_l = task.strip().lower()
+    metric_l = metric.strip().lower()
+    if (task_l.startswith("sib200_") or task_l.startswith("taxi1500_")) and "f1" in metric_l:
+        return True
+    return False
+
+
 def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     if not benchmark_dir.exists():
@@ -25,11 +33,15 @@ def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
         if isinstance(payload, dict) and isinstance(payload.get("task"), str):
             value = payload.get("value")
             if isinstance(value, (int, float)):
+                task = payload["task"]
+                metric = str(payload.get("metric", ""))
+                if _skip_metric(task, metric):
+                    return
                 rows.append(
                     {
                         "run_id": run_id,
-                        "task": payload["task"],
-                        "metric": str(payload.get("metric", "")),
+                        "task": task,
+                        "metric": metric,
                         "value": float(value),
                         "wandb_project": str(payload.get("wandb_project", "")),
                         "wandb_prefix": str(payload.get("wandb_prefix", "")),
@@ -52,6 +64,8 @@ def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
             for candidate in candidates:
                 val = metrics.get(candidate)
                 if isinstance(val, (int, float)):
+                    if _skip_metric(task, candidate):
+                        continue
                     rows.append(
                         {
                             "run_id": run_id,
@@ -154,11 +168,14 @@ def load_baseline_rows(baseline_cache_root: Path, model_name_or_path: str) -> li
         task = payload.get("task")
         if not isinstance(task, str) or not isinstance(value, (int, float)):
             continue
+        metric = str(payload.get("metric", ""))
+        if _skip_metric(task, metric):
+            continue
         rows.append(
             {
                 "run_id": str(payload.get("run_id", f"baseline::{slug}")),
                 "task": task,
-                "metric": str(payload.get("metric", "")),
+                "metric": metric,
                 "value": float(value),
                 "wandb_project": str(payload.get("wandb_project", "")),
                 "wandb_prefix": str(payload.get("wandb_prefix", "")),
@@ -178,6 +195,8 @@ def load_baseline_rows_from_csv(path: Path) -> list[dict[str, Any]]:
             metric = str(row.get("metric", "")).strip()
             value = safe_float(row.get("value"))
             if not task or not metric or value is None:
+                continue
+            if _skip_metric(task, metric):
                 continue
             model = str(row.get("model_slug", "")).strip() or "baseline"
             rows.append(
@@ -238,6 +257,8 @@ def load_baseline_rows_from_lm_eval_json(path: Path, model_name_or_path: str) ->
         for metric in candidates:
             value = metrics.get(metric)
             if isinstance(value, (int, float)):
+                if _skip_metric(task, metric):
+                    continue
                 rows.append(
                     {
                         "run_id": run_id,

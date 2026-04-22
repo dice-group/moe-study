@@ -110,23 +110,37 @@ def _normalized_score(values: dict[str, float], better: str) -> dict[str, float]
     return {key: (value - min_val) / (max_val - min_val) for key, value in values.items()}
 
 
+def _shared_direction(rows: list[dict[str, Any]]) -> str | None:
+    directions = {str(row.get("better", "")).strip() for row in rows if str(row.get("better", "")).strip()}
+    if len(directions) == 1:
+        return next(iter(directions))
+    return None
+
+
 def write_comparison_sheet(ws, *, summary_rows: list[dict[str, str]], eval_rows: list[dict[str, Any]], baseline_rows: list[dict[str, Any]], resource_map: dict[str, str]) -> None:
     value_map: dict[tuple[str, str, str], float] = {}
     run_ids: set[str] = set()
     row_triplets: set[tuple[str, str, str]] = set()
     baseline_metric_map: dict[tuple[str, str], float] = {}
+    eval_tasks: set[str] = set()
     for row in eval_rows:
         run_id, task, metric, value = str(row.get("run_id", "")).strip(), str(row.get("task", "")).strip(), str(row.get("metric", "")).strip(), row.get("value")
         if run_id and task and isinstance(value, (int, float)):
             value_map[(run_id, task, metric)] = float(value)
             run_ids.add(run_id)
             row_triplets.add((task, metric, metric_direction(task, metric)))
+            eval_tasks.add(task)
     for row in baseline_rows:
         run_id, task, metric, value = str(row.get("run_id", "")).strip(), str(row.get("task", "")).strip(), str(row.get("metric", "")).strip(), row.get("value")
         if run_id and task and isinstance(value, (int, float)):
             value_map[(run_id, task, metric)] = float(value)
             run_ids.add(run_id)
             baseline_metric_map[(task, metric_name(metric))] = float(value)
+            # Allow baseline CSV metrics to fill in missing metric families for tasks that
+            # are already part of the evaluated benchmark set, without expanding to every
+            # tracked baseline task in the repository.
+            if (not eval_tasks) or (task in eval_tasks):
+                row_triplets.add((task, metric, metric_direction(task, metric)))
 
     run_label_map, ordered_runs = run_label_maps(summary_rows, sorted(run_ids))
     approach_runs = [rid for rid in ordered_runs if not rid.startswith("baseline::")]
@@ -155,7 +169,10 @@ def write_comparison_sheet(ws, *, summary_rows: list[dict[str, str]], eval_rows:
         metric_display = metric_label or metric
         baseline_val = baseline_value(task, metric)
         values_by_label = {run_label_map[rid]: val for rid in approach_runs if isinstance((val := value_map.get((rid, task, metric))), float)}
-        best_method, best_value = select_best(values_by_label, better)
+        scored_values = dict(values_by_label)
+        if isinstance(baseline_val, float):
+            scored_values["baseline"] = baseline_val
+        best_method, best_value = select_best(scored_values, better)
         table_rows.append({"benchmark": dataset, "metric": metric_display, "metric_family": metric_display.split()[0], "language": language or task, "resource_availability": resource_map.get(language, "unknown") if language else "unknown", "better": better, "baseline": baseline_val if isinstance(baseline_val, float) else "", "approach_values": values_by_label, "best_approach": best_method or "", "best_value": best_value if isinstance(best_value, float) else "", "block_key": (dataset, metric_display.split()[0])})
 
     title_cols = 9 + max(1, len(approach_cols))
@@ -218,8 +235,11 @@ def write_comparison_sheet(ws, *, summary_rows: list[dict[str, str]], eval_rows:
             direction = str(block_rows[0]["better"] or "higher")
             baseline_vals = [float(r["baseline"]) for r in block_rows if isinstance(r["baseline"], (int, float))]
             avg_values = {col: sum(vals) / len(vals) for col in approach_cols if (vals := [float(r["approach_values"][col]) for r in block_rows if isinstance(r["approach_values"].get(col), (int, float))])}
-            avg_best_method, avg_best_value = select_best(avg_values, direction)
             avg_baseline = (sum(baseline_vals) / len(baseline_vals)) if baseline_vals else ""
+            avg_scored_values = dict(avg_values)
+            if isinstance(avg_baseline, float):
+                avg_scored_values["baseline"] = avg_baseline
+            avg_best_method, avg_best_value = select_best(avg_scored_values, direction)
             ws.append(["AVG", "average", "all", "", direction, avg_baseline, *[avg_values.get(col, "") for col in approach_cols], avg_best_method or "", avg_best_value if isinstance(avg_best_value, float) else ""])
             for c in range(1, len(headers) + 1):
                 ws.cell(row_cursor, c).fill = AVERAGE_FILL
@@ -277,6 +297,7 @@ def write_comparison_sheet(ws, *, summary_rows: list[dict[str, str]], eval_rows:
             grouped_rows = group_map.get((benchmark_name, tier), [])
             baseline_vals: list[float] = []
             approach_acc: dict[str, list[float]] = {label: [] for label in approach_cols}
+            group_direction = "higher" if normalized else (_shared_direction(grouped_rows) or "higher")
             for item in grouped_rows:
                 values_for_norm: dict[str, float] = {}
                 if isinstance(item.get("baseline"), (int, float)):
@@ -293,9 +314,12 @@ def write_comparison_sheet(ws, *, summary_rows: list[dict[str, str]], eval_rows:
                         approach_acc[label].append(scored_values[label])
             baseline_avg = (sum(baseline_vals) / len(baseline_vals)) if baseline_vals else ""
             approach_avg_map = {label: (sum(vals) / len(vals)) for label, vals in approach_acc.items() if vals}
-            best_label, best_value = select_best(approach_avg_map, "higher")
+            scored_avg_values = dict(approach_avg_map)
+            if isinstance(baseline_avg, float):
+                scored_avg_values["baseline"] = baseline_avg
+            best_label, best_value = select_best(scored_avg_values, group_direction)
             ws.append([benchmark_name, tier, "normalized_avg" if normalized else "raw_avg", baseline_avg, *[approach_avg_map.get(label, "") for label in approach_cols], best_label or "", best_value if isinstance(best_value, float) else ""])
-            apply_row_heatmap(ws, row_idx, "higher", 4, 4 + len(approach_cols))
+            apply_row_heatmap(ws, row_idx, group_direction, 4, 4 + len(approach_cols))
             row_idx += 1
         return row_idx + 1
 
