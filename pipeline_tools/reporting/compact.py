@@ -69,11 +69,52 @@ def parse_task_identity(task: str, metric: str) -> tuple[str, str, str]:
     return prefix.upper(), "", metric_base
 
 
-def select_best(values: dict[str, float], better: str) -> tuple[str | None, float | None]:
+def select_best_labels(values: dict[str, float], better: str) -> tuple[list[str], float | None]:
     if not values:
-        return None, None
-    key = min(values, key=values.get) if better == "lower" else max(values, key=values.get)
-    return key, values[key]
+        return [], None
+    best_value = min(values.values()) if better == "lower" else max(values.values())
+    labels = [label for label, value in values.items() if value == best_value]
+    return labels, best_value
+
+
+def format_best_label(labels: list[str]) -> str:
+    if not labels:
+        return ""
+    if len(labels) == 1:
+        return labels[0]
+    return f"tie: {', '.join(labels)}"
+
+
+def select_best(values: dict[str, float], better: str) -> tuple[str | None, float | None]:
+    labels, best_value = select_best_labels(values, better)
+    return (labels[0] if labels else None), best_value
+
+
+def _aggregate_group_label(item: dict[str, Any]) -> str:
+    benchmark = str(item.get("benchmark", ""))
+    if benchmark != "FLORES":
+        return benchmark
+    family = str(item.get("metric_family", ""))
+    for prefix in ("byte_perplexity", "word_perplexity", "bits_per_byte"):
+        if family.startswith(prefix):
+            return f"FLORES / {prefix}"
+    return benchmark
+
+
+def _aggregate_benchmark_sort_key(label: str) -> tuple[int, int, str]:
+    if not str(label).startswith("FLORES / "):
+        return _dataset_rank(label), 0, str(label)
+    family = str(label).split(" / ", 1)[1]
+    family_order = {"byte_perplexity": 0, "word_perplexity": 1, "bits_per_byte": 2}
+    return _dataset_rank("FLORES"), family_order.get(family, 99), str(label)
+
+
+def _cell_display_value(numeric_value: float | str | None, display_value: str = "") -> float | str:
+    if isinstance(numeric_value, (int, float)):
+        return float(numeric_value)
+    if display_value:
+        return "excluded_nonfinite"
+    return "missing"
 
 
 def collect_summary_metric_map(summary_rows: list[dict[str, str]], key: str) -> dict[str, float]:
@@ -141,6 +182,8 @@ def _metric_order(metric_label: str) -> tuple[int, int]:
 
 
 def _dataset_rank(dataset: str) -> int:
+    if str(dataset).startswith("FLORES"):
+        return 1
     return {"Belebele": 0, "FLORES": 1, "SIB200": 2, "Taxi1500": 3}.get(dataset, 99)
 
 
@@ -197,7 +240,7 @@ def write_comparison_sheet(
                 row_triplets.add((task, metric, metric_direction(task, metric)))
         elif run_id and task and metric and display_value:
             run_ids.add(run_id)
-            baseline_display_map[(task, metric_name(metric))] = display_value
+            baseline_display_map[(task, metric)] = display_value
             if (not eval_tasks) or (task in eval_tasks):
                 row_triplets.add((task, metric, metric_direction(task, metric)))
 
@@ -207,18 +250,13 @@ def write_comparison_sheet(
     label_to_run = {run_label_map[run_id]: run_id for run_id in approach_runs if run_id in run_label_map}
 
     def baseline_value(task: str, metric: str) -> float | str | None:
-        for run_id in ordered_runs:
-            if run_id.startswith("baseline::"):
-                value = value_map.get((run_id, task, metric))
-                if isinstance(value, float):
-                    return value
-                display_value = display_value_map.get((run_id, task, metric))
-                if display_value:
-                    return display_value
         numeric_baseline = baseline_metric_map.get((task, metric_name(metric)))
         if isinstance(numeric_baseline, float):
             return numeric_baseline
-        return baseline_display_map.get((task, metric_name(metric)))
+        display_baseline = baseline_display_map.get((task, metric))
+        if display_baseline:
+            return display_baseline
+        return None
 
     def sort_key(item: tuple[str, str, str]) -> tuple[int, int, int, str, str]:
         task, metric, _ = item
@@ -244,7 +282,7 @@ def write_comparison_sheet(
         scored_values = dict(values_by_label)
         if isinstance(baseline_val, float):
             scored_values["baseline"] = baseline_val
-        best_method, best_value = select_best(scored_values, better)
+        best_labels, best_value = select_best_labels(scored_values, better)
         table_rows.append(
             {
                 "benchmark": benchmark,
@@ -253,10 +291,11 @@ def write_comparison_sheet(
                 "language": language or task,
                 "resource_availability": resource_map.get(language, "unknown") if language else "unknown",
                 "better": better,
-                "baseline": baseline_val if isinstance(baseline_val, float) else (baseline_val or ""),
+                "baseline": baseline_val if isinstance(baseline_val, float) else None,
+                "baseline_display_value": str(baseline_val) if isinstance(baseline_val, str) and baseline_val else "",
                 "approach_values": values_by_label,
                 "approach_display_values": display_values_by_label,
-                "best_approach": best_method or "",
+                "best_approach": format_best_label(best_labels),
                 "best_value": best_value if isinstance(best_value, float) else "",
                 "block_key": (benchmark, metric_display),
             }
@@ -303,11 +342,11 @@ def write_comparison_sheet(
             }
             if not any(isinstance(value, float) for value in values.values()):
                 continue
-            best_label, best_value = select_best(
+            best_labels, best_value = select_best_labels(
                 {key: float(value) for key, value in values.items() if isinstance(value, (int, float))},
                 better,
             )
-            ws.append([metric_key, *[values.get(label, "") for label in approach_cols], best_label or "", best_value if isinstance(best_value, float) else ""])
+            ws.append([metric_key, *[values.get(label, "") for label in approach_cols], format_best_label(best_labels), best_value if isinstance(best_value, float) else ""])
             for col_idx in range(2, 2 + len(approach_cols)):
                 cell = ws.cell(data_row, col_idx)
                 if isinstance(cell.value, (int, float)):
@@ -337,8 +376,11 @@ def write_comparison_sheet(
                     item["language"],
                     item["resource_availability"],
                     item["better"],
-                    item["baseline"],
-                    *[item["approach_values"].get(col, item["approach_display_values"].get(col, "")) for col in approach_cols],
+                    _cell_display_value(item["baseline"], item["baseline_display_value"]),
+                    *[
+                        _cell_display_value(item["approach_values"].get(col), item["approach_display_values"].get(col, ""))
+                        for col in approach_cols
+                    ],
                     item["best_approach"],
                     item["best_value"],
                 ]
@@ -363,7 +405,7 @@ def write_comparison_sheet(
             avg_scored_values = dict(avg_values)
             if isinstance(avg_baseline, float):
                 avg_scored_values["baseline"] = avg_baseline
-            avg_best_method, avg_best_value = select_best(avg_scored_values, direction)
+            avg_best_labels, avg_best_value = select_best_labels(avg_scored_values, direction)
             ws.append(
                 [
                     "AVG",
@@ -373,7 +415,7 @@ def write_comparison_sheet(
                     direction,
                     avg_baseline,
                     *[avg_values.get(col, "") for col in approach_cols],
-                    avg_best_method or "",
+                    format_best_label(avg_best_labels),
                     avg_best_value if isinstance(avg_best_value, float) else "",
                 ]
             )
@@ -410,10 +452,11 @@ def write_comparison_sheet(
         group_map: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
         for item in rows:
             tier = resource_tier(item.get("resource_availability"))
-            group_map[(str(item["benchmark"]), tier)].append(item)
-            group_map[(str(item["benchmark"]), "ALL")].append(item)
+            aggregate_benchmark = _aggregate_group_label(item)
+            group_map[(aggregate_benchmark, tier)].append(item)
+            group_map[(aggregate_benchmark, "ALL")].append(item)
 
-        benchmarks = sorted({key[0] for key in group_map}, key=_dataset_rank)
+        benchmarks = sorted({key[0] for key in group_map}, key=_aggregate_benchmark_sort_key)
 
         ordered_keys: list[tuple[str, str]] = []
         for benchmark in benchmarks:
@@ -441,7 +484,7 @@ def write_comparison_sheet(
             scored_avg_values = dict(approach_avg_map)
             if isinstance(avg_baseline, float):
                 scored_avg_values["baseline"] = avg_baseline
-            best_label, best_value = select_best(scored_avg_values, direction)
+            best_labels, best_value = select_best_labels(scored_avg_values, direction)
             ws.append(
                 [
                     benchmark,
@@ -449,7 +492,7 @@ def write_comparison_sheet(
                     "raw_avg",
                     avg_baseline,
                     *[approach_avg_map.get(label, "") for label in approach_cols],
-                    best_label or "",
+                    format_best_label(best_labels),
                     best_value if isinstance(best_value, float) else "",
                 ]
             )
@@ -589,7 +632,7 @@ def write_comparison_sheet(
         row_idx += 2
         pairwise_start_row = row_idx
         if not pairwise_results:
-            ws.append(["", "", "", "", "", "", "", "", "", "", "", "", "no benchmark groups passed Friedman at alpha=0.05"])
+            ws.append(["", "", "", "", "", "", "", "", "", "", "", "", "no pairwise significance results available"])
             row_idx += 1
         for result in pairwise_results:
             ws.append(

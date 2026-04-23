@@ -30,9 +30,12 @@ def _aligned_value(value: float, better: str) -> float:
 
 def _bh_adjust(p_values: list[float | None]) -> list[float | None]:
     adjusted: list[float | None] = [None] * len(p_values)
-    indexed = sorted([(idx, p) for idx, p in enumerate(p_values) if p is not None], key=lambda item: item[1])
-    if not indexed:
+    if not p_values:
         return adjusted
+    indexed = sorted(
+        [(idx, 1.0 if p is None else float(p)) for idx, p in enumerate(p_values)],
+        key=lambda item: item[1],
+    )
     total = len(indexed)
     adjusted_sorted: list[float] = []
     for rank, (_, p_value) in enumerate(indexed, start=1):
@@ -143,6 +146,40 @@ def _build_group_friedman_result(
     }
 
 
+def _build_group_two_algorithm_result(
+    group_key: tuple[str, str], block_rows: list[dict[str, Any]], algorithm_labels: list[str]
+) -> dict[str, Any]:
+    note = ""
+    complete_rows = 0
+    for item in block_rows:
+        row_values = [
+            item["baseline"] if label == "baseline" else item["approach_values"].get(label)
+            for label in algorithm_labels
+        ]
+        if all(isinstance(value, (int, float)) for value in row_values):
+            complete_rows += 1
+    if len(algorithm_labels) != 2:
+        note = "two-algorithm omnibus path requires exactly 2 algorithms"
+    elif complete_rows < 2:
+        note = "need at least 2 complete paired task rows"
+    else:
+        note = "Friedman not applicable for 2 algorithms; pairwise Wilcoxon used directly"
+    return {
+        "group_label": _stats_group_label(group_key),
+        "unit_definition": "complete paired task rows",
+        "n_units": complete_rows,
+        "n_algorithms": len(algorithm_labels),
+        "friedman_statistic": None,
+        "p_raw": None,
+        "significant": False,
+        "kendalls_w": None,
+        "best_rank_approach": "",
+        "best_avg_rank": None,
+        "avg_ranks": {},
+        "note": note,
+    }
+
+
 def _build_group_pairwise_result(
     group_label: str, block_rows: list[dict[str, Any]], label_a: str, label_b: str
 ) -> dict[str, Any] | None:
@@ -179,6 +216,8 @@ def _build_group_pairwise_result(
     p_raw: float | None = None
     note = ""
     if all(delta == 0 for delta in deltas):
+        statistic = 0.0
+        p_raw = 1.0
         note = "all paired differences are zero"
     else:
         try:
@@ -220,28 +259,33 @@ def build_significance_results(payload: dict[str, Any]) -> dict[str, Any]:
 
     friedman_results: list[dict[str, Any]] = []
     pairwise_results: list[dict[str, Any]] = []
+    use_two_algorithm_path = len(algorithm_labels) == 2
     for group_key in sorted(stats_group_map.keys(), key=_stats_group_sort_key):
         group_rows = stats_group_map[group_key]
-        friedman_result = _build_group_friedman_result(group_key, group_rows, algorithm_labels)
+        if use_two_algorithm_path:
+            friedman_result = _build_group_two_algorithm_result(group_key, group_rows, algorithm_labels)
+        else:
+            friedman_result = _build_group_friedman_result(group_key, group_rows, algorithm_labels)
         friedman_results.append(friedman_result)
-        if friedman_result["significant"]:
-            group_pairwise_results: list[dict[str, Any]] = []
-            for label_a, label_b in combinations(algorithm_labels, 2):
-                result = _build_group_pairwise_result(friedman_result["group_label"], group_rows, label_a, label_b) # get pariwise wilcoxon result for this pair of algorithms within the group
-                if result is not None:
-                    group_pairwise_results.append(result)
-            adjusted = _bh_adjust([result["p_raw"] for result in group_pairwise_results])
-            for result, p_fdr in zip(group_pairwise_results, adjusted):
-                result["p_fdr"] = p_fdr
-                result["significant_fdr"] = bool(p_fdr is not None and p_fdr < 0.05)
-            pairwise_results.extend(group_pairwise_results)
+        if not (use_two_algorithm_path or friedman_result["significant"]):
+            continue
+        group_pairwise_results: list[dict[str, Any]] = []
+        for label_a, label_b in combinations(algorithm_labels, 2):
+            result = _build_group_pairwise_result(friedman_result["group_label"], group_rows, label_a, label_b) # get pariwise wilcoxon result for this pair of algorithms within the group
+            if result is not None:
+                group_pairwise_results.append(result)
+        adjusted = _bh_adjust([result["p_raw"] for result in group_pairwise_results])
+        for result, p_fdr in zip(group_pairwise_results, adjusted):
+            result["p_fdr"] = p_fdr
+            result["significant_fdr"] = bool(p_fdr is not None and p_fdr < 0.05)
+        pairwise_results.extend(group_pairwise_results)
 
     notes = [
         {"setting": "alpha", "value": "0.05"},
         {"setting": "omnibus_test", "value": "Friedman test, run separately for each benchmark group"},
         {
             "setting": "post_hoc_test",
-            "value": "Wilcoxon signed-rank, two-sided, only for groups with significant Friedman result",
+            "value": "Wilcoxon signed-rank, two-sided; for 3+ algorithms only after significant Friedman, and directly for 2-algorithm reports",
         },
         {
             "setting": "multiple_comparison_correction",
