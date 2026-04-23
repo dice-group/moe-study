@@ -37,6 +37,12 @@ DEFAULT_BASELINE_METRICS_CSVS = [
 ]
 
 
+def _canonical_metric_name(metric: str) -> str:
+    if "," in metric:
+        return metric.split(",", 1)[0].strip()
+    return metric.strip()
+
+
 def _merge_baseline_rows_with_precedence(*baseline_groups: tuple[int, list[dict]]) -> list[dict]:
     merged: dict[tuple[str, str], tuple[int, int, dict]] = {}
     for precedence, rows in baseline_groups:
@@ -45,7 +51,7 @@ def _merge_baseline_rows_with_precedence(*baseline_groups: tuple[int, list[dict]
             metric = str(row.get("metric", "")).strip()
             if not task or not metric:
                 continue
-            key = (task, metric)
+            key = (task, _canonical_metric_name(metric))
             current = merged.get(key)
             candidate = (precedence, order_idx, row)
             if current is None or precedence < current[0] or (precedence == current[0] and order_idx < current[1]):

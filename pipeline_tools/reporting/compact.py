@@ -240,7 +240,7 @@ def write_comparison_sheet(
                 row_triplets.add((task, metric, metric_direction(task, metric)))
         elif run_id and task and metric and display_value:
             run_ids.add(run_id)
-            baseline_display_map[(task, metric)] = display_value
+            baseline_display_map[(task, metric_name(metric))] = display_value
             if (not eval_tasks) or (task in eval_tasks):
                 row_triplets.add((task, metric, metric_direction(task, metric)))
 
@@ -253,7 +253,7 @@ def write_comparison_sheet(
         numeric_baseline = baseline_metric_map.get((task, metric_name(metric)))
         if isinstance(numeric_baseline, float):
             return numeric_baseline
-        display_baseline = baseline_display_map.get((task, metric))
+        display_baseline = baseline_display_map.get((task, metric_name(metric)))
         if display_baseline:
             return display_baseline
         return None
