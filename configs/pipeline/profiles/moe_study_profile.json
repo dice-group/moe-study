@@ -440,8 +440,13 @@
     },
     "training": {
       "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm/runs",
+      "extra_env": {
+        "FORCE_TORCHRUN": "0",
+        "LLAMAFACTORY_ALLOW_NOT_DISTRIBUTED": "1"
+      },
       "train": {
-        "flash_attn": "fa2"
+        "flash_attn": "fa2",
+        "low_cpu_mem_usage": false
       }
     },
     "benchmark": {

@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""Resumable multilingual proof pipeline entrypoint."""
-
-from __future__ import annotations
-
 import argparse
 import csv
 import datetime as dt

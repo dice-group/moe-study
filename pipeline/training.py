@@ -392,6 +392,7 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
     use_fp16 = bool(train.get('fp16', False))
     if kind in {"moelora", "adamole", "hmora"}:
         env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+    low_cpu_mem_usage = train.get("low_cpu_mem_usage", common.get("low_cpu_mem_usage"))
     train_args = [
         '--stage', 'sft',
         '--do_train',
@@ -428,6 +429,11 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         '--include_num_input_tokens_seen', 'true',
         '--include_effective_tokens_per_second', 'true',
     ]
+    if low_cpu_mem_usage is not None:
+        train_args.extend(['--low_cpu_mem_usage', str(bool(low_cpu_mem_usage))])
+    resize_vocab = common.get('resize_vocab')
+    if resize_vocab is not None:
+        train_args.extend(['--resize_vocab', str(bool(resize_vocab))])
     # Enable signal-triggered final checkpointing. This is a no-op unless the process receives SIGTERM/SIGUSR1.
     train_args.extend(["--enable_jit_checkpoint", "true"])
     save_strategy = train.get('save_strategy')
@@ -488,12 +494,9 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
             *train_args,
         ]
     else:
-        # LLaMA-Factory requires a distributed launch (even 1 GPU). FORCE_TORCHRUN
-        # makes the launcher spawn `torchrun --nproc_per_node=1 ...` in single-GPU
-        # environments, which satisfies its argument checks.
-        #
-        # Only apply when CUDA is available; on CPU-only machines this would
-        # request torchrun with 0 processes and fail.
+        # Preserve legacy behavior unless a profile explicitly sets FORCE_TORCHRUN=0.
+        # Local GPUVM profiles can opt into single-process training with
+        # LLAMAFACTORY_ALLOW_NOT_DISTRIBUTED=1.
         if "FORCE_TORCHRUN" not in env:
             try:
                 import torch
@@ -726,7 +729,7 @@ def build_final_eval_cmd(
             *eval_args,
         ]
     else:
-        # See note in build_training_cmd: LLaMA-Factory requires distributed launch.
+        # Preserve legacy behavior unless a profile explicitly sets FORCE_TORCHRUN=0.
         if "FORCE_TORCHRUN" not in env:
             try:
                 import torch

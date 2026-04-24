@@ -1,0 +1,123 @@
+{
+  "moe_study_profile_lola_gpuvm_lora_rank_sweep": {
+    "extends": "moe_study_profile_lola_gpuvm",
+    "output_root": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_lora_rank_sweep",
+    "logs_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_lora_rank_sweep/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-lola-gpuvm-lora-rank-sweep",
+      "language_count_hint": 10
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_lora_rank_sweep/runs",
+      "report_to": "none",
+      "eval": {
+        "enabled": false,
+        "strategy": "no"
+      },
+      "train": {
+        "batch_size": 1,
+        "max_steps": 100,
+        "logging_steps": 10,
+        "save_strategy": "no",
+        "save_steps": 100000,
+        "save_total_limit": 0,
+        "num_train_epochs": 1.0
+      },
+      "runs": [
+        {
+          "id": "lora_r2",
+          "kind": "lora",
+          "lora": {
+            "alpha": 4,
+            "rank": 2
+          }
+        },
+        {
+          "id": "lora_r4",
+          "kind": "lora",
+          "lora": {
+            "alpha": 8,
+            "rank": 4
+          }
+        },
+        {
+          "id": "lora_r8",
+          "kind": "lora",
+          "lora": {
+            "alpha": 16,
+            "rank": 8
+          }
+        },
+        {
+          "id": "lora_r16",
+          "kind": "lora",
+          "lora": {
+            "alpha": 32,
+            "rank": 16
+          }
+        },
+        {
+          "id": "lora_r32",
+          "kind": "lora",
+          "lora": {
+            "alpha": 64,
+            "rank": 32
+          }
+        },
+        {
+          "id": "lora_r64",
+          "kind": "lora",
+          "lora": {
+            "alpha": 128,
+            "rank": 64
+          }
+        },
+        {
+          "id": "lora_r128",
+          "kind": "lora",
+          "lora": {
+            "alpha": 256,
+            "rank": 128
+          }
+        },
+        {
+          "id": "lora_r256",
+          "kind": "lora",
+          "lora": {
+            "alpha": 512,
+            "rank": 256
+          }
+        },
+        {
+          "id": "lora_r512",
+          "kind": "lora",
+          "lora": {
+            "alpha": 1024,
+            "rank": 512
+          }
+        }
+      ]
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_lora_rank_sweep/benchmarks"
+    },
+    "baseline_eval": {
+      "enabled": false
+    },
+    "summary": {
+      "baseline_id": "lora_r2",
+      "gate_json": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_lora_rank_sweep/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_lora_rank_sweep/summary.csv"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_lora_rank_sweep/report.xlsx"
+    },
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled"
+    },
+    "wandb_mode": "disabled"
+  }
+}
