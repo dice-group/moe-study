@@ -467,6 +467,10 @@ class SlurmExecutor:
         script_lines.extend(
             [
                 "",
+                'if [[ -n "${PROOF_PIPELINE_REPO_ROOT:-}" ]]; then',
+                '  cd "${PROOF_PIPELINE_REPO_ROOT}"',
+                "fi",
+                "",
                 "export PYTHONUNBUFFERED=1",
                 "",
                 'echo "[SLURM_START] $(date -u +%Y-%m-%dT%H:%M:%SZ) job=$SLURM_JOB_ID"',

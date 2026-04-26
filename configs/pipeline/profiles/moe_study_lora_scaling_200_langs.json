@@ -1,0 +1,162 @@
+{
+  "moe_study_lora_scaling_200_langs_50m": {
+    "extends": "moe_study_profile_otus_cluster_200_langs",
+    "output_root": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m",
+    "logs_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m/logs",
+    "executor": {
+      "conda_base": "/pc2/users/j/joeldag/miniconda3",
+      "conda_env": "merlin",
+      "modules": [
+        "toolchain/foss/2024a",
+        "system/CUDA/12.6.0"
+      ],
+      "gres": "gpu:a100:1",
+      "mem": "192G",
+      "time": "7-00:00:00"
+    },
+    "stage_executors": {
+      "train": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 32,
+        "mem": "192G",
+        "time": "7-00:00:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@900"
+        ]
+      },
+      "benchmark": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 32,
+        "mem": "192G",
+        "time": "7-00:00:00"
+      },
+      "baseline_eval": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 32,
+        "mem": "192G",
+        "time": "7-00:00:00"
+      }
+    },
+    "run_naming": {
+      "experiment_tag": "moe-study-lora-scaling-200langs-50m",
+      "language_count_hint": 200
+    },
+    "sample": {
+      "enabled": false,
+      "output_dir": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/sharded_samples"
+    },
+    "language_map_csv": "/scratch/hpc-prf-merlin/joel/moe-study/result_analysis/l2v_nested_samples/200.csv",
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m/tokenized",
+      "languages_csv": "/scratch/hpc-prf-merlin/joel/moe-study/result_analysis/l2v_nested_samples/200.csv",
+      "language_rates_csv": "/scratch/hpc-prf-merlin/joel/moe-study/result_analysis/l2v_nested_samples/200.csv",
+      "language_rates_counts_tsv": "/scratch/hpc-prf-merlin/joel/moe-study/result_analysis/l2v_nested_samples/language_sample_counts.tsv",
+      "sample_fraction": 0.000063
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m/runs",
+      "report_to": "wandb",
+      "executor": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 32,
+        "mem": "192G",
+        "time": "7-00:00:00"
+      },
+      "distributed": {
+        "enabled": false,
+        "num_processes": 1,
+        "num_machines": 1,
+        "machine_rank": 0,
+        "main_process_ip": "127.0.0.1",
+        "main_process_port": 29501
+      },
+      "train": {
+        "batch_size": 24,
+        "grad_accum": 2,
+        "flash_attn": "sdpa",
+        "num_train_epochs": 1.0,
+        "save_strategy": "epoch",
+        "save_total_limit": 1
+      },
+      "runs": [
+        {"id": "lora_r8_s42", "kind": "lora", "seed": 42, "train": {"batch_size": 12}, "lora": {"alpha": 16, "rank": 8}},
+        {"id": "lora_r64_s42", "kind": "lora", "seed": 42, "train": {"batch_size": 8}, "lora": {"alpha": 128, "rank": 64}},
+        {"id": "lora_r256_s42", "kind": "lora", "seed": 42, "train": {"batch_size": 5}, "lora": {"alpha": 512, "rank": 256}}
+      ]
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m/benchmarks"
+    },
+    "final_eval_loss": {
+      "output_subdir": "final_eval_loss",
+      "batch_size": 1
+    },
+    "summary": {
+      "baseline_id": "lora_r8_s42",
+      "gate_json": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m/report.xlsx"
+    },
+    "wandb": {
+      "project": "moe_study_lora_scaling"
+    }
+  },
+  "moe_study_lora_scaling_200_langs_100m": {
+    "extends": "moe_study_lora_scaling_200_langs_50m",
+    "output_root": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_100m",
+    "logs_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_100m/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-lora-scaling-200langs-100m",
+      "language_count_hint": 200
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_100m/tokenized",
+      "sample_fraction": 0.000126
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_100m/runs"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_100m/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_100m/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_100m/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_100m/report.xlsx"
+    }
+  },
+  "moe_study_lora_scaling_200_langs_200m": {
+    "extends": "moe_study_lora_scaling_200_langs_50m",
+    "output_root": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_200m",
+    "logs_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_200m/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-lora-scaling-200langs-200m",
+      "language_count_hint": 200
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_200m/tokenized",
+      "sample_fraction": 0.000252
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_200m/runs"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_200m/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_200m/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_200m/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_200m/report.xlsx"
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import argparse
 import collections
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -380,6 +381,28 @@ def main() -> int:
             (tokenized_dir / "_check.json").write_text(json.dumps(out, indent=2, sort_keys=True), encoding="utf-8")
             raise SystemExit("[CHECK FAIL] tokenize: english validation fraction unavailable")
 
+        other_doc_counts = [
+            int(out.get("docs_per_language", {}).get(lang, 0))
+            for lang in expected
+            if lang != english_key and int(out.get("docs_per_language", {}).get(lang, 0)) > 0
+        ]
+        if other_doc_counts:
+            import statistics
+
+            english_docs = int(out.get("docs_per_language", {}).get(english_key, 0))
+            median_docs = float(statistics.median(other_doc_counts))
+            tolerance_docs = max(1.0, median_docs * float(args.english_median_tolerance))
+            out["english_doc_count_expected_median"] = median_docs
+            out["english_doc_count_actual"] = english_docs
+            out["english_doc_count_tolerance"] = tolerance_docs
+            if abs(float(english_docs) - median_docs) > tolerance_docs:
+                out["pass"] = False
+                (tokenized_dir / "_check.json").write_text(json.dumps(out, indent=2, sort_keys=True), encoding="utf-8")
+                raise SystemExit(
+                    "[CHECK FAIL] tokenize: english doc count is not near median of other languages "
+                    f"(expected ~{median_docs:.1f} ±{tolerance_docs:.1f}, got {english_docs})"
+                )
+
         eval_fraction = args.eval_fraction if args.eval_fraction and args.eval_fraction > 0 else None
         if eval_fraction is not None:
             min_allowed = eval_fraction * 0.25
@@ -388,7 +411,14 @@ def main() -> int:
             out["english_validation_fraction_allowed_min"] = min_allowed
             out["english_validation_fraction_allowed_max"] = max_allowed
             out["english_validation_fraction_actual"] = english_frac
-            if english_frac < min_allowed or english_frac > max_allowed:
+            english_docs = int(out.get("docs_per_language", {}).get(english_key, 0))
+            min_docs_for_fraction_check = int(math.ceil(1.0 / max_allowed)) if max_allowed > 0 else 0
+            out["english_validation_fraction_min_docs_for_check"] = min_docs_for_fraction_check
+            if english_docs < min_docs_for_fraction_check:
+                out["english_validation_fraction_check_skipped"] = (
+                    "english doc count is too small for a stable validation fraction check"
+                )
+            elif english_frac < min_allowed or english_frac > max_allowed:
                 out["pass"] = False
                 (tokenized_dir / "_check.json").write_text(json.dumps(out, indent=2, sort_keys=True), encoding="utf-8")
                 raise SystemExit(

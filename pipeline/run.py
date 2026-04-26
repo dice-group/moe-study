@@ -304,6 +304,7 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     env["PYTHON_EXECUTABLE"] = str(python_exec)
     env["PATH"] = f"{python_exec.parent}:{env.get('PATH', '')}"
     env["PYTHONPATH"] = f"{repo_root}:{repo_root / 'LLaMA-Factory' / 'src'}:{env.get('PYTHONPATH', '')}"
+    env["PROOF_PIPELINE_REPO_ROOT"] = str(repo_root)
     env["PROOF_PIPELINE_RUN_TIMESTAMP"] = run_timestamp
     env["PROOF_PIPELINE_CODE_SIG"] = _compute_pipeline_code_signature(repo_root)
     os.environ["PROOF_PIPELINE_CODE_SIG"] = env["PROOF_PIPELINE_CODE_SIG"]
@@ -511,6 +512,25 @@ def _submit_chain(args: argparse.Namespace) -> int:
     }
 
     chain_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    chain_env = os.environ.copy()
+    python_exec = Path(sys.executable)
+    chain_env["PYTHON_EXECUTABLE"] = str(python_exec)
+    chain_env["PATH"] = f"{python_exec.parent}:{chain_env.get('PATH', '')}"
+    chain_env["PYTHONPATH"] = f"{repo_root}:{repo_root / 'LLaMA-Factory' / 'src'}:{chain_env.get('PYTHONPATH', '')}"
+    chain_env["PROOF_PIPELINE_REPO_ROOT"] = str(repo_root)
+    chain_env["PROOF_PIPELINE_RUN_TIMESTAMP"] = chain_timestamp
+    chain_env["PROOF_PIPELINE_CODE_SIG"] = _compute_pipeline_code_signature(repo_root)
+    if str(executor_cfg.get("cuda_visible_devices", "")).strip():
+        chain_env["CUDA_VISIBLE_DEVICES"] = str(executor_cfg["cuda_visible_devices"]).strip()
+    if run_ids:
+        chain_env["PROOF_PIPELINE_SELECTED_RUN_IDS"] = ",".join(run_ids)
+    chain_env.setdefault("WANDB_MODE", str(profile.get("wandb_mode", "disabled")))
+    wandb_cfg = profile.get("wandb", {}) if isinstance(profile.get("wandb", {}), dict) else {}
+    if bool(wandb_cfg.get("enabled", False)):
+        if str(wandb_cfg.get("project", "")).strip():
+            chain_env["WANDB_PROJECT"] = str(wandb_cfg["project"]).strip()
+        if str(wandb_cfg.get("entity", "")).strip():
+            chain_env["WANDB_ENTITY"] = str(wandb_cfg["entity"]).strip()
     dependency_ids: list[str] = []
     submitted: list[str] = []
     last_stage_job_ids_by_run: dict[str, str] = {}
@@ -616,7 +636,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
                         job_dependency = f"afterany:{prior_job}" # use afterany dependency to allow benchmark to run even after training is aborted due to time limit
                 job_id = executor.submit(
                     cmd,
-                    os.environ.copy(),
+                    chain_env,
                     args.dry_run,
                     log_path,
                     dependency=job_dependency,
@@ -664,7 +684,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
             job_name = f"{stage_tag}{lang_tag}_{approach}"
             job_id = executor.submit(
                 cmd,
-                os.environ.copy(),
+                chain_env,
                 args.dry_run,
                 log_path,
                 dependency=dependency,
