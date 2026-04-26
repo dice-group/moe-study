@@ -1,0 +1,145 @@
+{
+  "moe_study_profile_lola_gpuvm_moelora_rank_sweep": {
+    "extends": "moe_study_profile_lola_gpuvm",
+    "output_root": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_moelora_rank_sweep",
+    "logs_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_moelora_rank_sweep/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-lola-gpuvm-moelora-rank-sweep",
+      "language_count_hint": 10
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_moelora_rank_sweep/runs",
+      "extra_env": {
+        "PYTORCH_CUDA_ALLOC_CONF": ""
+      },
+      "report_to": "none",
+      "eval": {
+        "enabled": false,
+        "strategy": "no"
+      },
+      "train": {
+        "batch_size": 1,
+        "grad_accum": 2,
+        "max_steps": 100,
+        "logging_steps": 1,
+        "save_strategy": "no",
+        "save_steps": 100000,
+        "save_total_limit": 0,
+        "num_train_epochs": 1.0
+      },
+      "runs": [
+        {
+          "id": "moelora_r32_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "alpha": 64,
+            "rank": 32
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_r64_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "alpha": 128,
+            "rank": 64
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_r128_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "alpha": 256,
+            "rank": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_r256_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "alpha": 512,
+            "rank": 256
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_r512_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "alpha": 1024,
+            "rank": 512
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        },
+        {
+          "id": "moelora_r1024_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "alpha": 2048,
+            "rank": 1024
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          }
+        }
+      ]
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_moelora_rank_sweep/benchmarks"
+    },
+    "baseline_eval": {
+      "enabled": false
+    },
+    "summary": {
+      "baseline_id": "moelora_r32_e32_k4",
+      "gate_json": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_moelora_rank_sweep/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_moelora_rank_sweep/summary.csv"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_lola_gpuvm_moelora_rank_sweep/report.xlsx"
+    },
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled"
+    },
+    "wandb_mode": "disabled"
+  }
+}

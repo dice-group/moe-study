@@ -95,6 +95,14 @@
             "alpha": 1024,
             "rank": 512
           }
+        },
+        {
+          "id": "lora_r1024",
+          "kind": "lora",
+          "lora": {
+            "alpha": 2048,
+            "rank": 1024
+          }
         }
       ]
     },
