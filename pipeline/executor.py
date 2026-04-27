@@ -522,7 +522,13 @@ class SlurmExecutor:
                 # Replace the intermediate shell with the target command so the tracked child PID
                 # is the actual Python process. Otherwise a warning signal can hit the shell first
                 # and cascade into abrupt teardown before nested checkpoint handlers run.
-                f"setsid bash -lc 'exec {cmd_str_for_bash}' &",
+                (
+                    "setsid bash -lc '"
+                    'if [[ -n "${PROOF_PIPELINE_REPO_ROOT:-}" ]]; then '
+                    'cd "${PROOF_PIPELINE_REPO_ROOT}"; '
+                    "fi; "
+                    f"exec {cmd_str_for_bash}' &"
+                ),
                 "CHILD_PID=$!",
                 'CHILD_PGID="$(ps -o pgid= \"${CHILD_PID}\" 2>/dev/null | tr -d \" \")"',
                 "while true; do",

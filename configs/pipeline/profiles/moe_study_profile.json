@@ -12,7 +12,7 @@
         "system/CUDA/12.6.0",
         "lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0"
       ],
-      "partition": "gpu",
+      "partition": "gpu_h100",
       "time": "27:00:00",
       "type": "slurm"
     },
@@ -367,20 +367,20 @@
         "mem": "8G"
       },
       "train": {
-        "partition": "gpu",
+        "partition": "gpu_h100",
         "gres": "gpu:h100:1",
         "extra_sbatch_flags": [
           "--signal=B:USR1@900"
         ]
       },
       "benchmark": {
-        "partition": "gpu",
+        "partition": "gpu_h100",
         "gres": "gpu:h100:1",
         "cpus_per_task": 8,
         "mem": "64G"
       },
       "baseline_eval": {
-        "partition": "gpu",
+        "partition": "gpu_h100",
         "gres": "gpu:h100:1",
         "cpus_per_task": 8,
         "mem": "64G"
@@ -607,7 +607,7 @@
             "adamole_num_experts": 2
           },
           "train": {
-            "batch_size": 7,
+            "batch_size": 6,
             "grad_accum": 2
           }
         },
@@ -680,8 +680,8 @@
           },
           "train": {
             "disable_gradient_checkpointing": true,
-            "batch_size": 24,
-            "grad_accum": 2
+            "batch_size": 4,
+            "grad_accum": 16
           }
         },
         {
@@ -699,7 +699,7 @@
             "mtllora_use_language_ids_as_task_ids": true
           },
           "train": {
-            "batch_size": 32,
+            "batch_size": 34,
             "grad_accum": 2
           }
         }
@@ -715,6 +715,11 @@
       "include_flores": true,
       "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/benchmarks",
       "wandb_project": "moe_study_eval"
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_subdir": "final_eval_loss",
+      "batch_size": "train"
     },
     "baseline_eval": {
       "enabled": false,
@@ -974,8 +979,8 @@
           },
           "train": {
             "disable_gradient_checkpointing": true,
-            "batch_size": 4,
-            "grad_accum": 2
+            "batch_size": 3,
+            "grad_accum": 16
           }
         },
         {
@@ -1274,8 +1279,9 @@
             "hmora_num_encoder_layer": 1
           },
           "train": {
-            "batch_size": 8,
-            "grad_accum": 6
+            "disable_gradient_checkpointing": true,
+            "batch_size": 3,
+            "grad_accum": 16
           }
         },
         {

@@ -12,8 +12,24 @@ from .runtime import (
     _should_skip_stage,
     _stage_signature,
 )
+from ..runtime import _deep_merge
 from ..context import PipelineContext
 from ..training import build_final_eval_cmd, resolve_adapter_eval_path
+
+
+def _resolve_eval_batch_size(ctx: PipelineContext, run: dict[str, Any]) -> int:
+    raw = ctx.final_eval_loss_cfg.get("batch_size", 1)
+    if isinstance(raw, str) and raw.strip().lower() in {"train", "training", "run", "per_run"}:
+        train_cfg = _deep_merge(ctx.train_cfg.get("train", {}), run.get("train", {}))
+        raw = train_cfg.get("batch_size", 1)
+
+    try:
+        batch_size = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"final_eval_loss.batch_size must be a positive integer or 'train' (got {raw!r})") from exc
+    if batch_size <= 0:
+        raise SystemExit(f"final_eval_loss.batch_size must be positive (got {batch_size})")
+    return batch_size
 
 
 def stage_final_eval_loss(ctx: PipelineContext) -> None:
@@ -95,7 +111,7 @@ def stage_final_eval_loss(ctx: PipelineContext) -> None:
             run_name=run_name_label,
             model_name_or_path=model_name_or_path,
             adapter_name_or_path=str(adapter_path),
-            per_device_eval_batch_size=int(ctx.final_eval_loss_cfg.get("batch_size", 1)),
+            per_device_eval_batch_size=_resolve_eval_batch_size(ctx, run),
             max_samples=int(ctx.final_eval_loss_cfg["limit"]) if ctx.final_eval_loss_cfg.get("limit") is not None else None,
             verify_adapter=not ctx.args.dry_run,
         )
