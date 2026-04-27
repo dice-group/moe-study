@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -29,13 +30,30 @@ def safe_json_dumps(value: Any) -> str:
 
 def safe_float(value: Any) -> float | None:
     if isinstance(value, (int, float)):
-        return float(value)
+        out = float(value)
+        return out if math.isfinite(out) else None
     if isinstance(value, str):
         try:
-            return float(value)
+            out = float(value)
+            return out if math.isfinite(out) else None
         except ValueError:
             return None
     return None
+
+
+def is_finite_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and math.isfinite(float(value))
+
+
+def nonfinite_display(value: Any) -> str:
+    if not isinstance(value, (int, float)):
+        return ""
+    numeric = float(value)
+    if math.isnan(numeric):
+        return "nan"
+    if math.isinf(numeric):
+        return "inf" if numeric > 0 else "-inf"
+    return ""
 
 
 def flatten_payload(payload: Any, prefix: str = "") -> list[tuple[str, str]]:

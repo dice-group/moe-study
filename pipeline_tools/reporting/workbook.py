@@ -37,6 +37,28 @@ DEFAULT_BASELINE_METRICS_CSVS = [
 ]
 
 
+def _canonical_metric_name(metric: str) -> str:
+    if "," in metric:
+        return metric.split(",", 1)[0].strip()
+    return metric.strip()
+
+
+def _merge_baseline_rows_with_precedence(*baseline_groups: tuple[int, list[dict]]) -> list[dict]:
+    merged: dict[tuple[str, str], tuple[int, int, dict]] = {}
+    for precedence, rows in baseline_groups:
+        for order_idx, row in enumerate(rows):
+            task = str(row.get("task", "")).strip()
+            metric = str(row.get("metric", "")).strip()
+            if not task or not metric:
+                continue
+            key = (task, _canonical_metric_name(metric))
+            current = merged.get(key)
+            candidate = (precedence, order_idx, row)
+            if current is None or precedence < current[0] or (precedence == current[0] and order_idx < current[1]):
+                merged[key] = candidate
+    return [item[2] for item in sorted(merged.values(), key=lambda value: (value[0], value[1]))]
+
+
 def build_workbook(
     *,
     summary_rows,
@@ -144,10 +166,11 @@ def main() -> int:
     for baseline_csv in args.baseline_metrics_csv or DEFAULT_BASELINE_METRICS_CSVS:
         baseline_csv_rows.extend(load_baseline_rows_from_csv(Path(baseline_csv)))
     if baseline_rows or baseline_json_rows or baseline_csv_rows:
-        merged = {}
-        for row in [*baseline_rows, *baseline_json_rows, *baseline_csv_rows]:
-            merged[(str(row["run_id"]), str(row["task"]), str(row["metric"]))] = row
-        baseline_rows = list(merged.values())
+        baseline_rows = _merge_baseline_rows_with_precedence(
+            (0, baseline_rows),
+            (1, baseline_json_rows),
+            (2, baseline_csv_rows),
+        )
 
     resource_map = load_resource_map(Path(args.resource_availability_csv))
     profile_payload = safe_json_load(Path(args.profile_json)) if str(args.profile_json).strip() else {}
