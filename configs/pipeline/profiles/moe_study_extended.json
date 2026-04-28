@@ -1,0 +1,105 @@
+{
+  "moe_study_extended": {
+    "extends": "moe_study_profile_otus_cluster_200_langs",
+    "output_root": "outputs/pipeline_runs/moe_study_extended",
+    "logs_dir": "outputs/pipeline_runs/moe_study_extended/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-extended-rank-200langs-4gpu",
+      "language_count_hint": 200
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_study_extended/tokenized",
+      "sample_fraction": 0.01,
+      "executor": {
+        "modules": [],
+        "conda_base": "none",
+        "conda_env": "none"
+      }
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_extended/runs",
+      "executor": {
+        "gres": "gpu:h100:4",
+        "time": "1-12:00:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@900"
+        ]
+      },
+      "distributed": {
+        "enabled": true,
+        "num_processes": 4,
+        "num_machines": 1,
+        "machine_rank": 0,
+        "main_process_ip": "127.0.0.1",
+        "main_process_port": 29501,
+        "config_file": "configs/accelerate/fsdp_4gpu_config.yaml"
+      },
+      "runs": [
+        {
+          "id": "lora_r256",
+          "kind": "lora",
+          "lora": {
+            "alpha": 512,
+            "rank": 256
+          },
+          "train": {
+            "batch_size": 4,
+            "grad_accum": 2
+          }
+        },
+        {
+          "id": "moelora_r256_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "alpha": 512,
+            "rank": 256
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          },
+          "train": {
+            "batch_size": 1,
+            "grad_accum": 2
+          }
+        },
+        {
+          "id": "moelora_r1024_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "alpha": 2048,
+            "rank": 1024
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_task_num": 1
+          },
+          "train": {
+            "batch_size": 1,
+            "grad_accum": 2
+          }
+        }
+      ]
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_extended/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "lora_r256",
+      "gate_json": "outputs/pipeline_runs/moe_study_extended/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_extended/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_extended/report.xlsx"
+    },
+    "wandb": {
+      "project": "moe_study_extended"
+    }
+  }
+}

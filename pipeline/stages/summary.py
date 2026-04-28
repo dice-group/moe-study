@@ -39,6 +39,51 @@ def _latest_metric_from_log_jsonl(path, metric: str):
     return latest
 
 
+def _latest_metric_from_log_jsonl_any(path, metrics: list[str]):
+    if not path.exists():
+        return None
+    latest = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        raw = line.strip()
+        if not raw:
+            continue
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        for metric in metrics:
+            value = payload.get(metric)
+            if isinstance(value, (int, float)):
+                latest = value
+                break
+    return latest
+
+
+def _load_latest_trainer_state(output_dir) -> dict[str, object]:
+    candidates = []
+    root_state = output_dir / "trainer_state.json"
+    if root_state.exists():
+        candidates.append(root_state)
+    candidates.extend(sorted(output_dir.glob("checkpoint-*/trainer_state.json")))
+
+    best_payload: dict[str, object] = {}
+    best_step = -1
+    for candidate in candidates:
+        payload = _load_json(candidate)
+        step = payload.get("global_step", -1)
+        if isinstance(step, int) and step >= best_step:
+            best_step = step
+            best_payload = payload
+    return best_payload
+
+
+def _coalesce_numeric(*values):
+    for value in values:
+        if isinstance(value, (int, float)):
+            return value
+    return None
+
+
 def _load_trainable_stats(run_id: str, output_dir, logs_root) -> dict[str, object]:
     artifact_path = output_dir / "trainable_params.json"
     if artifact_path.exists():
@@ -98,9 +143,11 @@ def stage_summary(ctx: PipelineContext) -> None:
                 run_id = str(run["id"])
                 output_dir = ctx.train_root / run_id
                 train_results = _load_json(output_dir / "train_results.json") if (output_dir / "train_results.json").exists() else {}
-                trainer_state = _load_json(output_dir / "trainer_state.json") if (output_dir / "trainer_state.json").exists() else {}
+                trainer_state = _load_latest_trainer_state(output_dir)
                 trainable_stats = _load_trainable_stats(run_id, output_dir, ctx.logs_root)
                 history = trainer_state.get("log_history", [])
+                if not isinstance(history, list):
+                    history = []
                 eval_loss = _latest_metric(history, "eval_loss")
                 if eval_loss is None:
                     eval_loss = _latest_metric_from_log_jsonl(output_dir / "trainer_log.jsonl", "eval_loss")
@@ -115,14 +162,40 @@ def stage_summary(ctx: PipelineContext) -> None:
                                 eval_loss = float(value)
                         except Exception:
                             pass
+                train_loss = _coalesce_numeric(
+                    train_results.get("train_loss"),
+                    _latest_metric(history, "train_loss"),
+                    _latest_metric(history, "loss"),
+                    _latest_metric_from_log_jsonl(output_dir / "trainer_log.jsonl", "loss"),
+                )
+                train_runtime = _coalesce_numeric(
+                    train_results.get("train_runtime"),
+                    _latest_metric(history, "train_runtime"),
+                )
+                effective_tokens_per_sec = _coalesce_numeric(
+                    train_results.get("effective_tokens_per_sec"),
+                    _latest_metric_from_log_jsonl_any(
+                        output_dir / "trainer_log.jsonl",
+                        ["effective_tokens_per_sec", "train_tokens_per_second", "throughput"],
+                    ),
+                )
+                num_input_tokens_seen = _coalesce_numeric(
+                    train_results.get("num_input_tokens_seen"),
+                    trainer_state.get("num_input_tokens_seen"),
+                    _latest_metric(history, "num_input_tokens_seen"),
+                    _latest_metric_from_log_jsonl_any(
+                        output_dir / "trainer_log.jsonl",
+                        ["num_input_tokens_seen", "total_tokens"],
+                    ),
+                )
                 rows.append(
                     {
                         "run_id": run_id,
                         "kind": run.get("kind"),
-                        "train_loss": train_results.get("train_loss"),
-                        "train_runtime": train_results.get("train_runtime"),
-                        "effective_tokens_per_sec": train_results.get("effective_tokens_per_sec"),
-                        "num_input_tokens_seen": train_results.get("num_input_tokens_seen"),
+                        "train_loss": train_loss,
+                        "train_runtime": train_runtime,
+                        "effective_tokens_per_sec": effective_tokens_per_sec,
+                        "num_input_tokens_seen": num_input_tokens_seen,
                         "trainable_params": trainable_stats.get("trainable_params"),
                         "all_params": trainable_stats.get("all_params"),
                         "trainable_pct": trainable_stats.get("trainable_pct"),
