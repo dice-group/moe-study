@@ -10,16 +10,16 @@
         "toolchain/foss/2024a",
         "system/CUDA/12.6.0"
       ],
-      "gres": "gpu:a100:1",
-      "mem": "192G",
+      "gres": "gpu:a100:4",
+      "mem": "384G",
       "time": "7-00:00:00"
     },
     "stage_executors": {
       "train": {
         "partition": "gpu",
-        "gres": "gpu:a100:1",
-        "cpus_per_task": 32,
-        "mem": "192G",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
         "time": "7-00:00:00",
         "extra_sbatch_flags": [
           "--signal=B:USR1@900"
@@ -61,18 +61,19 @@
       "report_to": "wandb",
       "executor": {
         "partition": "gpu",
-        "gres": "gpu:a100:1",
-        "cpus_per_task": 32,
-        "mem": "192G",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
         "time": "7-00:00:00"
       },
       "distributed": {
-        "enabled": false,
-        "num_processes": 1,
+        "enabled": true,
+        "num_processes": 4,
         "num_machines": 1,
         "machine_rank": 0,
         "main_process_ip": "127.0.0.1",
-        "main_process_port": 29501
+        "main_process_port": 29501,
+        "config_file": "configs/accelerate/fsdp_4gpu_config.yaml"
       },
       "train": {
         "batch_size": 24,
@@ -83,9 +84,10 @@
         "save_total_limit": 1
       },
       "runs": [
-        {"id": "lora_r8_s42", "kind": "lora", "seed": 42, "train": {"batch_size": 12}, "lora": {"alpha": 16, "rank": 8}},
-        {"id": "lora_r64_s42", "kind": "lora", "seed": 42, "train": {"batch_size": 8}, "lora": {"alpha": 128, "rank": 64}},
-        {"id": "lora_r256_s42", "kind": "lora", "seed": 42, "train": {"batch_size": 5}, "lora": {"alpha": 512, "rank": 256}}
+        {"id": "lora_r8_s42", "kind": "lora", "seed": 42, "train": {"batch_size": 6}, "lora": {"alpha": 16, "rank": 8}},
+        {"id": "lora_r64_s42", "kind": "lora", "seed": 42, "train": {"batch_size": 6}, "lora": {"alpha": 128, "rank": 64}},
+        {"id": "lora_r256_s42", "kind": "lora", "seed": 42, "train": {"batch_size": 5}, "lora": {"alpha": 512, "rank": 256}},
+        {"id": "lora_r512_s42", "kind": "lora", "seed": 42, "train": {"batch_size": 3}, "lora": {"alpha": 1024, "rank": 512}}
       ]
     },
     "benchmark": {
@@ -157,6 +159,32 @@
     },
     "report": {
       "output_xlsx": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_200m/report.xlsx"
+    }
+  },
+  "moe_study_lora_scaling_200_langs_1b": {
+    "extends": "moe_study_lora_scaling_200_langs_50m",
+    "output_root": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_1b",
+    "logs_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_1b/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-lora-scaling-200langs-1b",
+      "language_count_hint": 200
+    },
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_1b/tokenized",
+      "sample_fraction": 0.00126
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_1b/runs"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_1b/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_1b/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_1b/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_1b/report.xlsx"
     }
   }
 }
