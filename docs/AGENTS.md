@@ -373,6 +373,27 @@ When working on a method or experiment in this repository:
    - at least one local smoke or backend test
 5. Validate locally with the tiny-model profiles before using real GPUs.
 
+## Shared Research Vault
+
+Use the cross-project research vault for durable notes that should survive
+individual agent sessions:
+
+```text
+/local/joeldag/repos/research-vault
+```
+
+After meaningful research, debugging, experiment-design, or run-analysis work,
+write a compact session summary to:
+
+```text
+/local/joeldag/repos/research-vault/000 Inbox/Agent Sessions/
+```
+
+Prefer summaries over full transcripts. Include the repo path, task, decisions,
+commands or artifacts, files changed, and follow-up items. Promote stable
+findings into project, method, dataset, paper, or experiment notes when they
+become reusable.
+
 ## Recommended Follow-Up Docs
 
 These additional docs would be useful over time:
