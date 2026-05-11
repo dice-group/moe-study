@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-from __future__ import annotations
-
 import argparse
 import csv
 import datetime as dt
@@ -12,6 +9,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -28,13 +26,38 @@ from pipeline.run import _compute_pipeline_code_signature  # noqa: E402
 from pipeline.training import build_training_cmd  # noqa: E402
 
 
-SOURCE_PROFILE = "moe_study_rank_expert_sweep_otus_cluster_10_langs"
-CALIBRATED_PROFILE = "moe_study_rank_expert_sweep_otus_cluster_10_langs_calibrated"
+DEFAULT_CLUSTER = "otus"
+CLUSTER_PRESETS = {
+    "otus": {
+        "base_profile": "moe_study_profile_otus_cluster_10_langs",
+        "source_profile": "moe_study_rank_expert_sweep_otus_cluster_10_langs",
+        "calibrated_profile": "moe_study_rank_expert_sweep_otus_cluster_10_langs_calibrated",
+        "experiment_tag": "moe-study-rank-expert-sweep-10langs",
+        "profile_path": Path("configs/pipeline/profiles/moe_study_rank_expert_sweep.json"),
+        "calibrated_profile_path": Path("configs/pipeline/profiles/moe_study_rank_expert_sweep_calibrated.generated.json"),
+        "output_root": Path("outputs/pipeline_runs/moe_study_rank_expert_sweep_otus_cluster_10_langs"),
+        "calibrated_output_root": Path("outputs/pipeline_runs/moe_study_rank_expert_sweep_otus_cluster_10_langs_calibrated"),
+        "probe_root": Path("outputs/pipeline_runs/moe_study_batch_calibration"),
+    },
+    "noctua2_4gpu": {
+        "base_profile": "moe_study_profile_noctua2_a100_4gpu_10_langs",
+        "source_profile": "moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs",
+        "calibrated_profile": "moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs_calibrated",
+        "experiment_tag": "moe-study-rank-expert-sweep-noctua2-a100-4gpu-10langs",
+        "profile_path": Path("configs/pipeline/profiles/moe_study_rank_expert_sweep_noctua2_4gpu.generated.json"),
+        "calibrated_profile_path": Path("configs/pipeline/profiles/moe_study_rank_expert_sweep_noctua2_4gpu_calibrated.generated.json"),
+        "output_root": Path("outputs/pipeline_runs/moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs"),
+        "calibrated_output_root": Path("outputs/pipeline_runs/moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs_calibrated"),
+        "probe_root": Path("outputs/pipeline_runs/moe_study_rank_expert_sweep_noctua2_4gpu_batch_calibration"),
+    },
+}
+SOURCE_PROFILE = str(CLUSTER_PRESETS[DEFAULT_CLUSTER]["source_profile"])
+CALIBRATED_PROFILE = str(CLUSTER_PRESETS[DEFAULT_CLUSTER]["calibrated_profile"])
 PROBE_PROFILE = "moe_study_batch_probe_tmp"
 PROBE_PROFILE_PATH = Path("configs/pipeline/profiles/moe_study_batch_probe.generated.json")
-DEFAULT_RESULTS = Path("outputs/pipeline_runs/moe_study_batch_calibration/probe_results.csv")
-DEFAULT_MANIFEST = Path("outputs/pipeline_runs/moe_study_batch_calibration/probe_manifest.csv")
-DEFAULT_CALIBRATED_PROFILE_PATH = Path("configs/pipeline/profiles/moe_study_rank_expert_sweep_calibrated.generated.json")
+DEFAULT_RESULTS = Path(CLUSTER_PRESETS[DEFAULT_CLUSTER]["probe_root"]) / "probe_results.csv"
+DEFAULT_MANIFEST = Path(CLUSTER_PRESETS[DEFAULT_CLUSTER]["probe_root"]) / "probe_manifest.csv"
+DEFAULT_CALIBRATED_PROFILE_PATH = Path(CLUSTER_PRESETS[DEFAULT_CLUSTER]["calibrated_profile_path"])
 DEFAULT_BATCHES = [1, 2, 4, 6, 8, 10, 12, 16, 20, 24, 28, 32]
 DEFAULT_TARGET_GLOBAL_BATCH = 48
 DEFAULT_MAX_GRAD_ACCUM = 32
@@ -81,6 +104,44 @@ ANCHOR_IDS = [
 def _load_profile(profile_name: str) -> dict[str, Any]:
     config = load_pipeline_config(REPO_ROOT / "configs/pipeline")
     return _resolve_profile(config, profile_name)
+
+
+def _preset(cluster: str) -> dict[str, Any]:
+    if cluster not in CLUSTER_PRESETS:
+        raise SystemExit(f"unknown cluster preset '{cluster}'. Available: {sorted(CLUSTER_PRESETS)}")
+    return CLUSTER_PRESETS[cluster]
+
+
+def _arg_profile(args: argparse.Namespace, attr: str, preset_key: str) -> str:
+    value = getattr(args, attr, None)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return str(_preset(args.cluster)[preset_key])
+
+
+def _arg_path(args: argparse.Namespace, attr: str, preset_key: str) -> Path:
+    value = getattr(args, attr, None)
+    if isinstance(value, str) and value.strip():
+        return Path(value)
+    return Path(_preset(args.cluster)[preset_key])
+
+
+def _probe_root(args: argparse.Namespace) -> Path:
+    return _arg_path(args, "output_root", "probe_root")
+
+
+def _manifest_path(args: argparse.Namespace) -> Path:
+    value = getattr(args, "manifest", None)
+    if isinstance(value, str) and value.strip():
+        return Path(value)
+    return _probe_root(args) / "probe_manifest.csv"
+
+
+def _results_path(args: argparse.Namespace) -> Path:
+    value = getattr(args, "results", None)
+    if isinstance(value, str) and value.strip():
+        return Path(value)
+    return _probe_root(args) / "probe_results.csv"
 
 
 def _run_by_id(profile: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -133,6 +194,7 @@ def _probe_id(anchor_id: str, batch_size: int, disable_gc: bool) -> str:
 
 def _write_probe_profile(
     *,
+    source_profile: str,
     anchor_run: dict[str, Any],
     probe_id: str,
     output_root: Path,
@@ -153,7 +215,7 @@ def _write_probe_profile(
     run["train"] = train
     payload = {
         PROBE_PROFILE: {
-            "extends": SOURCE_PROFILE,
+            "extends": source_profile,
             "output_root": str(output_root),
             "logs_dir": str(output_root / "logs"),
             "training": {
@@ -165,6 +227,7 @@ def _write_probe_profile(
                     "grad_accum": 1,
                     "logging_steps": 1,
                     "save_strategy": "no",
+                    "skip_final_save": True,
                     "save_total_limit": 0,
                     "cleanup_large_artifacts_after_train": True,
                 },
@@ -227,7 +290,7 @@ def _probe_rows(source: dict[str, Any], args: argparse.Namespace) -> list[dict[s
         for disable_gc in _gc_modes(args.gc_modes, anchor_run):
             for batch_size in batches:
                 probe_id = _probe_id(anchor_id, batch_size, disable_gc)
-                output_root = Path(args.output_root) / anchor_id / f"bs{batch_size}_gc{'off' if disable_gc else 'on'}"
+                output_root = _probe_root(args) / anchor_id / f"bs{batch_size}_gc{'off' if disable_gc else 'on'}"
                 rows.append(
                     {
                         "anchor_id": anchor_id,
@@ -371,6 +434,7 @@ def _submit_probe_row(
             "grad_accum": 1,
             "logging_steps": 1,
             "save_strategy": "no",
+            "skip_final_save": True,
             "save_total_limit": 0,
             "cleanup_large_artifacts_after_train": True,
         },
@@ -428,9 +492,9 @@ def _async_submit_context(source: dict[str, Any]) -> tuple[dict[str, Any], Slurm
 
 
 def submit_probes(args: argparse.Namespace) -> int:
-    source = _load_profile(SOURCE_PROFILE)
+    source = _load_profile(_arg_profile(args, "profile", "source_profile"))
     train_cfg, executor, env = _async_submit_context(source)
-    manifest_path = Path(args.manifest)
+    manifest_path = _manifest_path(args)
     submitted = {row.get("probe_id", "") for row in _manifest_rows(manifest_path)}
     submitted_count = 0
 
@@ -473,11 +537,11 @@ def _as_float(raw: Any) -> float | None:
         return None
 
 
-def submit_wave(args: argparse.Namespace) -> int:
-    source = _load_profile(SOURCE_PROFILE)
+def _submit_wave_impl(args: argparse.Namespace) -> int:
+    source = _load_profile(_arg_profile(args, "profile", "source_profile"))
     train_cfg, executor, env = _async_submit_context(source)
-    manifest_path = Path(args.manifest)
-    result_path = Path(args.results)
+    manifest_path = _manifest_path(args)
+    result_path = _results_path(args)
     submitted_probe_ids = {row.get("probe_id", "") for row in _manifest_rows(manifest_path)}
     manifest_by_key: dict[tuple[str, str], list[dict[str, str]]] = {}
     for row in _manifest_rows(manifest_path):
@@ -535,7 +599,7 @@ def submit_wave(args: argparse.Namespace) -> int:
                     next_row = dict(base_row)
                     next_row["probe_id"] = f"{base_row['probe_id']}__telemetry"
                     next_row["output_root"] = (
-                        Path(args.output_root)
+                        _probe_root(args)
                         / str(base_row["anchor_id"])
                         / f"bs{telemetry_batch}_gc{'off' if bool(base_row['disable_gradient_checkpointing']) else 'on'}_telemetry"
                     )
@@ -563,13 +627,6 @@ def submit_wave(args: argparse.Namespace) -> int:
             print(f"[batch_probe_wave] complete {key[0]} gc={key[1]} within requested batches")
             continue
 
-        if args.dry_run:
-            submitted_count += 1
-            print(f"[batch_probe_wave] would submit {next_row['probe_id']}")
-            if args.max_submissions and submitted_count >= int(args.max_submissions):
-                break
-            continue
-
         job_id = _submit_probe_row(
             source=source,
             train_cfg=train_cfg,
@@ -582,13 +639,21 @@ def submit_wave(args: argparse.Namespace) -> int:
             telemetry_interval_seconds=int(args.telemetry_interval_seconds),
             gpu_telemetry=not bool(args.disable_gpu_telemetry),
         )
-        if job_id:
+        if args.dry_run:
+            submitted_count += 1
+            print(f"[batch_probe_wave] dry-run built {next_row['probe_id']}")
+        elif job_id:
             submitted_probe_ids.add(next_row["probe_id"])
             submitted_count += 1
             print(f"[batch_probe_wave] {next_row['probe_id']} job_id={job_id}")
         if args.max_submissions and submitted_count >= int(args.max_submissions):
             break
     print(f"[batch_probe_wave] submitted={submitted_count} manifest={manifest_path}")
+    return submitted_count
+
+
+def submit_wave(args: argparse.Namespace) -> int:
+    _submit_wave_impl(args)
     return 0
 
 
@@ -699,8 +764,8 @@ def _cleanup_probe_artifacts(run_dir: Path) -> None:
 
 
 def collect_results(args: argparse.Namespace) -> int:
-    manifest = _manifest_rows(Path(args.manifest))
-    results_path = Path(args.results)
+    manifest = _manifest_rows(_manifest_path(args))
+    results_path = _results_path(args)
     existing_rows = {row.get("probe_id", ""): row for row in _load_probe_results(results_path)} if results_path.exists() else {}
     collected = 0
     cleaned = 0
@@ -748,6 +813,123 @@ def collect_results(args: argparse.Namespace) -> int:
     return 0
 
 
+def _calibration_status(args: argparse.Namespace) -> dict[str, Any]:
+    source = _load_profile(_arg_profile(args, "profile", "source_profile"))
+    manifest = _manifest_rows(_manifest_path(args))
+    results_path = _results_path(args)
+    results = _load_probe_results(results_path) if results_path.exists() else []
+    result_probe_ids = {row.get("probe_id", "") for row in results}
+
+    active_or_uncollected = 0
+    active_running = 0
+    state_counts: dict[str, int] = {}
+    for row in manifest:
+        if row.get("probe_id", "") in result_probe_ids:
+            continue
+        finished, state, _exit_code = _job_finished(row["job_id"])
+        state_key = state or "UNKNOWN"
+        state_counts[state_key] = state_counts.get(state_key, 0) + 1
+        active_or_uncollected += 1
+        if not finished:
+            active_running += 1
+
+    candidates_by_key: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in _probe_rows(source, args):
+        candidates_by_key.setdefault(_probe_key(row), []).append(row)
+
+    manifest_by_key: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in manifest:
+        manifest_by_key.setdefault(_probe_key(row), []).append(row)
+
+    result_by_key: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in results:
+        result_by_key.setdefault(_probe_key(row), []).append(row)
+
+    target_gpu_mem_pct = float(getattr(args, "target_gpu_mem_pct", 0.0) or 0.0)
+    complete = 0
+    infeasible = 0
+    needs_more = 0
+    waiting = 0
+    for key, candidates in candidates_by_key.items():
+        max_candidate_batch = max(int(row["batch_size"]) for row in candidates)
+        has_uncollected = any(row.get("probe_id", "") not in result_probe_ids for row in manifest_by_key.get(key, []))
+        if has_uncollected:
+            waiting += 1
+            continue
+
+        key_results = result_by_key.get(key, [])
+        key_successes = [row for row in key_results if _truthy(row.get("success", ""))]
+        key_failures = [row for row in key_results if not _truthy(row.get("success", ""))]
+        if key_failures:
+            if not key_successes and any(int(row.get("batch_size", "0") or 0) == 1 for row in key_failures):
+                infeasible += 1
+            complete += 1
+            continue
+        if target_gpu_mem_pct > 0.0 and any((_as_float(row.get("gpu_mem_peak_pct")) or 0.0) >= target_gpu_mem_pct for row in key_successes):
+            complete += 1
+            continue
+        if key_successes and max(int(row["batch_size"]) for row in key_successes) >= max_candidate_batch:
+            complete += 1
+            continue
+        needs_more += 1
+
+    return {
+        "anchors": len(candidates_by_key),
+        "complete": complete,
+        "infeasible": infeasible,
+        "needs_more": needs_more,
+        "waiting": waiting,
+        "active_or_uncollected": active_or_uncollected,
+        "active_running": active_running,
+        "state_counts": state_counts,
+        "results": len(results),
+        "manifest": len(manifest),
+    }
+
+
+def auto_calibrate(args: argparse.Namespace) -> int:
+    max_rounds = int(getattr(args, "max_rounds", 0) or 0)
+    poll_seconds = int(getattr(args, "poll_seconds", 60) or 60)
+    round_idx = 0
+    while True:
+        round_idx += 1
+        print(f"[batch_probe_auto] round={round_idx} collect")
+        collect_results(args)
+        status = _calibration_status(args)
+        print(
+            "[batch_probe_auto] status "
+            f"complete={status['complete']}/{status['anchors']} "
+            f"infeasible={status['infeasible']} needs_more={status['needs_more']} "
+            f"waiting={status['waiting']} active_or_uncollected={status['active_or_uncollected']} "
+            f"running={status['active_running']} states={status['state_counts']}"
+        )
+
+        if status["needs_more"] == 0 and status["active_or_uncollected"] == 0:
+            break
+
+        submitted = _submit_wave_impl(args)
+        status = _calibration_status(args)
+        print(
+            "[batch_probe_auto] after_submit "
+            f"submitted={submitted} needs_more={status['needs_more']} "
+            f"waiting={status['waiting']} active_or_uncollected={status['active_or_uncollected']} "
+            f"running={status['active_running']}"
+        )
+        if status["needs_more"] == 0 and status["active_or_uncollected"] == 0:
+            break
+        if submitted == 0 and status["active_or_uncollected"] == 0 and status["needs_more"] > 0:
+            raise SystemExit("calibration made no progress but still has anchors needing probes")
+        if max_rounds > 0 and round_idx >= max_rounds:
+            raise SystemExit(f"stopping after --max-rounds={max_rounds}")
+        print(f"[batch_probe_auto] sleeping {poll_seconds}s")
+        time.sleep(poll_seconds)
+
+    print("[batch_probe_auto] calibration complete")
+    if bool(getattr(args, "write_profile", False)):
+        return write_calibrated_profile(args)
+    return 0
+
+
 def _read_summary_row(summary_path: Path, run_id: str) -> dict[str, str]:
     if not summary_path.exists():
         return {}
@@ -789,10 +971,10 @@ def _append_result(path: Path, row: dict[str, Any]) -> None:
 
 
 def run_probes(args: argparse.Namespace) -> int:
-    source = _load_profile(SOURCE_PROFILE)
+    source = _load_profile(_arg_profile(args, "profile", "source_profile"))
     runs = _run_by_id(source)
     batches = _parse_batch_values(args.batches)
-    result_path = Path(args.results)
+    result_path = _results_path(args)
     if result_path.exists() and not args.resume:
         raise SystemExit(f"results file already exists: {result_path}; pass --resume to append/skip existing probes")
 
@@ -810,8 +992,9 @@ def run_probes(args: argparse.Namespace) -> int:
                 probe_id = _probe_id(anchor_id, batch_size, disable_gc)
                 if probe_id in existing_probe_ids:
                     continue
-                output_root = Path(args.output_root) / anchor_id / f"bs{batch_size}_gc{'off' if disable_gc else 'on'}"
+                output_root = _probe_root(args) / anchor_id / f"bs{batch_size}_gc{'off' if disable_gc else 'on'}"
                 _write_probe_profile(
+                    source_profile=_arg_profile(args, "profile", "source_profile"),
                     anchor_run=anchor_run,
                     probe_id=probe_id,
                     output_root=output_root,
@@ -875,7 +1058,13 @@ def _load_probe_results(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def _best_anchor_settings(rows: list[dict[str, str]], min_gpu_mem_pct: float = 0.0) -> dict[str, dict[str, Any]]:
+def _best_anchor_settings(
+    rows: list[dict[str, str]],
+    min_gpu_mem_pct: float = 0.0,
+    selection: str = "fastest",
+) -> dict[str, dict[str, Any]]:
+    if selection not in {"fastest", "highest-batch"}:
+        raise SystemExit(f"unsupported selection mode: {selection}")
     by_anchor_gc: dict[tuple[str, str], list[dict[str, str]]] = {}
     for row in rows:
         if str(row.get("success", "")).lower() != "true":
@@ -907,13 +1096,23 @@ def _best_anchor_settings(rows: list[dict[str, str]], min_gpu_mem_pct: float = 0
                     eligible = telemetry_candidates
                     selection_priority = 1
                 selection_basis = f"fallback_max_batch_below_{min_gpu_mem_pct:g}_pct_peak_vram"
-        best = max(
-            eligible,
-            key=lambda row: (
-                float(row.get("effective_tokens_per_sec") or 0.0),
-                int(row["batch_size"]),
-            ),
-        )
+        if selection == "highest-batch":
+            best = max(
+                eligible,
+                key=lambda row: (
+                    int(row["batch_size"]),
+                    float(row.get("effective_tokens_per_sec") or 0.0),
+                ),
+            )
+            selection_basis = f"{selection_basis}__highest_batch"
+        else:
+            best = max(
+                eligible,
+                key=lambda row: (
+                    float(row.get("effective_tokens_per_sec") or 0.0),
+                    int(row["batch_size"]),
+                ),
+            )
         throughput = float(best["effective_tokens_per_sec"] or 0.0)
         candidate_payload = {
             "anchor_id": anchor_id,
@@ -930,15 +1129,29 @@ def _best_anchor_settings(rows: list[dict[str, str]], min_gpu_mem_pct: float = 0
         if current is None:
             best_by_anchor[anchor_id] = candidate_payload
             continue
-        if (
-            candidate_payload["selection_priority"],
-            candidate_payload["effective_tokens_per_sec"],
-            candidate_payload["batch_size"],
-        ) > (
-            current["selection_priority"],
-            current["effective_tokens_per_sec"],
-            current["batch_size"],
-        ):
+        if selection == "highest-batch":
+            candidate_score = (
+                candidate_payload["selection_priority"],
+                candidate_payload["batch_size"],
+                candidate_payload["effective_tokens_per_sec"],
+            )
+            current_score = (
+                current["selection_priority"],
+                current["batch_size"],
+                current["effective_tokens_per_sec"],
+            )
+        else:
+            candidate_score = (
+                candidate_payload["selection_priority"],
+                candidate_payload["effective_tokens_per_sec"],
+                candidate_payload["batch_size"],
+            )
+            current_score = (
+                current["selection_priority"],
+                current["effective_tokens_per_sec"],
+                current["batch_size"],
+            )
+        if candidate_score > current_score:
             best_by_anchor[anchor_id] = candidate_payload
     return best_by_anchor
 
@@ -977,10 +1190,130 @@ def _select_setting_for_run(run: dict[str, Any], anchors: dict[str, dict[str, An
     return selected
 
 
+def _distributed_process_count(profile: dict[str, Any]) -> int:
+    training = profile.get("training", {}) if isinstance(profile.get("training"), dict) else {}
+    distributed = training.get("distributed", {}) if isinstance(training.get("distributed"), dict) else {}
+    if not isinstance(distributed, dict) or not distributed.get("enabled", False):
+        return 1
+    return max(1, int(distributed.get("num_processes", 1)))
+
+
+def _closest_grad_accum(target_global_batch: int, batch_size: int, process_count: int, max_grad_accum: int) -> int:
+    unit = max(1, int(batch_size) * int(process_count))
+    candidates = {1, max(1, math.floor(target_global_batch / unit)), max(1, math.ceil(target_global_batch / unit))}
+    candidates = {min(max_grad_accum, value) for value in candidates if value >= 1}
+    return min(
+        candidates,
+        key=lambda value: (
+            abs((unit * value) - target_global_batch),
+            unit * value > target_global_batch,
+            -value,
+        ),
+    )
+
+
+def _source_profile_payload(
+    *,
+    profile_name: str,
+    base_profile: str,
+    experiment_tag: str,
+    output_root: Path,
+    template_profile: dict[str, Any],
+) -> dict[str, Any]:
+    output_root_str = str(output_root)
+    tokenization = template_profile.get("tokenization", {}) if isinstance(template_profile.get("tokenization"), dict) else {}
+    runs = deepcopy(template_profile["training"]["runs"])
+    return {
+        profile_name: {
+            "extends": base_profile,
+            "output_root": output_root_str,
+            "logs_dir": f"{output_root_str}/logs",
+            "run_naming": {
+                "experiment_tag": experiment_tag,
+                "language_count_hint": 10,
+            },
+            "tokenization": {
+                "enabled": False,
+                "output_dir": tokenization.get("output_dir", "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized"),
+            },
+            "training": {
+                "output_dir": f"{output_root_str}/runs",
+                "report_to": "none",
+                "executor": {"time": "03:51:00"},
+                "lora": {
+                    "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj",
+                },
+                "tokenized_local_copy": {
+                    "enabled": True,
+                    "root": "/dev/shm/moe-study-tokenized",
+                    "dereference_symlinks": True,
+                },
+                "eval": {"enabled": False, "strategy": "no"},
+                "train": {
+                    "batch_size": 1,
+                    "grad_accum": 1,
+                    "max_steps": 1,
+                    "logging_steps": 1,
+                    "save_steps": 1,
+                    "skip_final_save": True,
+                    "save_total_limit": 1,
+                    "cleanup_large_artifacts_after_train": True,
+                },
+                "runs": runs,
+            },
+            "final_eval_loss": {"enabled": False},
+            "benchmark": {"enabled": False, "output_dir": f"{output_root_str}/benchmarks"},
+            "baseline_eval": {"enabled": False},
+            "summary": {
+                "baseline_id": "lora_r2",
+                "summary_csv": f"{output_root_str}/summary.csv",
+                "gate_json": f"{output_root_str}/gate.json",
+            },
+            "report": {"enabled": False, "output_xlsx": f"{output_root_str}/report.xlsx"},
+            "wandb": {"enabled": False, "mode": "disabled", "project": "moe-study-rank-expert-sweep"},
+            "wandb_mode": "disabled",
+            "stage_executors": {
+                "train": {
+                    "extra_sbatch_flags": [
+                        "--signal=B:USR1@900",
+                        "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+                        "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True",
+                    ],
+                }
+            },
+        }
+    }
+
+
+def write_profile(args: argparse.Namespace) -> int:
+    template_profile = _load_profile(str(args.template_profile or SOURCE_PROFILE))
+    runs = _run_by_id(template_profile)
+    missing = [anchor_id for anchor_id in ANCHOR_IDS if anchor_id not in runs]
+    if missing:
+        raise SystemExit(f"template profile missing rank-sweep anchors: {missing}")
+    payload = _source_profile_payload(
+        profile_name=_arg_profile(args, "source_profile", "source_profile"),
+        base_profile=str(_preset(args.cluster)["base_profile"]),
+        experiment_tag=str(_preset(args.cluster)["experiment_tag"]),
+        output_root=_arg_path(args, "output_root", "output_root"),
+        template_profile=template_profile,
+    )
+    output_profile = _arg_path(args, "output_profile", "profile_path")
+    output_profile.parent.mkdir(parents=True, exist_ok=True)
+    output_profile.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    print(f"[batch_calibration] wrote source profile: {output_profile}")
+    print(f"[batch_calibration] runs={len(template_profile['training']['runs'])}")
+    return 0
+
+
 def write_calibrated_profile(args: argparse.Namespace) -> int:
-    source = _load_profile(SOURCE_PROFILE)
-    probe_rows = _load_probe_results(Path(args.results))
-    anchors = _best_anchor_settings(probe_rows, min_gpu_mem_pct=float(args.min_gpu_mem_pct))
+    source = _load_profile(_arg_profile(args, "profile", "source_profile"))
+    probe_rows = _load_probe_results(_results_path(args))
+    anchors = _best_anchor_settings(
+        probe_rows,
+        min_gpu_mem_pct=float(args.min_gpu_mem_pct),
+        selection=str(getattr(args, "selection", "fastest")),
+    )
     infeasible_anchor_ids = _infeasible_anchor_ids(probe_rows)
     missing = [anchor_id for anchor_id in ANCHOR_IDS if anchor_id not in anchors and anchor_id not in infeasible_anchor_ids]
     if missing:
@@ -988,10 +1321,39 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
 
     target_global_batch = int(args.target_global_batch)
     max_grad_accum = int(args.max_grad_accum)
+    process_count = _distributed_process_count(source)
+    source_runs = _run_by_id(source)
+    groups_with_successful_anchor = {
+        _group_key(source_runs[anchor_id])
+        for anchor_id in anchors
+        if anchor_id in source_runs
+    }
     calibrated_runs = []
     settings_rows = []
     for run in source["training"]["runs"]:
         run = deepcopy(run)
+        run_group = _group_key(run)
+        if run_group not in groups_with_successful_anchor:
+            settings_rows.append(
+                {
+                    "run_id": run["id"],
+                    "kind": run["kind"],
+                    "anchor_id": "",
+                    "batch_size": "",
+                    "grad_accum": "",
+                    "num_processes": process_count,
+                    "actual_global_batch": "",
+                    "target_global_batch": target_global_batch,
+                    "disable_gradient_checkpointing": "",
+                    "constrained": "",
+                    "effective_tokens_per_sec": "",
+                    "gpu_mem_peak_pct": "",
+                    "gpu_util_avg_pct": "",
+                    "selection_basis": "",
+                    "status": "infeasible_group_no_successful_anchor",
+                }
+            )
+            continue
         if str(run["id"]) in infeasible_anchor_ids:
             settings_rows.append(
                 {
@@ -1000,6 +1362,7 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
                     "anchor_id": run["id"],
                     "batch_size": "",
                     "grad_accum": "",
+                    "num_processes": process_count,
                     "actual_global_batch": "",
                     "target_global_batch": target_global_batch,
                     "disable_gradient_checkpointing": "",
@@ -1014,10 +1377,10 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
             continue
         setting = _select_setting_for_run(run, anchors)
         batch_size = int(setting["batch_size"])
-        grad_accum_needed = max(1, math.ceil(target_global_batch / batch_size))
+        grad_accum_needed = max(1, math.ceil(target_global_batch / (batch_size * process_count)))
         constrained = grad_accum_needed > max_grad_accum
-        grad_accum = min(grad_accum_needed, max_grad_accum)
-        actual_global_batch = batch_size * grad_accum
+        grad_accum = _closest_grad_accum(target_global_batch, batch_size, process_count, max_grad_accum)
+        actual_global_batch = batch_size * process_count * grad_accum
         train = deepcopy(run.get("train", {})) if isinstance(run.get("train"), dict) else {}
         train.update(
             {
@@ -1035,6 +1398,7 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
                 "anchor_id": setting["anchor_id"],
                 "batch_size": batch_size,
                 "grad_accum": grad_accum,
+                "num_processes": process_count,
                 "actual_global_batch": actual_global_batch,
                 "target_global_batch": target_global_batch,
                 "disable_gradient_checkpointing": bool(setting["disable_gradient_checkpointing"]),
@@ -1047,14 +1411,14 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
             }
         )
 
-    output_root = "outputs/pipeline_runs/moe_study_rank_expert_sweep_otus_cluster_10_langs_calibrated"
+    output_root = str(_arg_path(args, "calibrated_output_root", "calibrated_output_root"))
     profile_payload = {
-        CALIBRATED_PROFILE: {
-            "extends": "moe_study_profile_otus_cluster_10_langs",
+        _arg_profile(args, "calibrated_profile", "calibrated_profile"): {
+            "extends": str(_preset(args.cluster)["base_profile"]),
             "output_root": output_root,
             "logs_dir": f"{output_root}/logs",
             "run_naming": {
-                "experiment_tag": "moe-study-rank-expert-sweep-10langs-calibrated",
+                "experiment_tag": f"{_preset(args.cluster)['experiment_tag']}-calibrated",
                 "language_count_hint": 10,
             },
             "tokenization": {
@@ -1065,6 +1429,9 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
                 "output_dir": f"{output_root}/runs",
                 "report_to": "none",
                 "executor": {"time": "03:51:00"},
+                "lora": {
+                    "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj",
+                },
                 "eval": {"enabled": False, "strategy": "no"},
                 "train": {
                     "logging_steps": 50,
@@ -1087,17 +1454,36 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
             "wandb_mode": "disabled",
             "stage_executors": {
                 "train": {
-                    "extra_sbatch_flags": ["--signal=B:USR1@900"],
+                    "extra_sbatch_flags": [
+                        "--signal=B:USR1@900",
+                        "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+                        "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True",
+                    ],
                 }
             },
         }
     }
 
-    profile_path = Path(args.output_profile)
+    profile_payload[_arg_profile(args, "calibrated_profile", "calibrated_profile")]["final_eval_loss"] = {
+        "enabled": True,
+        "output_subdir": "final_eval_loss",
+        "batch_size": "train",
+    }
+    profile_payload[_arg_profile(args, "calibrated_profile", "calibrated_profile")]["benchmark"] = {
+        "enabled": True,
+        "batch_size": "auto",
+        "output_dir": f"{output_root}/benchmarks",
+    }
+    profile_payload[_arg_profile(args, "calibrated_profile", "calibrated_profile")]["report"] = {
+        "enabled": True,
+        "output_xlsx": f"{output_root}/report.xlsx",
+    }
+
+    profile_path = _arg_path(args, "output_profile", "calibrated_profile_path")
     profile_path.parent.mkdir(parents=True, exist_ok=True)
     profile_path.write_text(json.dumps(profile_payload, indent=2) + "\n", encoding="utf-8")
 
-    settings_path = Path(args.output_settings)
+    settings_path = Path(args.output_settings) if str(args.output_settings).strip() else _probe_root(args) / "calibrated_batch_settings.csv"
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     with settings_path.open("w", encoding="utf-8", newline="") as handle:
         fieldnames = list(settings_rows[0].keys())
@@ -1110,8 +1496,8 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
     return 0
 
 
-def list_anchors(_args: argparse.Namespace) -> int:
-    source = _load_profile(SOURCE_PROFILE)
+def list_anchors(args: argparse.Namespace) -> int:
+    source = _load_profile(_arg_profile(args, "profile", "source_profile"))
     runs = _run_by_id(source)
     for anchor_id in ANCHOR_IDS:
         run = runs.get(anchor_id)
@@ -1125,25 +1511,42 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Calibrate per-run batch size and grad accumulation for the rank/expert sweep.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    def add_cluster_arg(subparser: argparse.ArgumentParser) -> None:
+        subparser.add_argument("--cluster", choices=sorted(CLUSTER_PRESETS), default=DEFAULT_CLUSTER)
+
+    write_parser = subparsers.add_parser("write-profile", help="Write a rank/expert sweep source profile for a cluster preset.")
+    add_cluster_arg(write_parser)
+    write_parser.add_argument("--template-profile", default=SOURCE_PROFILE)
+    write_parser.add_argument("--source-profile", default="")
+    write_parser.add_argument("--output-profile", default="")
+    write_parser.add_argument("--output-root", default="")
+    write_parser.set_defaults(func=write_profile)
+
     anchors_parser = subparsers.add_parser("list-anchors", help="List calibration anchors.")
+    add_cluster_arg(anchors_parser)
+    anchors_parser.add_argument("--profile", default="")
     anchors_parser.set_defaults(func=list_anchors)
 
     probes_parser = subparsers.add_parser("run-probes", help="Run batch-size probes one at a time with the normal pipeline.")
+    add_cluster_arg(probes_parser)
+    probes_parser.add_argument("--profile", default="")
     probes_parser.add_argument("--batches", default=",".join(str(value) for value in DEFAULT_BATCHES))
     probes_parser.add_argument("--gc-modes", default="both", choices=["default", "both", "on", "off"])
     probes_parser.add_argument("--max-steps", type=int, default=20)
-    probes_parser.add_argument("--output-root", default="outputs/pipeline_runs/moe_study_batch_calibration")
-    probes_parser.add_argument("--results", default=str(DEFAULT_RESULTS))
+    probes_parser.add_argument("--output-root", default="")
+    probes_parser.add_argument("--results", default="")
     probes_parser.add_argument("--resume", action="store_true")
     probes_parser.add_argument("--dry-run", action="store_true")
     probes_parser.set_defaults(func=run_probes)
 
     submit_parser = subparsers.add_parser("submit-probes", help="Submit probe jobs to Slurm without waiting.")
+    add_cluster_arg(submit_parser)
+    submit_parser.add_argument("--profile", default="")
     submit_parser.add_argument("--batches", default=",".join(str(value) for value in DEFAULT_BATCHES))
     submit_parser.add_argument("--gc-modes", default="both", choices=["default", "both", "on", "off"])
     submit_parser.add_argument("--max-steps", type=int, default=20)
-    submit_parser.add_argument("--output-root", default="outputs/pipeline_runs/moe_study_batch_calibration_async")
-    submit_parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
+    submit_parser.add_argument("--output-root", default="")
+    submit_parser.add_argument("--manifest", default="")
     submit_parser.add_argument("--anchor-id", action="append", default=[], help="Submit only selected anchor id(s).")
     submit_parser.add_argument("--limit", type=int, default=0, help="Submit at most N probe jobs.")
     submit_parser.add_argument("--telemetry-interval-seconds", type=int, default=5)
@@ -1152,12 +1555,14 @@ def main() -> int:
     submit_parser.set_defaults(func=submit_probes)
 
     wave_parser = subparsers.add_parser("submit-wave", help="Submit at most one next batch-size probe per anchor/GC mode.")
+    add_cluster_arg(wave_parser)
+    wave_parser.add_argument("--profile", default="")
     wave_parser.add_argument("--batches", default=",".join(str(value) for value in DEFAULT_BATCHES))
     wave_parser.add_argument("--gc-modes", default="default", choices=["default", "both", "on", "off"])
     wave_parser.add_argument("--max-steps", type=int, default=20)
-    wave_parser.add_argument("--output-root", default="outputs/pipeline_runs/moe_study_batch_calibration_async")
-    wave_parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
-    wave_parser.add_argument("--results", default=str(DEFAULT_RESULTS))
+    wave_parser.add_argument("--output-root", default="")
+    wave_parser.add_argument("--manifest", default="")
+    wave_parser.add_argument("--results", default="")
     wave_parser.add_argument("--anchor-id", action="append", default=[], help="Submit only selected anchor id(s).")
     wave_parser.add_argument("--limit", type=int, default=0, help="Consider at most N candidate probes before wave selection.")
     wave_parser.add_argument("--max-submissions", type=int, default=0, help="Submit at most N jobs in this wave.")
@@ -1168,19 +1573,58 @@ def main() -> int:
     wave_parser.set_defaults(func=submit_wave)
 
     collect_parser = subparsers.add_parser("collect-results", help="Collect completed asynchronous probe jobs.")
-    collect_parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
-    collect_parser.add_argument("--results", default=str(DEFAULT_RESULTS))
+    add_cluster_arg(collect_parser)
+    collect_parser.add_argument("--output-root", default="")
+    collect_parser.add_argument("--manifest", default="")
+    collect_parser.add_argument("--results", default="")
     collect_parser.add_argument("--cleanup-successful", action="store_true", help="Delete saved adapter/checkpoint artifacts after successful collection.")
     collect_parser.set_defaults(func=collect_results)
 
     calibrated_parser = subparsers.add_parser("write-calibrated-profile", help="Write the final calibrated 69-run profile from probe results.")
-    calibrated_parser.add_argument("--results", default=str(DEFAULT_RESULTS))
+    add_cluster_arg(calibrated_parser)
+    calibrated_parser.add_argument("--profile", default="")
+    calibrated_parser.add_argument("--results", default="")
     calibrated_parser.add_argument("--target-global-batch", type=int, default=DEFAULT_TARGET_GLOBAL_BATCH)
     calibrated_parser.add_argument("--max-grad-accum", type=int, default=DEFAULT_MAX_GRAD_ACCUM)
     calibrated_parser.add_argument("--min-gpu-mem-pct", type=float, default=0.0, help="Prefer the fastest setting whose telemetry reaches this peak VRAM percentage; fall back to max batch if none do.")
-    calibrated_parser.add_argument("--output-profile", default=str(DEFAULT_CALIBRATED_PROFILE_PATH))
-    calibrated_parser.add_argument("--output-settings", default="outputs/pipeline_runs/moe_study_batch_calibration/calibrated_batch_settings.csv")
+    calibrated_parser.add_argument("--selection", choices=["fastest", "highest-batch"], default="fastest")
+    calibrated_parser.add_argument("--calibrated-profile", default="")
+    calibrated_parser.add_argument("--output-profile", default="")
+    calibrated_parser.add_argument("--output-root", dest="calibrated_output_root", default="")
+    calibrated_parser.add_argument("--probe-root", dest="output_root", default="")
+    calibrated_parser.add_argument("--output-settings", default="")
     calibrated_parser.set_defaults(func=write_calibrated_profile)
+
+    auto_parser = subparsers.add_parser("auto-calibrate", help="Automatically collect, submit, and wait until batch calibration is complete.")
+    add_cluster_arg(auto_parser)
+    auto_parser.add_argument("--profile", default="")
+    auto_parser.add_argument("--batches", default=",".join(str(value) for value in DEFAULT_BATCHES))
+    auto_parser.add_argument("--gc-modes", default="default", choices=["default", "both", "on", "off"])
+    auto_parser.add_argument("--max-steps", type=int, default=20)
+    auto_parser.add_argument("--output-root", default="")
+    auto_parser.add_argument("--manifest", default="")
+    auto_parser.add_argument("--results", default="")
+    auto_parser.add_argument("--anchor-id", action="append", default=[], help="Calibrate only selected anchor id(s).")
+    auto_parser.add_argument("--limit", type=int, default=0, help="Consider at most N candidate probes before wave selection.")
+    auto_parser.add_argument("--max-submissions", type=int, default=0, help="Submit at most N jobs per wave.")
+    auto_parser.add_argument("--target-gpu-mem-pct", type=float, default=0.0, help="Stop expanding an anchor once a successful telemetry probe reaches this peak VRAM percentage. Leave at 0 to find highest stable batch among --batches.")
+    auto_parser.add_argument("--telemetry-interval-seconds", type=int, default=5)
+    auto_parser.add_argument("--disable-gpu-telemetry", action="store_true")
+    auto_parser.add_argument("--cleanup-successful", action="store_true")
+    auto_parser.add_argument("--poll-seconds", type=int, default=60)
+    auto_parser.add_argument("--max-rounds", type=int, default=0)
+    auto_parser.add_argument("--dry-run", action="store_true")
+    auto_parser.add_argument("--write-profile", action="store_true", help="Write the calibrated full-sweep profile after calibration completes.")
+    auto_parser.add_argument("--target-global-batch", type=int, default=DEFAULT_TARGET_GLOBAL_BATCH)
+    auto_parser.add_argument("--max-grad-accum", type=int, default=DEFAULT_MAX_GRAD_ACCUM)
+    auto_parser.add_argument("--min-gpu-mem-pct", type=float, default=0.0)
+    auto_parser.add_argument("--selection", choices=["fastest", "highest-batch"], default="highest-batch")
+    auto_parser.add_argument("--calibrated-profile", default="")
+    auto_parser.add_argument("--output-profile", default="")
+    auto_parser.add_argument("--output-root-calibrated", dest="calibrated_output_root", default="")
+    auto_parser.add_argument("--probe-root", dest="output_root", default="")
+    auto_parser.add_argument("--output-settings", default="")
+    auto_parser.set_defaults(func=auto_calibrate)
 
     args = parser.parse_args()
     return int(args.func(args))
