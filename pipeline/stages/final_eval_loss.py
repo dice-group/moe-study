@@ -14,7 +14,7 @@ from .runtime import (
 )
 from ..runtime import _deep_merge
 from ..context import PipelineContext
-from ..training import build_final_eval_cmd, resolve_adapter_eval_path
+from ..training import adapter_checkpoint_provenance, build_final_eval_cmd, resolve_adapter_eval_path
 
 
 def _resolve_eval_batch_size(ctx: PipelineContext, run: dict[str, Any]) -> int:
@@ -30,6 +30,51 @@ def _resolve_eval_batch_size(ctx: PipelineContext, run: dict[str, Any]) -> int:
     if batch_size <= 0:
         raise SystemExit(f"final_eval_loss.batch_size must be positive (got {batch_size})")
     return batch_size
+
+
+def _expected_max_steps(ctx: PipelineContext, run: dict[str, Any]) -> int | None:
+    train_cfg = _deep_merge(ctx.train_cfg.get("train", {}), run.get("train", {}))
+    raw = train_cfg.get("max_steps")
+    if raw is None:
+        return None
+    try:
+        steps = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return steps if steps > 0 else None
+
+
+def _trainer_state_global_step(run_dir: Path, *, dry_run: bool) -> int | None:
+    state_path = run_dir / "trainer_state.json"
+    if not state_path.exists():
+        if dry_run:
+            return None
+        raise SystemExit(
+            f"final_eval_loss: checkpoint_step_source='trainer_state' but trainer_state.json is missing: {state_path}"
+        )
+    payload = _load_json(state_path)
+    raw = payload.get("global_step") if isinstance(payload, dict) else None
+    try:
+        step = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(
+            f"final_eval_loss: trainer_state.json has invalid global_step for {run_dir}: {raw!r}"
+        ) from exc
+    if step <= 0:
+        raise SystemExit(f"final_eval_loss: trainer_state.json global_step must be positive for {run_dir}: {step}")
+    return step
+
+
+def _expected_checkpoint_step(ctx: PipelineContext, run: dict[str, Any], run_dir: Path) -> int | None:
+    source = str(ctx.final_eval_loss_cfg.get("checkpoint_step_source", "max_steps")).strip().lower()
+    if source in {"", "max_steps", "config", "configured"}:
+        return _expected_max_steps(ctx, run)
+    if source in {"trainer_state", "state", "global_step"}:
+        return _trainer_state_global_step(run_dir, dry_run=ctx.args.dry_run)
+    raise SystemExit(
+        "final_eval_loss.checkpoint_step_source must be one of "
+        f"'max_steps' or 'trainer_state' (got {source!r})"
+    )
 
 
 def stage_final_eval_loss(ctx: PipelineContext) -> None:
@@ -81,13 +126,28 @@ def stage_final_eval_loss(ctx: PipelineContext) -> None:
         if not model_name_or_path:
             raise SystemExit(f"final_eval_loss: missing model_name_or_path for run {run_id}")
 
+        expected_step = _expected_checkpoint_step(ctx, run, run_dir)
+        strict_final_checkpoint = bool(ctx.final_eval_loss_cfg.get("strict_final_checkpoint", False))
+        require_direct_save_marker = ctx.final_eval_loss_cfg.get("require_direct_save_marker")
+        if require_direct_save_marker is None:
+            require_direct_save_marker = strict_final_checkpoint
         if ctx.args.dry_run:
             try:
-                adapter_path = resolve_adapter_eval_path(run_dir)
+                adapter_path = resolve_adapter_eval_path(
+                    run_dir,
+                    expected_step=expected_step,
+                    strict_final_checkpoint=strict_final_checkpoint,
+                    require_direct_save_marker=bool(require_direct_save_marker),
+                )
             except SystemExit:
                 adapter_path = run_dir
         else:
-            adapter_path = resolve_adapter_eval_path(run_dir)
+            adapter_path = resolve_adapter_eval_path(
+                run_dir,
+                expected_step=expected_step,
+                strict_final_checkpoint=strict_final_checkpoint,
+                require_direct_save_marker=bool(require_direct_save_marker),
+            )
         out_dir = run_dir / output_subdir
         out_dir.mkdir(parents=True, exist_ok=True)
         eval_results_path = out_dir / "eval_results.json"
@@ -139,6 +199,11 @@ def stage_final_eval_loss(ctx: PipelineContext) -> None:
                     "run_id": run_id,
                     "eval_loss": float(eval_loss),
                     "adapter_name_or_path": str(adapter_path),
+                    "adapter_provenance": adapter_checkpoint_provenance(
+                        adapter_path,
+                        expected_step=expected_step,
+                        require_direct_save_marker=bool(require_direct_save_marker),
+                    ),
                     "model_name_or_path": model_name_or_path,
                     "eval_results": str(eval_results_path),
                 }

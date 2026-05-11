@@ -1,0 +1,825 @@
+{
+  "moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h": {
+    "executor": {
+      "type": "slurm",
+      "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/24.1.2-0",
+      "conda_env": "merlin",
+      "cpus_per_task": 64,
+      "gres": "gpu:a100:4",
+      "mem": "384G",
+      "modules": [
+        "toolchain/foss/2024a",
+        "system/CUDA/12.6.0"
+      ],
+      "partition": "gpu",
+      "time": "03:51:00"
+    },
+    "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
+    "output_root": "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h",
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled"
+    },
+    "wandb_mode": "disabled",
+    "sample": {
+      "data_files": "",
+      "languages": [],
+      "max_scan": 5000,
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_10_langs/sampled",
+      "per_language_target": 8,
+      "source_type": "json",
+      "enabled": false
+    },
+    "tokenization": {
+      "eval_fraction": 0.02,
+      "max_length": 1024,
+      "model_name": "meta-llama/Llama-3.1-8B",
+      "num_proc": 2,
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized",
+      "enabled": false,
+      "sample_seed": 1234,
+      "mask_pad_labels": true,
+      "sample_fraction": 0.00025,
+      "skip_if_output_exists": true,
+      "slurm_array_enabled": true,
+      "slurm_array_ranks": 50,
+      "check_parallel_enabled": true,
+      "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
+      "languages_csv_column": "subset",
+      "languages_csv_split": "train",
+      "languages_extra": [],
+      "language_rates_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
+      "language_rates_csv_column": "subset",
+      "language_rates_csv_split": "train",
+      "language_rates_csv_documents_column": "documents",
+      "language_rates_english_key": "english",
+      "english_median_check": false,
+      "language_rates_english_docs_count": 25900000000,
+      "language_rates_english_undersample_divisor": 50,
+      "language_rates_counts_tsv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv",
+      "language_rates_counts_tsv_has_header": false,
+      "language_rates_counts_tsv_language_column": "language",
+      "language_rates_counts_tsv_count_column": "count"
+    },
+    "tokenizer_extension": {
+      "enabled": false
+    },
+    "embedding_init": {
+      "enabled": false
+    },
+    "embedding_training": {
+      "enabled": false
+    },
+    "audit": {
+      "enabled": true
+    },
+    "training": {
+      "dataset_dir": "LLaMA-Factory/data",
+      "dataset_name": "identity",
+      "enabled": true,
+      "eval": {
+        "batch_size": 1,
+        "eval_steps": 0.05,
+        "strategy": "no",
+        "enabled": false
+      },
+      "eval_dataset_name": "identity",
+      "language_column": "language",
+      "lora": {
+        "alpha": 4,
+        "dropout": 0.05,
+        "rank": 2,
+        "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+      },
+      "model_name_or_path": "meta-llama/Llama-3.1-8B",
+      "num_experts": 2,
+      "output_dir": "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h/runs",
+      "report_to": "none",
+      "runs": [
+        {
+          "id": "moelora_r2_e4_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 8,
+            "alpha": 16
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 4,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": true
+          },
+          "train": {
+            "batch_size": 1,
+            "grad_accum": 12,
+            "disable_gradient_checkpointing": true,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        },
+        {
+          "id": "moelora_r2_e4_k2",
+          "kind": "moelora",
+          "lora": {
+            "rank": 8,
+            "alpha": 16
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 4,
+            "moelora_sparse_top_k": 2,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": true
+          },
+          "train": {
+            "batch_size": 1,
+            "grad_accum": 12,
+            "disable_gradient_checkpointing": true,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        },
+        {
+          "id": "hmora_r2_e4_k1",
+          "kind": "hmora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hmora_num_experts": 4,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 1,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_use_language_ids_as_task_ids": true,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": true,
+            "hmora_eta_b": 2.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "batch_size": 1,
+            "grad_accum": 12,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        },
+        {
+          "id": "hmora_r2_e4_k2",
+          "kind": "hmora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hmora_num_experts": 4,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_use_language_ids_as_task_ids": true,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": true,
+            "hmora_eta_b": 2.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "batch_size": 1,
+            "grad_accum": 12,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        },
+        {
+          "id": "hmora_r2_e8_k1",
+          "kind": "hmora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hmora_num_experts": 8,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 1,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_use_language_ids_as_task_ids": true,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": true,
+            "hmora_eta_b": 2.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "batch_size": 1,
+            "grad_accum": 12,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        },
+        {
+          "id": "hmora_r2_e8_k2",
+          "kind": "hmora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hmora_num_experts": 8,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_use_language_ids_as_task_ids": true,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": true,
+            "hmora_eta_b": 2.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "batch_size": 1,
+            "grad_accum": 12,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        },
+        {
+          "id": "hmora_r2_e8_k4",
+          "kind": "hmora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hmora_num_experts": 8,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 4,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_use_language_ids_as_task_ids": true,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": true,
+            "hmora_eta_b": 2.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "batch_size": 1,
+            "grad_accum": 12,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        },
+        {
+          "id": "hmora_r2_e16_k1",
+          "kind": "hmora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hmora_num_experts": 16,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 1,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_use_language_ids_as_task_ids": true,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": true,
+            "hmora_eta_b": 2.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "batch_size": 1,
+            "grad_accum": 12,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        },
+        {
+          "id": "hmora_r2_e16_k2",
+          "kind": "hmora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hmora_num_experts": 16,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 2,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_use_language_ids_as_task_ids": true,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": true,
+            "hmora_eta_b": 2.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "batch_size": 1,
+            "grad_accum": 12,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        },
+        {
+          "id": "hmora_r2_e16_k4",
+          "kind": "hmora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hmora_num_experts": 16,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 4,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_use_language_ids_as_task_ids": true,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": true,
+            "hmora_eta_b": 2.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "batch_size": 1,
+            "grad_accum": 12,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        },
+        {
+          "id": "hmora_r2_e16_k8",
+          "kind": "hmora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hmora_num_experts": 16,
+            "hmora_dropout": 0.1,
+            "hmora_top_k_routing_strategy": true,
+            "hmora_top_k": 8,
+            "hmora_use_task_router": true,
+            "hmora_task_router_only": false,
+            "hmora_use_language_ids_as_task_ids": true,
+            "hmora_share_router_for_qkv": true,
+            "hmora_share_router_for_w_i": true,
+            "hmora_num_router_mlp_layers": 1,
+            "hmora_epsilon_alpha": 4.0,
+            "hmora_alpha_shift": -2.0,
+            "hmora_alpha_low_bound": 0.2,
+            "hmora_alpha_up_bound": 0.8,
+            "hmora_use_load_balancing_loss": false,
+            "hmora_use_div_loss": true,
+            "hmora_gamma_div_certain_t": 0.4,
+            "hmora_gamma_div_balance_t": 1.0,
+            "hmora_gamma_div_certain_s": 0.4,
+            "hmora_gamma_div_balance_s": 1.0,
+            "hmora_lambda_auxiliary": 0.003,
+            "hmora_lambda_lm": 1.0,
+            "hmora_use_hydra_lora": true,
+            "hmora_eta_b": 2.0,
+            "hmora_task_token": "?",
+            "hmora_num_encoder_layer": 1
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "batch_size": 1,
+            "grad_accum": 12,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "cleanup_large_artifacts_after_train": false,
+            "use_reentrant_gc": false,
+            "save_only_model": false,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "skip_final_save": false
+          }
+        }
+      ],
+      "seed": 42,
+      "template": "llama3",
+      "train": {
+        "batch_size": 4,
+        "bf16": true,
+        "flash_attn": "sdpa",
+        "fp16": false,
+        "grad_accum": 2,
+        "learning_rate": "2e-4",
+        "logging_steps": 50,
+        "max_steps": 10000,
+        "num_train_epochs": 1.0,
+        "save_steps": 999999,
+        "auto_find_batch_size": false,
+        "disable_gradient_checkpointing": false,
+        "save_total_limit": 1,
+        "use_reentrant_gc": true,
+        "weight_decay": 0.0,
+        "save_strategy": "no",
+        "cleanup_large_artifacts_after_train": false,
+        "report_to": "none",
+        "save_only_model": false,
+        "skip_final_save": false
+      },
+      "distributed": {
+        "enabled": true,
+        "num_processes": 4,
+        "num_machines": 1,
+        "machine_rank": 0,
+        "main_process_ip": "127.0.0.1",
+        "main_process_port": 29501,
+        "config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"
+      },
+      "executor": {
+        "type": "slurm",
+        "time": "03:51:00",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@900",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228"
+        ]
+      }
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_subdir": "final_eval_loss",
+      "batch_size": "train",
+      "limit": null,
+      "output_dir": "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h/final_eval_loss",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state"
+    },
+    "benchmark": {
+      "allow_missing_lm_eval": true,
+      "batch_size": "auto",
+      "enabled": true,
+      "eval_script": "scripts/eval/lm_eval_checkpoint_adapter_only.sh",
+      "extra_args": "",
+      "fail_if_no_tasks": false,
+      "flores_mode": "both",
+      "include_belebele": true,
+      "include_sib200": true,
+      "include_taxi1500": true,
+      "include_flores": true,
+      "lang_mode": "with_ids",
+      "lm_eval_bin": "lm_eval",
+      "output_dir": "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h/benchmarks",
+      "tasks_file": "configs/lm_eval_tasks_10_langs.txt",
+      "wandb_mode": "disabled",
+      "wandb_prefix": "eval/benchmark",
+      "wandb_project": "moe_study_eval",
+      "tokenizer": "meta-llama/Llama-3.1-8B",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state"
+    },
+    "baseline_eval": {
+      "enabled": false,
+      "models": [
+        "meta-llama/Llama-3.1-8B"
+      ],
+      "tasks_file": "configs/lm_eval_tasks_sib_taxi_10_langs.txt",
+      "output_root": "outputs/baselines",
+      "batch_size": "auto",
+      "lm_eval_bin": "lm_eval",
+      "seed": 42,
+      "extra_args": "--include_path scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h/gate.json",
+      "min_relative_improvement": 0.02,
+      "summary_csv": "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h/summary.csv",
+      "baseline_id": "moelora_r2_e4_k1",
+      "primary_metric": "eval_loss",
+      "enabled": false
+    },
+    "report": {
+      "baseline_cache_root": "outputs/baselines",
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h.xlsx"
+    },
+    "stage_executors": {
+      "sample": {
+        "partition": "normal",
+        "gres": "cpu",
+        "cpus_per_task": 4,
+        "mem": "16G"
+      },
+      "tokenizer_extend": {
+        "partition": "normal",
+        "gres": "cpu",
+        "cpus_per_task": 4,
+        "mem": "16G"
+      },
+      "embedding_init": {
+        "partition": "normal",
+        "gres": "cpu",
+        "cpus_per_task": 4,
+        "mem": "16G"
+      },
+      "tokenize": {
+        "partition": "normal",
+        "gres": "cpu",
+        "cpus_per_task": 2,
+        "mem": "16G"
+      },
+      "audit": {
+        "partition": "normal",
+        "gres": "cpu",
+        "cpus_per_task": 4,
+        "mem": "16G"
+      },
+      "embedding_verify": {
+        "partition": "normal",
+        "gres": "cpu",
+        "cpus_per_task": 4,
+        "mem": "16G"
+      },
+      "summary": {
+        "partition": "normal",
+        "gres": "cpu",
+        "cpus_per_task": 2,
+        "mem": "8G"
+      },
+      "report": {
+        "partition": "normal",
+        "gres": "cpu",
+        "cpus_per_task": 2,
+        "mem": "8G"
+      },
+      "train": {
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ],
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "03:51:00"
+      },
+      "benchmark": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228"
+        ]
+      },
+      "baseline_eval": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00"
+      },
+      "final_eval_loss": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228"
+        ]
+      }
+    },
+    "run_naming": {
+      "experiment_tag": "moe-study-expert-head-sweep-r2-noctua2-a100-4gpu-10langs-signal-3p6h",
+      "language_count_hint": 10
+    },
+    "language_map_csv": "result_analysis/l2v_nested_samples/10.csv",
+    "language_map_csv_subset_column": "subset",
+    "language_map_csv_family_column": "family",
+    "language_map_csv_split_column": "split",
+    "language_map_csv_split": "train",
+    "language_map_extra_languages": {},
+    "language_map_extra_family": "English",
+    "logs_dir": "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h/logs"
+  }
+}

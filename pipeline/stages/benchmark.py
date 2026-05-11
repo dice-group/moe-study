@@ -23,7 +23,8 @@ from .runtime import (
 )
 from ..checks import check_benchmark
 from ..context import PipelineContext
-from ..training import resolve_adapter_eval_path
+from ..runtime import _deep_merge
+from ..training import adapter_checkpoint_provenance, resolve_adapter_eval_path
 
 
 def _read_selected_tasks_file(path) -> list[str]:
@@ -143,7 +144,17 @@ def _validate_task_yaml_presence(include_path: Path, selected_tasks: list[str], 
             raise SystemExit(f"Missing {label} task config: {task_yaml}")
 
 
-def _ensure_external_task_configs(repo_root: Path) -> None:
+def _selected_external_task_configs_present(repo_root: Path, selected_tasks: list[str]) -> bool:
+    task_root = repo_root / "scripts" / "eval" / "latest_checkpoint" / "lm-evaluation-harness" / "lm_eval" / "tasks"
+    required: list[Path] = []
+    required.extend(task_root / "sib200" / "configs" / f"{task}.yaml" for task in selected_tasks if task.startswith("sib200_"))
+    required.extend(task_root / "taxi1500" / "configs" / f"{task}.yaml" for task in selected_tasks if task.startswith("taxi1500_"))
+    return bool(required) and all(path.exists() for path in required)
+
+
+def _ensure_external_task_configs(repo_root: Path, selected_tasks: list[str]) -> None:
+    if _selected_external_task_configs_present(repo_root, selected_tasks):
+        return
     generator = (
         repo_root
         / "scripts"
@@ -219,6 +230,49 @@ def _resolve_benchmark_languages(ctx: PipelineContext) -> list[str]:
             return sorted(languages)
 
     return []
+
+
+def _expected_max_steps(ctx: PipelineContext, run: dict[str, object]) -> int | None:
+    train_cfg = _deep_merge(ctx.train_cfg.get("train", {}), run.get("train", {}))
+    raw = train_cfg.get("max_steps") if isinstance(train_cfg, dict) else None
+    if raw is None:
+        return None
+    try:
+        steps = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return steps if steps > 0 else None
+
+
+def _trainer_state_global_step(run_dir: Path, *, dry_run: bool) -> int | None:
+    state_path = run_dir / "trainer_state.json"
+    if not state_path.exists():
+        if dry_run:
+            return None
+        raise SystemExit(
+            f"benchmark: checkpoint_step_source='trainer_state' but trainer_state.json is missing: {state_path}"
+        )
+    payload = _load_json(state_path)
+    raw = payload.get("global_step") if isinstance(payload, dict) else None
+    try:
+        step = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"benchmark: trainer_state.json has invalid global_step for {run_dir}: {raw!r}") from exc
+    if step <= 0:
+        raise SystemExit(f"benchmark: trainer_state.json global_step must be positive for {run_dir}: {step}")
+    return step
+
+
+def _expected_checkpoint_step(ctx: PipelineContext, run: dict[str, object], run_dir: Path) -> int | None:
+    source = str(ctx.benchmark_cfg.get("checkpoint_step_source", "max_steps")).strip().lower()
+    if source in {"", "max_steps", "config", "configured"}:
+        return _expected_max_steps(ctx, run)
+    if source in {"trainer_state", "state", "global_step"}:
+        return _trainer_state_global_step(run_dir, dry_run=ctx.args.dry_run)
+    raise SystemExit(
+        "benchmark.checkpoint_step_source must be one of "
+        f"'max_steps' or 'trainer_state' (got {source!r})"
+    )
 
 
 def stage_benchmark(ctx: PipelineContext) -> None:
@@ -328,7 +382,7 @@ def stage_benchmark(ctx: PipelineContext) -> None:
             lang_mode = str(ctx.benchmark_cfg.get("lang_mode", "")).strip()
             extra_args = str(ctx.benchmark_cfg.get("extra_args", "")).strip()
             if any(task.startswith(("sib200_", "taxi1500_")) for task in selected_tasks):
-                _ensure_external_task_configs(ctx.repo_root)
+                _ensure_external_task_configs(ctx.repo_root, selected_tasks)
             selected_flores_tasks = [task for task in selected_tasks if task.startswith("flores_en_perplexity_")]
             include_dirs = _default_lm_eval_include_dirs(ctx.repo_root, selected_tasks)
             for include_dir in include_dirs:
@@ -375,13 +429,28 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                 checkpoint_dir = ctx.train_root / run_id
                 if not checkpoint_dir.exists():
                     raise SystemExit(f"Benchmark checkpoint directory missing: {checkpoint_dir}")
+                expected_step = _expected_checkpoint_step(ctx, run, checkpoint_dir)
+                strict_final_checkpoint = bool(ctx.benchmark_cfg.get("strict_final_checkpoint", False))
+                require_direct_save_marker = ctx.benchmark_cfg.get("require_direct_save_marker")
+                if require_direct_save_marker is None:
+                    require_direct_save_marker = strict_final_checkpoint
                 if ctx.args.dry_run:
                     try:
-                        adapter_dir = resolve_adapter_eval_path(checkpoint_dir)
+                        adapter_dir = resolve_adapter_eval_path(
+                            checkpoint_dir,
+                            expected_step=expected_step,
+                            strict_final_checkpoint=strict_final_checkpoint,
+                            require_direct_save_marker=bool(require_direct_save_marker),
+                        )
                     except SystemExit:
                         adapter_dir = checkpoint_dir
                 else:
-                    adapter_dir = resolve_adapter_eval_path(checkpoint_dir)
+                    adapter_dir = resolve_adapter_eval_path(
+                        checkpoint_dir,
+                        expected_step=expected_step,
+                        strict_final_checkpoint=strict_final_checkpoint,
+                        require_direct_save_marker=bool(require_direct_save_marker),
+                    )
                 out_dir = ctx.benchmark_root / run_id
                 out_dir.mkdir(parents=True, exist_ok=True)
                 cmd = [
@@ -423,6 +492,11 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                         {
                             "run_id": run_id,
                             "evaluated_checkpoint": str(adapter_dir.resolve()),
+                            "adapter_provenance": adapter_checkpoint_provenance(
+                                adapter_dir,
+                                expected_step=expected_step,
+                                require_direct_save_marker=bool(require_direct_save_marker),
+                            ),
                             "evaluated_tokenizer": tokenizer,
                             "output_dir": str(out_dir.resolve()),
                             "num_output_files": len(files),
