@@ -19,6 +19,8 @@ Current MoE-study profiles:
 
 - `moe_study_profile_otus_cluster`
 - `moe_study_profile_lola_gpuvm`
+- `moe_study_profile_noctua2_a100_10_langs`
+- `moe_study_profile_noctua2_a100_4gpu_10_langs`
 
 Defined in:
 
@@ -103,6 +105,31 @@ Current behavior:
 
 This is the easiest profile to use for local GPU validation runs.
 
+## Current `moe_study_profile_noctua2_a100_10_langs`
+
+This profile adapts the 10-language MoE-study cluster setup for Noctua2.
+
+Current behavior:
+
+- `executor.type=slurm`
+- `partition=gpu`
+- `gres=gpu:a100:1`
+- `cpus_per_task=32`
+- `mem=192G`
+- Conda base `/opt/software/pc2/EB-SW/software/Miniforge3/24.1.2-0`
+- Conda env `merlin`
+- CUDA module `system/CUDA/12.6.0`
+- training `flash_attn=sdpa`
+
+Use this profile for A100 single-GPU pipeline checks and expert/head calibration probes on Noctua2.
+
+For full-node Noctua2 calibration, use:
+
+- `moe_study_profile_noctua2_a100_4gpu_10_langs`
+
+This requests `gres=gpu:a100:4`, uses 4-process FSDP via `configs/accelerate/fsdp_4gpu_config.yaml`,
+and is the preferred setup when a worst-case expert/head anchor does not fit on a single 40 GB A100.
+
 ## Current Run Matrix
 
 The MoE-study profile currently includes these run ids:
@@ -185,6 +212,88 @@ Important current behavior:
 - `run_comparison.py` automatically injects an `accelerate` config based on GPU count
 - `mixlora_job.sh` is correct in that workflow
 - this is the preferred path for multi-GPU comparison jobs
+
+## Expert/Head Sweep Calibration
+
+The expert/head-count sweep helper is:
+
+- `scripts/analysis/expert_head_sweep.py`
+
+For Noctua2 A100 calibration:
+
+```bash
+python scripts/analysis/expert_head_sweep.py write-profile --cluster noctua2
+python scripts/analysis/expert_head_sweep.py validate-profile --cluster noctua2
+python scripts/analysis/expert_head_sweep.py list-anchors --cluster noctua2
+```
+
+For full-node 4x A100 calibration, replace `noctua2` with `noctua2_4gpu`.
+
+Submit one wave of batch probes:
+
+```bash
+python scripts/analysis/expert_head_sweep.py submit-wave --cluster noctua2 --max-submissions 8
+```
+
+Collect completed probes:
+
+```bash
+python scripts/analysis/expert_head_sweep.py collect-results --cluster noctua2 --cleanup-successful
+```
+
+After every active approach has at least one successful probe, write the calibrated profile:
+
+```bash
+python scripts/analysis/expert_head_sweep.py write-calibrated-profile --cluster noctua2
+```
+
+The Noctua2 probe path records GPU telemetry under:
+
+- `outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_batch_search/`
+
+Current Noctua2 A100 result:
+
+- The single-GPU A100 path is not sufficient for the worst expert anchors.
+- The working Noctua2 sweep profile is:
+  - `moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_working_calibrated`
+  - `configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2_4gpu_working_calibrated.generated.json`
+- The current ready-for-longer-run profile with softer stability reductions is:
+  - `moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_ready`
+  - `configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2_4gpu_ready.generated.json`
+- It uses 4x A100 FSDP and 65 working runs.
+- AdaMoLE and MoE-LoRA are capped at 4 experts on 40 GB A100 because e8/e16/e32 anchors OOM at batch 1.
+- The measured approach settings are in:
+  - `outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_4gpu_batch_search_v2/approach_batch_settings_working.csv`
+  - `outputs/pipeline_runs/noctua2_best_config_stability_soft_reduce_10step/approach_batch_settings_ready.csv`
+
+Measured per-device batch settings for the ready profile:
+
+| approach | max experts used | batch | grad accum | notes |
+| --- | ---: | ---: | ---: | --- |
+| MoE-LoRA | 4 | 1 | 12 | e8/e16/e32 OOM on 40 GB A100 |
+| AdaMoLE | 4 | 1 | 12 | e8/e16/e32 OOM on 40 GB A100 |
+| MoLA (`adamoe_1`) | 32 | 7 | 2 | softer reduction from bs8; bs10 failed |
+| MoV | 32 | 11 | 1 | softer reduction from bs12; bs16 failed |
+| HMoRA | 32 | 1 | 12 | bs2 failed; checkpointing-on failed at bs1 |
+| CoLA | 32 | 8 | 1 | PiSSA initialization is slow, training succeeds |
+| HydraLoRA | 32 | 2 | 6 | bs4 failed |
+| MTL-LoRA | 32 | 11 | 1 | softer reduction from bs12; bs16 failed |
+
+To regenerate the original maximum-utilization working profile from the collected probes:
+
+```bash
+python scripts/analysis/expert_head_sweep.py write-calibrated-profile \
+  --cluster noctua2_4gpu \
+  --results outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_4gpu_batch_search_v2/probe_results.csv \
+  --extra-results outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_4gpu_reduced_anchor_search_e4/probe_results.csv \
+  --target-global-batch 48 \
+  --calibrated-profile moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_working_calibrated \
+  --output-profile configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2_4gpu_working_calibrated.generated.json \
+  --output-root outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_working_calibrated \
+  --output-settings outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_4gpu_batch_search_v2/approach_batch_settings_working.csv \
+  --cap-approach-max-experts adamole=4 \
+  --cap-approach-max-experts moelora=4
+```
 
 ## Known Gaps and Caveats
 
