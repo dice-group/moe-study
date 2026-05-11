@@ -760,6 +760,153 @@
     "language_map_extra_languages": {},
     "language_map_extra_family": "English"
   },
+  "moe_study_profile_noctua2_a100_10_langs": {
+    "extends": "moe_study_profile_otus_cluster_10_langs",
+    "output_root": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_10_langs",
+    "logs_dir": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_10_langs/logs",
+    "executor": {
+      "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/24.1.2-0",
+      "conda_env": "merlin",
+      "cpus_per_task": 32,
+      "gres": "gpu:a100:1",
+      "mem": "192G",
+      "modules": [
+        "toolchain/foss/2024a",
+        "system/CUDA/12.6.0"
+      ],
+      "partition": "gpu",
+      "time": "03:51:00",
+      "type": "slurm"
+    },
+    "run_naming": {
+      "experiment_tag": "moe-study-noctua2-a100-10langs",
+      "language_count_hint": 10
+    },
+    "language_map_csv": "result_analysis/l2v_nested_samples/10.csv",
+    "sample": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_10_langs/sampled"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_10_langs/runs",
+      "train": {
+        "flash_attn": "sdpa"
+      },
+      "executor": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 32,
+        "mem": "192G",
+        "time": "03:51:00"
+      }
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_10_langs/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_10_langs/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_10_langs/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_10_langs/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 32,
+        "mem": "192G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@900"
+        ]
+      },
+      "benchmark": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00"
+      },
+      "baseline_eval": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00"
+      }
+    }
+  },
+  "moe_study_profile_noctua2_a100_4gpu_10_langs": {
+    "extends": "moe_study_profile_noctua2_a100_10_langs",
+    "output_root": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_4gpu_10_langs",
+    "logs_dir": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_4gpu_10_langs/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-noctua2-a100-4gpu-10langs",
+      "language_count_hint": 10
+    },
+    "executor": {
+      "cpus_per_task": 64,
+      "gres": "gpu:a100:4",
+      "mem": "384G",
+      "partition": "gpu",
+      "time": "03:51:00"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_4gpu_10_langs/runs",
+      "distributed": {
+        "enabled": true,
+        "num_processes": 4,
+        "num_machines": 1,
+        "machine_rank": 0,
+        "main_process_ip": "127.0.0.1",
+        "main_process_port": 29501,
+        "config_file": "configs/accelerate/fsdp_4gpu_config.yaml"
+      },
+      "executor": {
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "03:51:00"
+      }
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_4gpu_10_langs/benchmarks"
+    },
+    "summary": {
+      "gate_json": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_4gpu_10_langs/gate.json",
+      "summary_csv": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_4gpu_10_langs/summary.csv"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_profile_noctua2_a100_4gpu_10_langs/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@900"
+        ]
+      },
+      "benchmark": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00"
+      },
+      "baseline_eval": {
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00"
+      }
+    }
+  },
   "moe_study_profile_otus_cluster_96_langs": {
     "extends": "moe_study_profile_otus_cluster",
     "output_root": "outputs/pipeline_runs/moe_study_profile_otus_cluster_96_langs",

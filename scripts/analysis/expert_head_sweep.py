@@ -28,15 +28,47 @@ from pipeline.run import _compute_pipeline_code_signature  # noqa: E402
 from pipeline.training import build_training_cmd  # noqa: E402
 
 
-BASE_PROFILE = "moe_study_profile_otus_cluster_10_langs"
-SOURCE_PROFILE = "moe_study_expert_head_sweep_r2_otus_cluster_10_langs"
-CALIBRATED_PROFILE = f"{SOURCE_PROFILE}_calibrated"
-
-DEFAULT_PROFILE_PATH = Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2.generated.json")
-DEFAULT_CALIBRATED_PROFILE_PATH = Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2_calibrated.generated.json")
-DEFAULT_OUTPUT_ROOT = Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_otus_cluster_10_langs")
-DEFAULT_CALIBRATED_OUTPUT_ROOT = Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_otus_cluster_10_langs_calibrated")
-DEFAULT_PROBE_ROOT = Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_batch_search")
+DEFAULT_CLUSTER = "otus"
+CLUSTER_PRESETS = {
+    "otus": {
+        "base_profile": "moe_study_profile_otus_cluster_10_langs",
+        "source_profile": "moe_study_expert_head_sweep_r2_otus_cluster_10_langs",
+        "calibrated_profile": "moe_study_expert_head_sweep_r2_otus_cluster_10_langs_calibrated",
+        "experiment_tag": "moe-study-expert-head-sweep-r2-10langs",
+        "profile_path": Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2.generated.json"),
+        "calibrated_profile_path": Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2_calibrated.generated.json"),
+        "output_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_otus_cluster_10_langs"),
+        "calibrated_output_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_otus_cluster_10_langs_calibrated"),
+        "probe_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_batch_search"),
+    },
+    "noctua2": {
+        "base_profile": "moe_study_profile_noctua2_a100_10_langs",
+        "source_profile": "moe_study_expert_head_sweep_r2_noctua2_a100_10_langs",
+        "calibrated_profile": "moe_study_expert_head_sweep_r2_noctua2_a100_10_langs_calibrated",
+        "experiment_tag": "moe-study-expert-head-sweep-r2-noctua2-a100-10langs",
+        "profile_path": Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2.generated.json"),
+        "calibrated_profile_path": Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2_calibrated.generated.json"),
+        "output_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_10_langs"),
+        "calibrated_output_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_10_langs_calibrated"),
+        "probe_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_batch_search"),
+    },
+    "noctua2_4gpu": {
+        "base_profile": "moe_study_profile_noctua2_a100_4gpu_10_langs",
+        "source_profile": "moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs",
+        "calibrated_profile": "moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_calibrated",
+        "experiment_tag": "moe-study-expert-head-sweep-r2-noctua2-a100-4gpu-10langs",
+        "profile_path": Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2_4gpu.generated.json"),
+        "calibrated_profile_path": Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2_4gpu_calibrated.generated.json"),
+        "output_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs"),
+        "calibrated_output_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_calibrated"),
+        "probe_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_4gpu_batch_search"),
+    },
+}
+DEFAULT_PROFILE_PATH = CLUSTER_PRESETS[DEFAULT_CLUSTER]["profile_path"]
+DEFAULT_OUTPUT_ROOT = CLUSTER_PRESETS[DEFAULT_CLUSTER]["output_root"]
+DEFAULT_PROBE_ROOT = CLUSTER_PRESETS[DEFAULT_CLUSTER]["probe_root"]
+DEFAULT_CALIBRATED_PROFILE_PATH = CLUSTER_PRESETS[DEFAULT_CLUSTER]["calibrated_profile_path"]
+DEFAULT_CALIBRATED_OUTPUT_ROOT = CLUSTER_PRESETS[DEFAULT_CLUSTER]["calibrated_output_root"]
 DEFAULT_MANIFEST = DEFAULT_PROBE_ROOT / "probe_manifest.csv"
 DEFAULT_RESULTS = DEFAULT_PROBE_ROOT / "probe_results.csv"
 DEFAULT_SETTINGS = DEFAULT_PROBE_ROOT / "approach_batch_settings.csv"
@@ -66,6 +98,26 @@ APPROACH_BY_KIND = {
 def _load_profile(profile_name: str) -> dict[str, Any]:
     config = load_pipeline_config(REPO_ROOT / "configs/pipeline")
     return _resolve_profile(config, profile_name)
+
+
+def _preset(cluster: str) -> dict[str, Any]:
+    if cluster not in CLUSTER_PRESETS:
+        raise SystemExit(f"unknown cluster preset '{cluster}'. Available: {sorted(CLUSTER_PRESETS)}")
+    return CLUSTER_PRESETS[cluster]
+
+
+def _arg_profile(args: argparse.Namespace, attr: str, preset_key: str) -> str:
+    value = getattr(args, attr, None)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return str(_preset(args.cluster)[preset_key])
+
+
+def _arg_path(args: argparse.Namespace, attr: str, preset_key: str) -> Path:
+    value = getattr(args, attr, None)
+    if isinstance(value, str) and value.strip():
+        return Path(value)
+    return Path(_preset(args.cluster)[preset_key])
 
 
 def _run_templates(base_profile: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -309,14 +361,22 @@ def validate_runs(runs: list[dict[str, Any]]) -> None:
                 raise SystemExit(f"{run['id']}: AdaMoLE threshold must be 0.5/N")
 
 
-def _profile_payload(*, profile_name: str, output_root: Path, runs: list[dict[str, Any]], calibrated: bool) -> dict[str, Any]:
+def _profile_payload(
+    *,
+    profile_name: str,
+    base_profile: str,
+    experiment_tag: str,
+    output_root: Path,
+    runs: list[dict[str, Any]],
+    calibrated: bool,
+) -> dict[str, Any]:
     output_root_str = str(output_root)
     profile: dict[str, Any] = {
-        "extends": BASE_PROFILE,
+        "extends": base_profile,
         "output_root": output_root_str,
         "logs_dir": f"{output_root_str}/logs",
         "run_naming": {
-            "experiment_tag": "moe-study-expert-head-sweep-r2-10langs" + ("-calibrated" if calibrated else ""),
+            "experiment_tag": experiment_tag + ("-calibrated" if calibrated else ""),
             "language_count_hint": 10,
         },
         "tokenization": {
@@ -330,8 +390,9 @@ def _profile_payload(*, profile_name: str, output_root: Path, runs: list[dict[st
             "eval": {"enabled": False, "strategy": "no"},
             "train": {
                 "logging_steps": 50 if calibrated else 1,
-                "save_steps": 0.05 if calibrated else 1,
-                "save_total_limit": 5 if calibrated else 1,
+                "save_strategy": "no" if calibrated else "steps",
+                "save_steps": 1 if calibrated else 1,
+                "save_total_limit": 1 if calibrated else 1,
                 "cleanup_large_artifacts_after_train": False if calibrated else True,
             },
             "runs": runs,
@@ -382,15 +443,19 @@ def _profile_payload(*, profile_name: str, output_root: Path, runs: list[dict[st
 
 
 def write_profile(args: argparse.Namespace) -> int:
-    base = _load_profile(BASE_PROFILE)
+    base_profile = _arg_profile(args, "base_profile", "base_profile")
+    source_profile = _arg_profile(args, "source_profile", "source_profile")
+    base = _load_profile(base_profile)
     runs = build_sweep_runs(base)
     payload = _profile_payload(
-        profile_name=SOURCE_PROFILE,
-        output_root=Path(args.output_root),
+        profile_name=source_profile,
+        base_profile=base_profile,
+        experiment_tag=str(_preset(args.cluster)["experiment_tag"]),
+        output_root=_arg_path(args, "output_root", "output_root"),
         runs=runs,
         calibrated=False,
     )
-    path = Path(args.output_profile)
+    path = _arg_path(args, "output_profile", "profile_path")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(f"[expert_head_sweep] wrote {len(runs)} runs to {path}")
@@ -398,11 +463,12 @@ def write_profile(args: argparse.Namespace) -> int:
 
 
 def validate_profile(args: argparse.Namespace) -> int:
-    profile = _load_profile(args.profile)
+    profile_name = _arg_profile(args, "profile", "source_profile")
+    profile = _load_profile(profile_name)
     runs = profile["training"]["runs"]
     validate_runs(runs)
     anchors = _anchor_runs(runs)
-    print(f"[expert_head_sweep] profile={args.profile} runs={len(runs)} anchors={len(anchors)}")
+    print(f"[expert_head_sweep] profile={profile_name} runs={len(runs)} anchors={len(anchors)}")
     for approach, run in anchors.items():
         print(f"{approach}\t{run['id']}")
     return 0
@@ -550,7 +616,15 @@ exit "$RC"
 def _probe_rows(profile: dict[str, Any], args: argparse.Namespace) -> list[dict[str, Any]]:
     batches = _parse_batch_values(args.batches)
     selected_approaches = set(getattr(args, "approach", []) or [])
-    anchors = _anchor_runs(profile["training"]["runs"])
+    explicit_run_ids = set(getattr(args, "anchor_run_id", []) or [])
+    if explicit_run_ids:
+        by_id = {str(run.get("id", "")): run for run in profile["training"]["runs"]}
+        missing = sorted(explicit_run_ids - set(by_id))
+        if missing:
+            raise SystemExit(f"unknown --anchor-run-id values: {missing}")
+        anchors = {_approach_key(by_id[run_id]): by_id[run_id] for run_id in explicit_run_ids}
+    else:
+        anchors = _anchor_runs(profile["training"]["runs"])
     rows: list[dict[str, Any]] = []
     for approach, anchor_run in sorted(anchors.items()):
         if selected_approaches and approach not in selected_approaches:
@@ -580,6 +654,17 @@ def _probe_group_key(row: dict[str, Any]) -> tuple[str, str]:
     return str(row["approach"]), str(row["disable_gradient_checkpointing"]).lower()
 
 
+def _is_hard_probe_failure(row: dict[str, str]) -> bool:
+    if str(row.get("success", "")).lower() == "true":
+        return False
+    state = str(row.get("state", "")).upper()
+    if state.startswith("CANCELLED"):
+        return False
+    if not state and str(row.get("returncode", "")).strip() == "0" and not str(row.get("train_runtime", "")).strip():
+        return False
+    return True
+
+
 def _job_finished(job_id: str) -> tuple[bool, str, str]:
     sacct = subprocess.run(
         ["sacct", "-j", str(job_id), "--format=JobIDRaw,State,ExitCode", "--parsable2", "--noheader"],
@@ -593,14 +678,16 @@ def _job_finished(job_id: str) -> tuple[bool, str, str]:
                 continue
             state = parts[1]
             exit_code = parts[2].split(":", 1)[0]
-            return state in {"COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "NODE_FAIL"}, state, exit_code
+            terminal = {"COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "NODE_FAIL"}
+            return any(state.startswith(item) for item in terminal), state, exit_code
     show = subprocess.run(["scontrol", "show", "job", "-o", str(job_id)], capture_output=True, text=True)
     text = show.stdout or ""
     state_match = re.search(r"\bJobState=(\w+)\b", text)
     exit_match = re.search(r"\bExitCode=([0-9]+):", text)
     state = state_match.group(1) if state_match else ""
     exit_code = exit_match.group(1) if exit_match else ""
-    return state in {"COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "NODE_FAIL"}, state, exit_code
+    terminal = {"COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "NODE_FAIL"}
+    return any(state.startswith(item) for item in terminal), state, exit_code
 
 
 def _append_manifest(path: Path, row: dict[str, Any]) -> None:
@@ -659,6 +746,7 @@ def _submit_probe_row(
             "logging_steps": 1,
             "save_strategy": "no",
             "save_total_limit": 0,
+            "skip_final_save": True,
             "cleanup_large_artifacts_after_train": True,
         },
     )
@@ -715,11 +803,18 @@ def _async_submit_context(source: dict[str, Any]) -> tuple[dict[str, Any], Slurm
 
 
 def submit_wave(args: argparse.Namespace) -> int:
-    source = _load_profile(args.profile)
+    source = _load_profile(_arg_profile(args, "profile", "source_profile"))
     validate_runs(source["training"]["runs"])
     train_cfg, executor, env = _async_submit_context(source)
-    manifest_path = Path(args.manifest)
-    result_path = Path(args.results)
+    if getattr(args, "time_limit", ""):
+        executor.time_limit = str(args.time_limit).strip()
+        executor.extra_sbatch_flags = [
+            flag for flag in executor.extra_sbatch_flags if not str(flag).strip().startswith("--signal=")
+        ]
+    probe_root = _arg_path(args, "output_root", "probe_root")
+    args.output_root = str(probe_root)
+    manifest_path = Path(args.manifest) if args.manifest else probe_root / "probe_manifest.csv"
+    result_path = Path(args.results) if args.results else probe_root / "probe_results.csv"
     submitted_probe_ids = {row.get("probe_id", "") for row in _manifest_rows(manifest_path)}
     results_by_key: dict[tuple[str, str], list[dict[str, str]]] = {}
     if result_path.exists():
@@ -754,7 +849,7 @@ def submit_wave(args: argparse.Namespace) -> int:
                 break
         if waiting:
             continue
-        if any(str(row.get("success", "")).lower() != "true" for row in results):
+        if any(_is_hard_probe_failure(row) for row in results):
             print(f"[expert_head_batch_wave] stopped {approach} gc={disable_gc_raw} after first failed probe")
             continue
         max_success = max((int(row["batch_size"]) for row in results if str(row.get("success", "")).lower() == "true"), default=0)
@@ -866,6 +961,7 @@ def _append_result(path: Path, row: dict[str, Any]) -> None:
         "top_k",
         "batch_size",
         "disable_gradient_checkpointing",
+        "state",
         "success",
         "returncode",
         "trainable_params",
@@ -903,6 +999,7 @@ def _cleanup_probe_artifacts(run_dir: Path) -> None:
         "all_results.json",
         "generation_config.json",
         "optimizer.pt",
+        "pytorch_model.bin",
         "rng_state.pth",
         "scheduler.pt",
         "trainer_state.json",
@@ -917,8 +1014,10 @@ def _cleanup_probe_artifacts(run_dir: Path) -> None:
 
 
 def collect_results(args: argparse.Namespace) -> int:
-    manifest = _manifest_rows(Path(args.manifest))
-    results_path = Path(args.results)
+    probe_root = _arg_path(args, "output_root", "probe_root")
+    manifest_path = Path(args.manifest) if args.manifest else probe_root / "probe_manifest.csv"
+    manifest = _manifest_rows(manifest_path)
+    results_path = Path(args.results) if args.results else probe_root / "probe_results.csv"
     existing_rows = {row.get("probe_id", ""): row for row in _load_probe_results(results_path)}
     collected = 0
     cleaned = 0
@@ -939,6 +1038,12 @@ def collect_results(args: argparse.Namespace) -> int:
         train_payload = {}
         if train_results.exists():
             train_payload = json.loads(train_results.read_text(encoding="utf-8"))
+        effective_tokens_per_sec = train_payload.get("effective_tokens_per_sec") or train_payload.get("train_tokens_per_second")
+        if not effective_tokens_per_sec:
+            tokens_seen = _as_float(train_payload.get("num_input_tokens_seen"))
+            train_runtime = _as_float(train_payload.get("train_runtime"))
+            if tokens_seen is not None and train_runtime not in {None, 0.0}:
+                effective_tokens_per_sec = f"{tokens_seen / float(train_runtime):.6f}"
         trainable = _trainable_from_log(Path(row["slurm_log"]))
         telemetry_path_raw = str(row.get("telemetry_path", "") or "").strip()
         telemetry = _gpu_telemetry_from_csv(Path(telemetry_path_raw)) if telemetry_path_raw else {}
@@ -947,11 +1052,12 @@ def collect_results(args: argparse.Namespace) -> int:
             results_path,
             {
                 **row,
+                "state": state,
                 "success": success,
                 "returncode": exit_code,
                 "trainable_params": trainable.get("trainable_params", ""),
                 "train_runtime": train_payload.get("train_runtime", ""),
-                "effective_tokens_per_sec": train_payload.get("effective_tokens_per_sec", ""),
+                "effective_tokens_per_sec": effective_tokens_per_sec or "",
                 "train_loss": train_payload.get("train_loss", ""),
                 **telemetry,
             },
@@ -965,13 +1071,39 @@ def collect_results(args: argparse.Namespace) -> int:
     return 0
 
 
-def _best_settings_by_approach(rows: list[dict[str, str]]) -> dict[str, dict[str, Any]]:
+def _parse_approach_batches(raw_batches: list[str]) -> dict[str, int]:
+    batches: dict[str, int] = {}
+    valid = set(APPROACH_BY_KIND.values())
+    for raw in raw_batches:
+        if "=" not in raw:
+            raise SystemExit(f"--batch-override expects approach=N, got: {raw}")
+        approach, value = raw.split("=", 1)
+        approach = approach.strip()
+        if approach not in valid:
+            raise SystemExit(f"unknown batch override '{approach}'. Available: {sorted(valid)}")
+        batch_size = int(value)
+        if batch_size <= 0:
+            raise SystemExit(f"batch override must be positive for {approach}")
+        batches[approach] = batch_size
+    return batches
+
+
+def _best_settings_by_approach(
+    rows: list[dict[str, str]],
+    batch_overrides: dict[str, int] | None = None,
+) -> dict[str, dict[str, Any]]:
+    batch_overrides = batch_overrides or {}
     by_approach: dict[str, list[dict[str, str]]] = {}
     for row in rows:
         if str(row.get("success", "")).lower() == "true":
             by_approach.setdefault(row["approach"], []).append(row)
     best: dict[str, dict[str, Any]] = {}
     for approach, candidates in by_approach.items():
+        if approach in batch_overrides:
+            requested = int(batch_overrides[approach])
+            candidates = [row for row in candidates if int(row["batch_size"]) == requested]
+            if not candidates:
+                raise SystemExit(f"no successful calibration result for {approach} batch_size={requested}")
         selected = max(
             candidates,
             key=lambda row: (
@@ -991,26 +1123,85 @@ def _best_settings_by_approach(rows: list[dict[str, str]]) -> dict[str, dict[str
     return best
 
 
+def _load_calibration_rows(args: argparse.Namespace, probe_root: Path) -> list[dict[str, str]]:
+    paths: list[Path] = []
+    if args.results:
+        paths.append(Path(args.results))
+    else:
+        paths.append(probe_root / "probe_results.csv")
+    for raw in getattr(args, "extra_results", []) or []:
+        paths.append(Path(raw))
+
+    rows: list[dict[str, str]] = []
+    for path in paths:
+        rows.extend(_load_probe_results(path))
+    return rows
+
+
+def _parse_approach_caps(raw_caps: list[str]) -> dict[str, int]:
+    caps: dict[str, int] = {}
+    valid = set(APPROACH_BY_KIND.values())
+    for raw in raw_caps:
+        if "=" not in raw:
+            raise SystemExit(f"--cap-approach-max-experts expects approach=N, got: {raw}")
+        approach, value = raw.split("=", 1)
+        approach = approach.strip()
+        if approach not in valid:
+            raise SystemExit(f"unknown approach cap '{approach}'. Available: {sorted(valid)}")
+        cap = int(value)
+        if cap <= 0:
+            raise SystemExit(f"approach cap must be positive for {approach}")
+        caps[approach] = cap
+    return caps
+
+
+def _distributed_process_count(profile: dict[str, Any]) -> int:
+    distributed = profile.get("training", {}).get("distributed", {})
+    if not isinstance(distributed, dict) or not distributed.get("enabled", False):
+        return 1
+    return max(1, int(distributed.get("num_processes", 1)))
+
+
+def _closest_grad_accum(target_global_batch: int, batch_size: int, process_count: int, max_grad_accum: int) -> int:
+    unit = max(1, int(batch_size) * int(process_count))
+    candidates = {1, max(1, math.floor(target_global_batch / unit)), max(1, math.ceil(target_global_batch / unit))}
+    candidates = {min(max_grad_accum, value) for value in candidates if value >= 1}
+    return min(
+        candidates,
+        key=lambda value: (
+            abs((unit * value) - target_global_batch),
+            unit * value > target_global_batch,
+            -value,
+        ),
+    )
+
+
 def write_calibrated_profile(args: argparse.Namespace) -> int:
-    source = _load_profile(args.profile)
+    source = _load_profile(_arg_profile(args, "profile", "source_profile"))
     validate_runs(source["training"]["runs"])
-    results = _load_probe_results(Path(args.results))
-    best = _best_settings_by_approach(results)
+    probe_root = _arg_path(args, "probe_root", "probe_root")
+    results = _load_calibration_rows(args, probe_root)
+    batch_overrides = _parse_approach_batches(getattr(args, "batch_override", []) or [])
+    best = _best_settings_by_approach(results, batch_overrides=batch_overrides)
     missing = sorted(set(APPROACH_BY_KIND.values()) - set(best.keys()))
     if missing:
         raise SystemExit(f"missing successful batch-search results for approaches: {missing}")
 
     target_global_batch = int(args.target_global_batch)
     max_grad_accum = int(args.max_grad_accum)
+    process_count = _distributed_process_count(source)
+    approach_caps = _parse_approach_caps(getattr(args, "cap_approach_max_experts", []) or [])
     calibrated_runs: list[dict[str, Any]] = []
     settings_rows: list[dict[str, Any]] = []
     for run in source["training"]["runs"]:
         run = deepcopy(run)
         approach = _approach_key(run)
+        cap = approach_caps.get(approach)
+        if cap is not None and int(_run_num_experts(run) or 0) > cap:
+            continue
         setting = best[approach]
         batch_size = int(setting["batch_size"])
-        grad_accum_needed = max(1, math.ceil(target_global_batch / batch_size))
-        grad_accum = min(grad_accum_needed, max_grad_accum)
+        grad_accum = _closest_grad_accum(target_global_batch, batch_size, process_count, max_grad_accum)
         train = deepcopy(run.get("train", {})) if isinstance(run.get("train"), dict) else {}
         train.update(
             {
@@ -1028,7 +1219,8 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
                 "anchor_id": setting["anchor_id"],
                 "batch_size": batch_size,
                 "grad_accum": grad_accum,
-                "actual_global_batch": batch_size * grad_accum,
+                "num_processes": process_count,
+                "actual_global_batch": batch_size * process_count * grad_accum,
                 "target_global_batch": target_global_batch,
                 "disable_gradient_checkpointing": bool(setting["disable_gradient_checkpointing"]),
                 "effective_tokens_per_sec": setting.get("effective_tokens_per_sec", ""),
@@ -1038,16 +1230,18 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
         )
 
     payload = _profile_payload(
-        profile_name=CALIBRATED_PROFILE,
-        output_root=Path(args.output_root),
+        profile_name=_arg_profile(args, "calibrated_profile", "calibrated_profile"),
+        base_profile=str(_preset(args.cluster)["base_profile"]),
+        experiment_tag=str(_preset(args.cluster)["experiment_tag"]),
+        output_root=_arg_path(args, "calibrated_output_root", "calibrated_output_root"),
         runs=calibrated_runs,
         calibrated=True,
     )
-    profile_path = Path(args.output_profile)
+    profile_path = _arg_path(args, "output_profile", "calibrated_profile_path")
     profile_path.parent.mkdir(parents=True, exist_ok=True)
     profile_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
-    settings_path = Path(args.output_settings)
+    settings_path = Path(args.output_settings) if args.output_settings else probe_root / "approach_batch_settings.csv"
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     with settings_path.open("w", encoding="utf-8", newline="") as handle:
         fieldnames = list(settings_rows[0].keys())
@@ -1060,7 +1254,7 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
 
 
 def list_anchors(args: argparse.Namespace) -> int:
-    profile = _load_profile(args.profile)
+    profile = _load_profile(_arg_profile(args, "profile", "source_profile"))
     validate_runs(profile["training"]["runs"])
     for approach, run in sorted(_anchor_runs(profile["training"]["runs"]).items()):
         print(f"{approach}\t{run['id']}\tdefault_gc_off={_default_disable_gc(run)}")
@@ -1071,28 +1265,39 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Generate and batch-calibrate the expert/head-count r=2 sweep.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    def add_cluster_arg(subparser: argparse.ArgumentParser) -> None:
+        subparser.add_argument("--cluster", choices=sorted(CLUSTER_PRESETS), default=DEFAULT_CLUSTER)
+
     write_parser = subparsers.add_parser("write-profile", help="Write the generated source/probe profile.")
-    write_parser.add_argument("--output-profile", default=str(DEFAULT_PROFILE_PATH))
-    write_parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    add_cluster_arg(write_parser)
+    write_parser.add_argument("--base-profile", default="")
+    write_parser.add_argument("--source-profile", default="")
+    write_parser.add_argument("--output-profile", default="")
+    write_parser.add_argument("--output-root", default="")
     write_parser.set_defaults(func=write_profile)
 
     validate_parser = subparsers.add_parser("validate-profile", help="Validate the generated profile grid.")
-    validate_parser.add_argument("--profile", default=SOURCE_PROFILE)
+    add_cluster_arg(validate_parser)
+    validate_parser.add_argument("--profile", default="")
     validate_parser.set_defaults(func=validate_profile)
 
     anchors_parser = subparsers.add_parser("list-anchors", help="List one worst-case batch-search anchor per approach.")
-    anchors_parser.add_argument("--profile", default=SOURCE_PROFILE)
+    add_cluster_arg(anchors_parser)
+    anchors_parser.add_argument("--profile", default="")
     anchors_parser.set_defaults(func=list_anchors)
 
     wave_parser = subparsers.add_parser("submit-wave", help="Submit the next batch-size probe per approach.")
-    wave_parser.add_argument("--profile", default=SOURCE_PROFILE)
+    add_cluster_arg(wave_parser)
+    wave_parser.add_argument("--profile", default="")
     wave_parser.add_argument("--batches", default=",".join(str(value) for value in DEFAULT_BATCHES))
     wave_parser.add_argument("--gc-modes", default="default", choices=["default", "both", "on", "off"])
     wave_parser.add_argument("--max-steps", type=int, default=20)
-    wave_parser.add_argument("--output-root", default=str(DEFAULT_PROBE_ROOT))
-    wave_parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
-    wave_parser.add_argument("--results", default=str(DEFAULT_RESULTS))
+    wave_parser.add_argument("--time-limit", default="", help="Optional SLURM walltime override for probe jobs, e.g. 00:10:00.")
+    wave_parser.add_argument("--output-root", default="")
+    wave_parser.add_argument("--manifest", default="")
+    wave_parser.add_argument("--results", default="")
     wave_parser.add_argument("--approach", action="append", default=[], help="Probe only one approach key; can be repeated.")
+    wave_parser.add_argument("--anchor-run-id", action="append", default=[], help="Use an explicit sweep run id as the calibration anchor; can be repeated.")
     wave_parser.add_argument("--max-submissions", type=int, default=0)
     wave_parser.add_argument("--telemetry-interval-seconds", type=int, default=5)
     wave_parser.add_argument("--disable-gpu-telemetry", action="store_true")
@@ -1100,19 +1305,37 @@ def main() -> int:
     wave_parser.set_defaults(func=submit_wave)
 
     collect_parser = subparsers.add_parser("collect-results", help="Collect completed probe jobs.")
-    collect_parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
-    collect_parser.add_argument("--results", default=str(DEFAULT_RESULTS))
+    add_cluster_arg(collect_parser)
+    collect_parser.add_argument("--output-root", default="")
+    collect_parser.add_argument("--manifest", default="")
+    collect_parser.add_argument("--results", default="")
     collect_parser.add_argument("--cleanup-successful", action="store_true")
     collect_parser.set_defaults(func=collect_results)
 
     calibrated_parser = subparsers.add_parser("write-calibrated-profile", help="Write full training profile from stable per-approach batch sizes.")
-    calibrated_parser.add_argument("--profile", default=SOURCE_PROFILE)
-    calibrated_parser.add_argument("--results", default=str(DEFAULT_RESULTS))
+    add_cluster_arg(calibrated_parser)
+    calibrated_parser.add_argument("--profile", default="")
+    calibrated_parser.add_argument("--results", default="")
+    calibrated_parser.add_argument("--extra-results", action="append", default=[], help="Additional probe_results.csv files to merge into calibration; can be repeated.")
     calibrated_parser.add_argument("--target-global-batch", type=int, default=DEFAULT_TARGET_GLOBAL_BATCH)
     calibrated_parser.add_argument("--max-grad-accum", type=int, default=DEFAULT_MAX_GRAD_ACCUM)
-    calibrated_parser.add_argument("--output-profile", default=str(DEFAULT_CALIBRATED_PROFILE_PATH))
-    calibrated_parser.add_argument("--output-root", default=str(DEFAULT_CALIBRATED_OUTPUT_ROOT))
-    calibrated_parser.add_argument("--output-settings", default=str(DEFAULT_SETTINGS))
+    calibrated_parser.add_argument("--calibrated-profile", default="")
+    calibrated_parser.add_argument("--output-profile", default="")
+    calibrated_parser.add_argument("--output-root", dest="calibrated_output_root", default="")
+    calibrated_parser.add_argument("--probe-root", default="")
+    calibrated_parser.add_argument("--output-settings", default="")
+    calibrated_parser.add_argument(
+        "--batch-override",
+        action="append",
+        default=[],
+        help="Use a specific successful calibration batch for an approach, e.g. mov=11. Can be repeated.",
+    )
+    calibrated_parser.add_argument(
+        "--cap-approach-max-experts",
+        action="append",
+        default=[],
+        help="Drop sweep runs above an approach-specific expert/head cap, e.g. moelora=4. Can be repeated.",
+    )
     calibrated_parser.set_defaults(func=write_calibrated_profile)
 
     args = parser.parse_args()

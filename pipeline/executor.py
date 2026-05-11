@@ -429,7 +429,7 @@ class SlurmExecutor:
         env_exports = []
         for key in sorted(env):
             # Only export vars the pipeline explicitly sets.
-            if key.startswith(("PYTHONPATH", "PROOF_PIPELINE_", "WANDB_", "CUDA_", "HF_")):
+            if key.startswith(("PYTHONPATH", "PROOF_PIPELINE_", "WANDB_", "CUDA_", "HF_", "PYTORCH_")):
                 env_exports.append(f'export {key}="{env[key]}"')
 
         cmd_str = " ".join(_shell_quote(c) for c in cmd)
@@ -474,6 +474,43 @@ class SlurmExecutor:
                 "export PYTHONUNBUFFERED=1",
                 "",
                 'echo "[SLURM_START] $(date -u +%Y-%m-%dT%H:%M:%SZ) job=$SLURM_JOB_ID"',
+                'if [[ "${PROOF_PIPELINE_TOKENIZED_LOCAL_COPY:-0}" == "1" ]]; then',
+                '  TOKENIZED_SRC="${PROOF_PIPELINE_TOKENIZED_SRC:?PROOF_PIPELINE_TOKENIZED_SRC is required}"',
+                '  TOKENIZED_DST="${PROOF_PIPELINE_TOKENIZED_DST:?PROOF_PIPELINE_TOKENIZED_DST is required}"',
+                '  TOKENIZED_PARENT="$(dirname "${TOKENIZED_DST}")"',
+                '  mkdir -p "${TOKENIZED_PARENT}"',
+                '  TOKENIZED_LOCK="${TOKENIZED_DST}.lock"',
+                '  exec 9>"${TOKENIZED_LOCK}"',
+                '  flock 9',
+                '  if [[ ! -f "${TOKENIZED_DST}/.proof_local_copy_complete" ]]; then',
+                '    TOKENIZED_TMP="${TOKENIZED_DST}.tmp.${SLURM_JOB_ID:-$$}"',
+                '    echo "[TOKENIZED_COPY] src=${TOKENIZED_SRC} dst=${TOKENIZED_DST} tmp=${TOKENIZED_TMP}"',
+                '    rm -rf "${TOKENIZED_TMP}"',
+                '    mkdir -p "${TOKENIZED_TMP}"',
+                '    if command -v rsync >/dev/null 2>&1; then',
+                '      if [[ "${PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE:-1}" == "1" ]]; then',
+                '        rsync -aL --delete "${TOKENIZED_SRC%/}/" "${TOKENIZED_TMP}/"',
+                '      else',
+                '        rsync -a --delete "${TOKENIZED_SRC%/}/" "${TOKENIZED_TMP}/"',
+                '      fi',
+                '    else',
+                '      if [[ "${PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE:-1}" == "1" ]]; then',
+                '        cp -aL "${TOKENIZED_SRC%/}/." "${TOKENIZED_TMP}/"',
+                '      else',
+                '        cp -a "${TOKENIZED_SRC%/}/." "${TOKENIZED_TMP}/"',
+                '      fi',
+                '    fi',
+                '    if ! find "${TOKENIZED_TMP}" -name "*.arrow" -print -quit | grep -q .; then',
+                '      echo "[TOKENIZED_COPY_ERROR] local copy has no Arrow shards: ${TOKENIZED_TMP}"',
+                '      exit 97',
+                '    fi',
+                '    rm -rf "${TOKENIZED_DST}"',
+                '    mv "${TOKENIZED_TMP}" "${TOKENIZED_DST}"',
+                '    touch "${TOKENIZED_DST}/.proof_local_copy_complete"',
+                '  else',
+                '    echo "[TOKENIZED_COPY] reusing existing local copy at ${TOKENIZED_DST}"',
+                '  fi',
+                'fi',
                 "EXIT_CODE=0",
                 "CHILD_PID=",
                 "CHILD_PGID=",

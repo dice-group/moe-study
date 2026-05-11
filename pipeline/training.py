@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Training helpers for proof pipeline."""
 from __future__ import annotations
+import hashlib
 import os
 import re
 from pathlib import Path
@@ -14,6 +15,81 @@ if TYPE_CHECKING:
 
 
 _CHECKPOINT_ADAPTER_RE = re.compile(r"^checkpoint-(\d+)_adapter$")
+_DIRTY_ADAPTER_KEY_MARKERS = (".base_layer.", "embed_tokens.", "lm_head.")
+
+
+def _adapter_weight_file(adapter_dir: Path) -> Path | None:
+    for name in ("adapter_model.safetensors", "adapter_model.bin"):
+        path = adapter_dir / name
+        if path.exists():
+            return path
+    return None
+
+
+def _adapter_checkpoint_step(adapter_dir: Path) -> int | None:
+    match = _CHECKPOINT_ADAPTER_RE.match(adapter_dir.name)
+    return int(match.group(1)) if match else None
+
+
+def adapter_checkpoint_provenance(
+    adapter_dir: Path,
+    *,
+    expected_step: int | None = None,
+    require_direct_save_marker: bool = False,
+) -> dict[str, Any]:
+    """Return lightweight provenance/validity metadata for an adapter checkpoint."""
+    adapter_dir = Path(adapter_dir)
+    step = _adapter_checkpoint_step(adapter_dir)
+    weight_file = _adapter_weight_file(adapter_dir)
+    errors: list[str] = []
+    warnings: list[str] = []
+    dirty_keys: list[str] = []
+    num_keys: int | None = None
+
+    if expected_step is not None and step != int(expected_step):
+        errors.append(f"checkpoint step {step!r} does not match expected step {int(expected_step)}")
+    if not (adapter_dir / "adapter_config.json").exists():
+        errors.append("adapter_config.json missing")
+    if weight_file is None:
+        errors.append("adapter weight file missing")
+    if require_direct_save_marker and not (adapter_dir / ".adapter_direct_save_complete").exists():
+        errors.append(".adapter_direct_save_complete missing")
+
+    if weight_file is not None:
+        if weight_file.suffix == ".safetensors":
+            try:
+                from safetensors import safe_open
+
+                with safe_open(str(weight_file), framework="pt", device="cpu") as handle:
+                    keys = list(handle.keys())
+                num_keys = len(keys)
+                dirty_keys = [key for key in keys if any(marker in key for marker in _DIRTY_ADAPTER_KEY_MARKERS)]
+                if dirty_keys:
+                    errors.append(f"adapter contains base-model tensors: {dirty_keys[:5]}")
+            except Exception as exc:
+                errors.append(f"could not inspect adapter safetensors keys: {exc}")
+        else:
+            message = "adapter weight file is not safetensors; dirty-key inspection skipped"
+            if require_direct_save_marker:
+                errors.append(message)
+            else:
+                warnings.append(message)
+
+    return {
+        "adapter_path": str(adapter_dir),
+        "checkpoint_step": step,
+        "expected_step": int(expected_step) if expected_step is not None else None,
+        "adapter_config_exists": (adapter_dir / "adapter_config.json").exists(),
+        "adapter_weight_file": str(weight_file) if weight_file is not None else "",
+        "adapter_weight_size": weight_file.stat().st_size if weight_file is not None else None,
+        "direct_save_marker_exists": (adapter_dir / ".adapter_direct_save_complete").exists(),
+        "num_adapter_keys": num_keys,
+        "dirty_key_count": len(dirty_keys),
+        "dirty_key_examples": dirty_keys[:10],
+        "valid": not errors,
+        "errors": errors,
+        "warnings": warnings,
+    }
 
 def _cfg_value(cfg: dict[str, Any], key: str, default: Any, *aliases: str) -> Any:
     if key in cfg:
@@ -51,6 +127,37 @@ def _parse_bool(value: Any, *, default: bool = False) -> bool:
     if text in {"0", "false", "no", "n", "off"}:
         return False
     return default
+
+
+def _maybe_stage_tokenized_path(
+    *,
+    env: dict[str, str],
+    tokenized_path: Path,
+    common: dict[str, Any],
+    run_cfg: dict[str, Any],
+) -> Path:
+    local_copy_cfg = _deep_merge(common.get("tokenized_local_copy", {}), run_cfg.get("tokenized_local_copy", {}))
+    if not isinstance(local_copy_cfg, dict) or not _parse_bool(local_copy_cfg.get("enabled", False), default=False):
+        return tokenized_path
+
+    root = str(local_copy_cfg.get("root", "/dev/shm/moe-study-tokenized")).strip()
+    if not root:
+        root = "/dev/shm/moe-study-tokenized"
+    expanded_root = Path(os.path.expandvars(root)).expanduser()
+    source = tokenized_path.resolve()
+    source_hash = hashlib.sha1(str(source).encode("utf-8")).hexdigest()[:12]
+    local_name = str(local_copy_cfg.get("name", f"{tokenized_path.name}-{source_hash}")).strip()
+    if not local_name:
+        local_name = f"{tokenized_path.name}-{source_hash}"
+    staged_path = expanded_root / local_name
+
+    env["PROOF_PIPELINE_TOKENIZED_LOCAL_COPY"] = "1"
+    env["PROOF_PIPELINE_TOKENIZED_SRC"] = str(source)
+    env["PROOF_PIPELINE_TOKENIZED_DST"] = str(staged_path)
+    env["PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE"] = (
+        "1" if _parse_bool(local_copy_cfg.get("dereference_symlinks", True), default=True) else "0"
+    )
+    return staged_path
 
 
 def _wrap_with_pycharm_debugger(cmd: list[str], debugger_cfg: dict[str, Any]) -> list[str]:
@@ -390,9 +497,15 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         use_reentrant_gc = False
     use_bf16 = bool(train.get('bf16', True))
     use_fp16 = bool(train.get('fp16', False))
-    if kind in {"moelora", "adamole", "hmora"}:
+    if kind in {"moelora", "adamole", "hmora", "mola"}:
         env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     low_cpu_mem_usage = train.get("low_cpu_mem_usage", common.get("low_cpu_mem_usage"))
+    effective_tokenized_path = _maybe_stage_tokenized_path(
+        env=env,
+        tokenized_path=tokenized_path,
+        common=common,
+        run_cfg=run_cfg,
+    )
     train_args = [
         '--stage', 'sft',
         '--do_train',
@@ -408,9 +521,9 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         '--logging_steps', str(int(train.get('logging_steps', 20))),
         '--save_steps', _format_steps_arg(train.get('save_steps', 200), 'training.train.save_steps'),
         '--save_safetensors', 'False',
-        '--save_only_model', 'True',
+        '--save_only_model', str(bool(train.get('save_only_model', True))),
         '--seed', str(seed),
-        '--tokenized_path', str(tokenized_path),
+        '--tokenized_path', str(effective_tokenized_path),
         '--per_device_train_batch_size', str(int(train.get('batch_size', 2))),
         '--auto_find_batch_size', str(bool(train.get('auto_find_batch_size', False))),
         '--gradient_accumulation_steps', str(int(train.get('grad_accum', 8))),
@@ -439,6 +552,8 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
     save_strategy = train.get('save_strategy')
     if save_strategy is not None:
         train_args.extend(['--save_strategy', str(save_strategy)])
+    if bool(train.get('skip_final_save', False)):
+        train_args.extend(['--skip_final_save', 'True'])
     save_total_limit = train.get('save_total_limit')
     if save_total_limit is not None:
         save_total_limit_value = int(save_total_limit)
@@ -481,7 +596,7 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
         config_file = dist.get('config_file') or dist.get('accelerate_config_file')
         config_args: list[str] = []
         if config_file:
-            config_args = ['--config_file', str(config_file)]
+            config_args = ['--config_file', str(_abs(repo_root, str(config_file)))]
         cmd = [
             'accelerate', 'launch',
             *config_args,
@@ -559,8 +674,35 @@ def describe_training_run(
     return run_id, run_name_label, output_dir, log_path
 
 
-def resolve_adapter_eval_path(run_dir: Path) -> Path:
+def resolve_adapter_eval_path(
+    run_dir: Path,
+    *,
+    expected_step: int | None = None,
+    strict_final_checkpoint: bool = False,
+    require_direct_save_marker: bool | None = None,
+) -> Path:
     """Resolve the best adapter directory to evaluate for a completed training run."""
+    if require_direct_save_marker is None:
+        require_direct_save_marker = bool(strict_final_checkpoint)
+
+    if strict_final_checkpoint:
+        if expected_step is None:
+            raise SystemExit(f"strict checkpoint resolution requires expected_step for {run_dir}")
+        adapter_path = run_dir / f"checkpoint-{int(expected_step)}_adapter"
+        if not adapter_path.is_dir():
+            raise SystemExit(f"strict checkpoint not found for {run_dir}: {adapter_path}")
+        provenance = adapter_checkpoint_provenance(
+            adapter_path,
+            expected_step=int(expected_step),
+            require_direct_save_marker=bool(require_direct_save_marker),
+        )
+        if not provenance["valid"]:
+            raise SystemExit(
+                f"strict checkpoint rejected for {run_dir}: {adapter_path} "
+                f"errors={provenance['errors']}"
+            )
+        return adapter_path
+
     best_step = -1
     best_path: Path | None = None
     if run_dir.exists():
@@ -624,6 +766,12 @@ def build_final_eval_cmd(
     use_fp16 = bool(train.get("fp16", False))
     if kind in {"moelora", "adamole"}:
         env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+    effective_tokenized_path = _maybe_stage_tokenized_path(
+        env=env,
+        tokenized_path=tokenized_path,
+        common=common,
+        run_cfg=run_cfg,
+    )
 
     if verify_adapter:
         verify_adapter_lora_hparams(
@@ -660,7 +808,7 @@ def build_final_eval_cmd(
         "--seed",
         str(seed),
         "--tokenized_path",
-        str(tokenized_path),
+        str(effective_tokenized_path),
         "--per_device_eval_batch_size",
         str(int(per_device_eval_batch_size)),
         "--eval_strategy",
@@ -701,44 +849,12 @@ def build_final_eval_cmd(
         )
     )
 
-    dist = _deep_merge(common.get("distributed", {}), run_cfg.get("distributed", {}))
-    if bool(dist.get("enabled", False)):
-        num_processes = 1   # for final eval, only use 1 GPU
-        num_machines = 1
-        machine_rank = 0
-        main_process_ip = str(dist.get("main_process_ip", "127.0.0.1"))
-        main_process_port = int(dist.get("main_process_port", 29501))
-        cuda_visible_devices = dist.get("cuda_visible_devices")
-        if cuda_visible_devices is not None:
-            env["CUDA_VISIBLE_DEVICES"] = str(cuda_visible_devices)
-        cmd = [
-            "accelerate",
-            "launch",
-            "--num_processes",
-            str(num_processes),
-            "--num_machines",
-            str(num_machines),
-            "--machine_rank",
-            str(machine_rank),
-            "--main_process_ip",
-            main_process_ip,
-            "--main_process_port",
-            str(main_process_port),
-            "--module",
-            "llamafactory.launcher",
-            *eval_args,
-        ]
-    else:
-        # Preserve legacy behavior unless a profile explicitly sets FORCE_TORCHRUN=0.
-        if "FORCE_TORCHRUN" not in env:
-            try:
-                import torch
-
-                if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-                    env["FORCE_TORCHRUN"] = "1"
-            except Exception:
-                pass
-        cmd = ["python3", "-m", "llamafactory.cli", "train", *eval_args]
+    # Final loss eval is a single-GPU inference pass. Training profiles may
+    # enable FSDP/accelerate for training, but accelerate with one process is
+    # rejected by LLaMA-Factory's parser for these PEFT tuners.
+    if "FORCE_TORCHRUN" not in env:
+        env["FORCE_TORCHRUN"] = "1"
+    cmd = ["python3", "-m", "llamafactory.cli", "train", *eval_args]
 
     return cmd, env
 
