@@ -1,0 +1,203 @@
+{
+  "moe_study_movlora_dense_expert_sweep_sf0005": {
+    "extends": "moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h",
+    "output_root": "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005",
+    "logs_dir": "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-movlora-dense-expert-sweep-sf0005",
+      "language_count_hint": 10
+    },
+    "sample": {
+      "enabled": false,
+      "output_dir": "outputs/sharded_samples"
+    },
+    "tokenization": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005/tokenized_clean",
+      "sample_fraction": 0.0005,
+      "skip_if_output_exists": false,
+      "languages": [
+        "arb_Arab",
+        "arb_Latn",
+        "azj_Cyrl",
+        "azj_Latn",
+        "cmn_Hani",
+        "fas_Arab",
+        "hun_Latn",
+        "ind_Latn",
+        "jpn_Jpan",
+        "kor_Hang",
+        "rus_Cyrl",
+        "vie_Latn"
+      ],
+      "languages_csv": "",
+      "language_rates_csv": "",
+      "language_rates_counts_tsv": "",
+      "languages_extra": [],
+      "slurm_array_enabled": true,
+      "slurm_array_ranks": 50,
+      "check_parallel_enabled": true
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005/runs",
+      "report_to": "none",
+      "eval": {
+        "enabled": false,
+        "strategy": "no"
+      },
+      "train": {
+        "batch_size": 4,
+        "grad_accum": 3,
+        "max_steps": 0,
+        "num_train_epochs": 1.0,
+        "logging_steps": 50,
+        "save_strategy": "no",
+        "save_steps": 999999,
+        "save_total_limit": 1,
+        "cleanup_large_artifacts_after_train": false,
+        "save_only_model": false,
+        "skip_final_save": false,
+        "disable_gradient_checkpointing": false
+      },
+      "runs": [
+        {
+          "id": "mov_dense_e2",
+          "kind": "movlora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "target": "k_proj,v_proj,down_proj"
+          },
+          "params": {
+            "movlora_num_experts": 2,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "mov_dense_e4",
+          "kind": "movlora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "target": "k_proj,v_proj,down_proj"
+          },
+          "params": {
+            "movlora_num_experts": 4,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "mov_dense_e8",
+          "kind": "movlora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "target": "k_proj,v_proj,down_proj"
+          },
+          "params": {
+            "movlora_num_experts": 8,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "mov_dense_e16",
+          "kind": "movlora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "target": "k_proj,v_proj,down_proj"
+          },
+          "params": {
+            "movlora_num_experts": 16,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        },
+        {
+          "id": "mov_dense_e32",
+          "kind": "movlora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "target": "k_proj,v_proj,down_proj"
+          },
+          "params": {
+            "movlora_num_experts": 32,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          }
+        }
+      ]
+    },
+    "summary": {
+      "baseline_id": "mov_dense_e8",
+      "summary_csv": "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005/gate.json"
+    },
+    "final_eval_loss": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005/final_eval_loss",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state"
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005/benchmarks",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state"
+    },
+    "baseline_eval": {
+      "enabled": false
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@900",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled",
+      "project": "moe-study-rank-expert-sweep"
+    },
+    "wandb_mode": "disabled"
+  }
+}

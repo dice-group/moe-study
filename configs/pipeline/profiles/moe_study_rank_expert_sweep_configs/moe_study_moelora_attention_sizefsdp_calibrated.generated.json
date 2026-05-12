@@ -1,0 +1,314 @@
+{
+  "moe_study_moelora_attention_sizefsdp_calibrated": {
+    "extends": "moe_study_moelora_attention_sizefsdp_fullmatrix_probe",
+    "output_root": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated",
+    "logs_dir": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-rank-expert-sweep-noctua2-a100-4gpu-10langs-calibrated",
+      "language_count_hint": 10
+    },
+    "tokenization": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated/runs",
+      "report_to": "none",
+      "executor": {
+        "time": "03:51:00"
+      },
+      "eval": {
+        "enabled": false,
+        "strategy": "no"
+      },
+      "train": {
+        "logging_steps": 50,
+        "max_steps": 10000,
+        "num_train_epochs": 1.0,
+        "save_steps": 999999,
+        "save_strategy": "no",
+        "save_total_limit": 1,
+        "save_only_model": false,
+        "skip_final_save": false,
+        "cleanup_large_artifacts_after_train": false
+      },
+      "runs": [
+        {
+          "id": "moelora_r2_e8_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 16,
+            "alpha": 32
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 8,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 2,
+            "grad_accum": 6
+          }
+        },
+        {
+          "id": "moelora_r2_e8_k2",
+          "kind": "moelora",
+          "lora": {
+            "rank": 16,
+            "alpha": 32
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 8,
+            "moelora_sparse_top_k": 2,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 2,
+            "grad_accum": 6
+          }
+        },
+        {
+          "id": "moelora_r2_e8_k4",
+          "kind": "moelora",
+          "lora": {
+            "rank": 16,
+            "alpha": 32
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 8,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 2,
+            "grad_accum": 6
+          }
+        },
+        {
+          "id": "moelora_r2_e16_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 16,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 2,
+            "grad_accum": 6
+          }
+        },
+        {
+          "id": "moelora_r2_e16_k2",
+          "kind": "moelora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 16,
+            "moelora_sparse_top_k": 2,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 2,
+            "grad_accum": 6
+          }
+        },
+        {
+          "id": "moelora_r2_e16_k4",
+          "kind": "moelora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 16,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 2,
+            "grad_accum": 6
+          }
+        },
+        {
+          "id": "moelora_r2_e16_k8",
+          "kind": "moelora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 16,
+            "moelora_sparse_top_k": 8,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 1,
+            "grad_accum": 12
+          }
+        },
+        {
+          "id": "moelora_r2_e32_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 2,
+            "grad_accum": 6
+          }
+        },
+        {
+          "id": "moelora_r2_e32_k2",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 2,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 2,
+            "grad_accum": 6
+          }
+        },
+        {
+          "id": "moelora_r2_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 2,
+            "grad_accum": 6
+          }
+        },
+        {
+          "id": "moelora_r2_e32_k8",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 8,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "batch_size": 1,
+            "grad_accum": 12
+          }
+        }
+      ]
+    },
+    "summary": {
+      "baseline_id": "lora_r2",
+      "summary_csv": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated/gate.json"
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_subdir": "final_eval_loss",
+      "batch_size": "train",
+      "output_dir": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated/final_eval_loss"
+    },
+    "benchmark": {
+      "enabled": true,
+      "batch_size": "auto",
+      "output_dir": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated/benchmarks"
+    },
+    "baseline_eval": {
+      "enabled": false
+    },
+    "report": {
+      "enabled": true,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated/report.xlsx"
+    },
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled",
+      "project": "moe-study-rank-expert-sweep"
+    },
+    "wandb_mode": "disabled",
+    "stage_executors": {
+      "train": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@900",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    }
+  }
+}

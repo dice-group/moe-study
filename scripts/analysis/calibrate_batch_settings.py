@@ -159,7 +159,9 @@ def _rank_value(run_id: str) -> int:
     if "_tr" in run_id:
         return int(run_id.split("_tr", 1)[1].split("_", 1)[0])
     if "_r" in run_id:
-        return int(run_id.rsplit("_r", 1)[1])
+        match = re.search(r"_r(\d+)(?:_|$)", run_id)
+        if match:
+            return int(match.group(1))
     return 0
 
 
@@ -279,10 +281,12 @@ def _run_env() -> dict[str, str]:
 def _probe_rows(source: dict[str, Any], args: argparse.Namespace) -> list[dict[str, Any]]:
     runs = _run_by_id(source)
     batches = _parse_batch_values(args.batches)
-    selected_anchors = set(getattr(args, "anchor_id", []) or [])
+    selected_anchors = list(getattr(args, "anchor_id", []) or [])
+    selected_anchor_set = set(selected_anchors)
+    anchor_ids = selected_anchors if selected_anchors else ANCHOR_IDS
     rows = []
-    for anchor_id in ANCHOR_IDS:
-        if selected_anchors and anchor_id not in selected_anchors:
+    for anchor_id in anchor_ids:
+        if selected_anchor_set and anchor_id not in selected_anchor_set:
             continue
         anchor_run = runs.get(anchor_id)
         if anchor_run is None:
@@ -491,9 +495,23 @@ def _async_submit_context(source: dict[str, Any]) -> tuple[dict[str, Any], Slurm
     return train_cfg, executor, _run_env()
 
 
+def _apply_distributed_config_override(train_cfg: dict[str, Any], args: argparse.Namespace) -> None:
+    config_file = str(getattr(args, "accelerate_config_file", "") or "").strip()
+    if not config_file:
+        return
+    distributed = train_cfg.setdefault("distributed", {})
+    if not isinstance(distributed, dict):
+        distributed = {}
+        train_cfg["distributed"] = distributed
+    distributed["enabled"] = True
+    distributed["num_processes"] = int(distributed.get("num_processes", 4) or 4)
+    distributed["config_file"] = config_file
+
+
 def submit_probes(args: argparse.Namespace) -> int:
     source = _load_profile(_arg_profile(args, "profile", "source_profile"))
     train_cfg, executor, env = _async_submit_context(source)
+    _apply_distributed_config_override(train_cfg, args)
     manifest_path = _manifest_path(args)
     submitted = {row.get("probe_id", "") for row in _manifest_rows(manifest_path)}
     submitted_count = 0
@@ -540,6 +558,7 @@ def _as_float(raw: Any) -> float | None:
 def _submit_wave_impl(args: argparse.Namespace) -> int:
     source = _load_profile(_arg_profile(args, "profile", "source_profile"))
     train_cfg, executor, env = _async_submit_context(source)
+    _apply_distributed_config_override(train_cfg, args)
     manifest_path = _manifest_path(args)
     result_path = _results_path(args)
     submitted_probe_ids = {row.get("probe_id", "") for row in _manifest_rows(manifest_path)}
@@ -1171,6 +1190,9 @@ def _infeasible_anchor_ids(rows: list[dict[str, str]]) -> set[str]:
 
 
 def _select_setting_for_run(run: dict[str, Any], anchors: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    exact = anchors.get(str(run["id"]))
+    if exact is not None:
+        return exact
     group = _group_key(run)
     rank = _rank_value(str(run["id"]))
     group_anchors = [value for key, value in anchors.items() if key.startswith(f"{group}_") or (group == "movlora" and key == "movlora_e8")]
@@ -1274,6 +1296,12 @@ def _source_profile_payload(
             "wandb_mode": "disabled",
             "stage_executors": {
                 "train": {
+                    "type": "slurm",
+                    "partition": "gpu",
+                    "gres": "gpu:a100:4",
+                    "cpus_per_task": 64,
+                    "mem": "384G",
+                    "time": "03:51:00",
                     "extra_sbatch_flags": [
                         "--signal=B:USR1@900",
                         "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
@@ -1307,7 +1335,8 @@ def write_profile(args: argparse.Namespace) -> int:
 
 
 def write_calibrated_profile(args: argparse.Namespace) -> int:
-    source = _load_profile(_arg_profile(args, "profile", "source_profile"))
+    source_profile_name = _arg_profile(args, "profile", "source_profile")
+    source = _load_profile(source_profile_name)
     probe_rows = _load_probe_results(_results_path(args))
     anchors = _best_anchor_settings(
         probe_rows,
@@ -1315,7 +1344,14 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
         selection=str(getattr(args, "selection", "fastest")),
     )
     infeasible_anchor_ids = _infeasible_anchor_ids(probe_rows)
-    missing = [anchor_id for anchor_id in ANCHOR_IDS if anchor_id not in anchors and anchor_id not in infeasible_anchor_ids]
+    selected_anchor_ids = list(getattr(args, "anchor_id", []) or [])
+    expected_anchor_ids = selected_anchor_ids if selected_anchor_ids else ANCHOR_IDS
+    expected_anchor_set = set(expected_anchor_ids)
+    missing = [
+        anchor_id
+        for anchor_id in expected_anchor_ids
+        if anchor_id not in anchors and anchor_id not in infeasible_anchor_ids
+    ]
     if missing:
         raise SystemExit(f"missing successful probe results for anchors: {missing}")
 
@@ -1332,6 +1368,27 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
     settings_rows = []
     for run in source["training"]["runs"]:
         run = deepcopy(run)
+        if expected_anchor_set and str(run["id"]) not in expected_anchor_set:
+            settings_rows.append(
+                {
+                    "run_id": run["id"],
+                    "kind": run["kind"],
+                    "anchor_id": "",
+                    "batch_size": "",
+                    "grad_accum": "",
+                    "num_processes": process_count,
+                    "actual_global_batch": "",
+                    "target_global_batch": target_global_batch,
+                    "disable_gradient_checkpointing": "",
+                    "constrained": "",
+                    "effective_tokens_per_sec": "",
+                    "gpu_mem_peak_pct": "",
+                    "gpu_util_avg_pct": "",
+                    "selection_basis": "",
+                    "status": "excluded_not_requested",
+                }
+            )
+            continue
         run_group = _group_key(run)
         if run_group not in groups_with_successful_anchor:
             settings_rows.append(
@@ -1412,9 +1469,41 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
         )
 
     output_root = str(_arg_path(args, "calibrated_output_root", "calibrated_output_root"))
+    source_tokenization = deepcopy(source.get("tokenization", {})) if isinstance(source.get("tokenization"), dict) else {}
+    tokenized_output_dir = source_tokenization.get(
+        "output_dir",
+        "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized",
+    )
+    source_train_defaults = deepcopy(source.get("training", {}).get("train", {}))
+    calibrated_train_defaults = {
+        "logging_steps": 50,
+        "max_steps": 10000,
+        "num_train_epochs": 1.0,
+        "save_steps": 999999,
+        "save_strategy": "no",
+        "save_total_limit": 1,
+        "save_only_model": False,
+        "skip_final_save": False,
+        "cleanup_large_artifacts_after_train": False,
+    }
+    if isinstance(source_train_defaults, dict):
+        for key in (
+            "max_steps",
+            "num_train_epochs",
+            "logging_steps",
+            "save_steps",
+            "save_strategy",
+            "save_total_limit",
+            "save_only_model",
+            "skip_final_save",
+            "cleanup_large_artifacts_after_train",
+        ):
+            if key in source_train_defaults:
+                calibrated_train_defaults[key] = source_train_defaults[key]
+    baseline_id = str(calibrated_runs[0]["id"]) if calibrated_runs else "lora_r2"
     profile_payload = {
         _arg_profile(args, "calibrated_profile", "calibrated_profile"): {
-            "extends": str(_preset(args.cluster)["base_profile"]),
+            "extends": source_profile_name,
             "output_root": output_root,
             "logs_dir": f"{output_root}/logs",
             "run_naming": {
@@ -1423,26 +1512,18 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
             },
             "tokenization": {
                 "enabled": False,
-                "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized",
+                "output_dir": tokenized_output_dir,
             },
             "training": {
                 "output_dir": f"{output_root}/runs",
                 "report_to": "none",
                 "executor": {"time": "03:51:00"},
-                "lora": {
-                    "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj",
-                },
                 "eval": {"enabled": False, "strategy": "no"},
-                "train": {
-                    "logging_steps": 50,
-                    "save_steps": 0.05,
-                    "save_total_limit": 5,
-                    "num_train_epochs": 1.0,
-                },
+                "train": calibrated_train_defaults,
                 "runs": calibrated_runs,
             },
             "summary": {
-                "baseline_id": "lora_r2",
+                "baseline_id": baseline_id,
                 "summary_csv": f"{output_root}/summary.csv",
                 "gate_json": f"{output_root}/gate.json",
             },
@@ -1454,6 +1535,12 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
             "wandb_mode": "disabled",
             "stage_executors": {
                 "train": {
+                    "type": "slurm",
+                    "partition": "gpu",
+                    "gres": "gpu:a100:4",
+                    "cpus_per_task": 64,
+                    "mem": "384G",
+                    "time": "03:51:00",
                     "extra_sbatch_flags": [
                         "--signal=B:USR1@900",
                         "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
@@ -1464,16 +1551,28 @@ def write_calibrated_profile(args: argparse.Namespace) -> int:
         }
     }
 
-    profile_payload[_arg_profile(args, "calibrated_profile", "calibrated_profile")]["final_eval_loss"] = {
+    source_final_eval_loss = (
+        deepcopy(source.get("final_eval_loss", {})) if isinstance(source.get("final_eval_loss"), dict) else {}
+    )
+    source_benchmark = deepcopy(source.get("benchmark", {})) if isinstance(source.get("benchmark"), dict) else {}
+    final_eval_loss = {
         "enabled": True,
         "output_subdir": "final_eval_loss",
         "batch_size": "train",
+        "output_dir": f"{output_root}/final_eval_loss",
     }
-    profile_payload[_arg_profile(args, "calibrated_profile", "calibrated_profile")]["benchmark"] = {
+    benchmark = {
         "enabled": True,
         "batch_size": "auto",
         "output_dir": f"{output_root}/benchmarks",
     }
+    for key in ("strict_final_checkpoint", "require_direct_save_marker", "checkpoint_step_source"):
+        if key in source_final_eval_loss:
+            final_eval_loss[key] = source_final_eval_loss[key]
+        if key in source_benchmark:
+            benchmark[key] = source_benchmark[key]
+    profile_payload[_arg_profile(args, "calibrated_profile", "calibrated_profile")]["final_eval_loss"] = final_eval_loss
+    profile_payload[_arg_profile(args, "calibrated_profile", "calibrated_profile")]["benchmark"] = benchmark
     profile_payload[_arg_profile(args, "calibrated_profile", "calibrated_profile")]["report"] = {
         "enabled": True,
         "output_xlsx": f"{output_root}/report.xlsx",
@@ -1549,6 +1648,7 @@ def main() -> int:
     submit_parser.add_argument("--manifest", default="")
     submit_parser.add_argument("--anchor-id", action="append", default=[], help="Submit only selected anchor id(s).")
     submit_parser.add_argument("--limit", type=int, default=0, help="Submit at most N probe jobs.")
+    submit_parser.add_argument("--accelerate-config-file", default="", help="Override training.distributed.config_file for submitted probes.")
     submit_parser.add_argument("--telemetry-interval-seconds", type=int, default=5)
     submit_parser.add_argument("--disable-gpu-telemetry", action="store_true")
     submit_parser.add_argument("--dry-run", action="store_true")
@@ -1566,6 +1666,7 @@ def main() -> int:
     wave_parser.add_argument("--anchor-id", action="append", default=[], help="Submit only selected anchor id(s).")
     wave_parser.add_argument("--limit", type=int, default=0, help="Consider at most N candidate probes before wave selection.")
     wave_parser.add_argument("--max-submissions", type=int, default=0, help="Submit at most N jobs in this wave.")
+    wave_parser.add_argument("--accelerate-config-file", default="", help="Override training.distributed.config_file for submitted probes.")
     wave_parser.add_argument("--target-gpu-mem-pct", type=float, default=0.0, help="Stop expanding an anchor once a successful telemetry probe reaches this peak VRAM percentage.")
     wave_parser.add_argument("--telemetry-interval-seconds", type=int, default=5)
     wave_parser.add_argument("--disable-gpu-telemetry", action="store_true")
@@ -1588,6 +1689,7 @@ def main() -> int:
     calibrated_parser.add_argument("--max-grad-accum", type=int, default=DEFAULT_MAX_GRAD_ACCUM)
     calibrated_parser.add_argument("--min-gpu-mem-pct", type=float, default=0.0, help="Prefer the fastest setting whose telemetry reaches this peak VRAM percentage; fall back to max batch if none do.")
     calibrated_parser.add_argument("--selection", choices=["fastest", "highest-batch"], default="fastest")
+    calibrated_parser.add_argument("--anchor-id", action="append", default=[], help="Include only selected run id(s) in the calibrated profile.")
     calibrated_parser.add_argument("--calibrated-profile", default="")
     calibrated_parser.add_argument("--output-profile", default="")
     calibrated_parser.add_argument("--output-root", dest="calibrated_output_root", default="")

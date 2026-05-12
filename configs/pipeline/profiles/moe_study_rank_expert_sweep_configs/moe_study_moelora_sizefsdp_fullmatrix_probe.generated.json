@@ -1,0 +1,304 @@
+{
+  "moe_study_moelora_sizefsdp_fullmatrix_probe": {
+    "extends": "moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h",
+    "output_root": "outputs/pipeline_runs/moe_study_moelora_sizefsdp_fullmatrix_probe",
+    "logs_dir": "outputs/pipeline_runs/moe_study_moelora_sizefsdp_fullmatrix_probe/logs",
+    "stage_executors": {
+      "train": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "00:30:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_moelora_sizefsdp_fullmatrix_probe/runs",
+      "distributed": {
+        "enabled": true,
+        "num_processes": 4,
+        "num_machines": 1,
+        "machine_rank": 0,
+        "main_process_ip": "127.0.0.1",
+        "main_process_port": 29501,
+        "config_file": "configs/accelerate/fsdp_4gpu_config_size_sharded.yaml"
+      },
+      "train": {
+        "batch_size": 1,
+        "grad_accum": 1,
+        "max_steps": 3,
+        "logging_steps": 1,
+        "save_steps": 999999,
+        "save_strategy": "no",
+        "skip_final_save": true,
+        "save_total_limit": 0,
+        "cleanup_large_artifacts_after_train": true,
+        "disable_gradient_checkpointing": false,
+        "use_reentrant_gc": false,
+        "bf16": true,
+        "fp16": false,
+        "flash_attn": "sdpa",
+        "report_to": "none"
+      },
+      "eval": {
+        "enabled": false,
+        "strategy": "no"
+      },
+      "runs": [
+        {
+          "id": "moelora_r2_e8_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 16,
+            "alpha": 32
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 8,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e8_k2",
+          "kind": "moelora",
+          "lora": {
+            "rank": 16,
+            "alpha": 32
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 8,
+            "moelora_sparse_top_k": 2,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e8_k4",
+          "kind": "moelora",
+          "lora": {
+            "rank": 16,
+            "alpha": 32
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 8,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e16_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 16,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e16_k2",
+          "kind": "moelora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 16,
+            "moelora_sparse_top_k": 2,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e16_k4",
+          "kind": "moelora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 16,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e16_k8",
+          "kind": "moelora",
+          "lora": {
+            "rank": 32,
+            "alpha": 64
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 16,
+            "moelora_sparse_top_k": 8,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e32_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e32_k2",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 2,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e32_k8",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 8,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_r2_e32_k16",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 16,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        }
+      ]
+    },
+    "final_eval_loss": {
+      "enabled": false
+    },
+    "benchmark": {
+      "enabled": false
+    },
+    "baseline_eval": {
+      "enabled": false
+    },
+    "report": {
+      "enabled": false
+    },
+    "summary": {
+      "enabled": false
+    },
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled"
+    },
+    "wandb_mode": "disabled"
+  }
+}

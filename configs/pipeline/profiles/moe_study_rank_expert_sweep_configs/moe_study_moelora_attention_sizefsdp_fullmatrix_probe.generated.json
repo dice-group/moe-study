@@ -1,0 +1,19 @@
+{
+  "moe_study_moelora_attention_sizefsdp_fullmatrix_probe": {
+    "extends": "moe_study_moelora_sizefsdp_fullmatrix_probe",
+    "output_root": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_fullmatrix_probe",
+    "logs_dir": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_fullmatrix_probe/logs",
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_fullmatrix_probe/runs",
+      "lora": {
+        "target": "q_proj,k_proj,v_proj,o_proj"
+      }
+    },
+    "summary": {
+      "enabled": false
+    },
+    "report": {
+      "enabled": false
+    }
+  }
+}
