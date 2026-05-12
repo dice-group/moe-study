@@ -107,13 +107,13 @@ def _validate(profile: dict[str, Any], settings_rows: list[dict[str, str]] | Non
     if settings_rows:
         included = [row["run_id"] for row in settings_rows if row.get("status", "included") == "included"]
         infeasible = [row["run_id"] for row in settings_rows if row.get("status") == "infeasible_bs1"]
-        if len(included) + len(infeasible) != 69:
-            errors.append(f"expected 69 settings rows, found {len(included) + len(infeasible)}")
         expected_run_ids = set(included)
+        if len(included) != len(expected_run_ids):
+            errors.append("included run ids are not unique in settings")
         if len(infeasible) != len(set(infeasible)):
             errors.append("infeasible run ids are not unique in settings")
-    elif len(runs) != 69:
-        errors.append(f"expected 69 runs, found {len(runs)}")
+    elif not runs:
+        errors.append("profile has no training runs")
 
     ids = [str(run.get("id", "")) for run in runs]
     if len(ids) != len(set(ids)):

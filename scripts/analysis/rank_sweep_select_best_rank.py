@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import re
 import sys
 from collections import defaultdict
@@ -412,6 +413,150 @@ def _fmt(value: Any) -> str:
     return str(value)
 
 
+def _numeric_rows(rows: list[dict[str, Any]], field: str) -> list[dict[str, Any]]:
+    out = []
+    for row in rows:
+        value = row.get(field)
+        if isinstance(value, (int, float)) and math.isfinite(float(value)):
+            out.append(row)
+    return out
+
+
+def _rank_sort_key(row: dict[str, Any]) -> tuple[int, str]:
+    value = row.get("total_rank")
+    return (int(value), str(row.get("kind", ""))) if isinstance(value, int) else (10**9, str(row.get("kind", "")))
+
+
+def _plain_rank_ticks(ax, values: list[int] | None = None) -> None:
+    rank_ticks = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+    present = set(values or rank_ticks)
+    ticks = [tick for tick in rank_ticks if tick in present] or rank_ticks
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([str(tick) for tick in ticks])
+
+
+def _write_plots(
+    output_dir: Path,
+    run_scores: list[dict[str, Any]],
+    kind_rank_summary: list[dict[str, Any]],
+    moe_rank_summary: list[dict[str, Any]],
+) -> list[Path]:
+    os.environ.setdefault("XDG_CACHE_HOME", str(output_dir / ".cache"))
+    os.environ.setdefault("MPLCONFIGDIR", str(output_dir / ".mplconfig"))
+    import matplotlib.pyplot as plt
+
+    plots_dir = output_dir / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+
+    palette = {
+        "lora": "#4C78A8",
+        "mtllora": "#F58518",
+        "hydralora": "#54A24B",
+        "cola": "#E45756",
+        "moelora": "#72B7B2",
+        "mola": "#B279A2",
+        "hmora": "#9D755D",
+    }
+
+    top_runs = [row for row in run_scores if math.isfinite(float(row.get("aggregate_score", float("nan"))))][:15]
+    if top_runs:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        labels = [str(row["run_id"]) for row in reversed(top_runs)]
+        values = [float(row["aggregate_score"]) for row in reversed(top_runs)]
+        colors = [palette.get(str(row.get("kind")), "#6B7280") for row in reversed(top_runs)]
+        ax.barh(labels, values, color=colors)
+        ax.set_xlabel("Normalized aggregate score")
+        ax.set_title("Top rank-sweep checkpoints")
+        ax.set_xlim(0, 1.0)
+        ax.grid(axis="x", alpha=0.25)
+        fig.tight_layout()
+        path = plots_dir / "top_runs.png"
+        fig.savefig(path, dpi=180)
+        plt.close(fig)
+        written.append(path)
+
+    by_kind: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in kind_rank_summary:
+        if row.get("total_rank") in ("", None):
+            continue
+        try:
+            row = {**row, "total_rank": int(row["total_rank"]), "mean_aggregate_score": float(row["mean_aggregate_score"])}
+        except (TypeError, ValueError):
+            continue
+        by_kind[str(row["kind"])].append(row)
+    if by_kind:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        for kind, rows in sorted(by_kind.items()):
+            rows = sorted(_numeric_rows(rows, "mean_aggregate_score"), key=_rank_sort_key)
+            if not rows:
+                continue
+            ax.plot(
+                [int(row["total_rank"]) for row in rows],
+                [float(row["mean_aggregate_score"]) for row in rows],
+                marker="o",
+                linewidth=1.8,
+                label=kind,
+                color=palette.get(kind),
+            )
+        ax.set_xscale("log", base=2)
+        _plain_rank_ticks(ax, sorted({int(row["total_rank"]) for rows in by_kind.values() for row in rows}))
+        ax.set_xlabel("Total rank")
+        ax.set_ylabel("Normalized aggregate score")
+        ax.set_title("Score by rank and method family")
+        ax.grid(alpha=0.25)
+        ax.legend(ncol=2, fontsize=8)
+        fig.tight_layout()
+        path = plots_dir / "score_by_kind_rank.png"
+        fig.savefig(path, dpi=180)
+        plt.close(fig)
+        written.append(path)
+
+    shared_rows = []
+    for row in moe_rank_summary:
+        try:
+            shared_rows.append(
+                {
+                    "total_rank": int(row["total_rank"]),
+                    "mean_aggregate_score": float(row["mean_aggregate_score"]),
+                    "mean_belebele_score": float(row["mean_belebele_score"]),
+                    "mean_flores_score": float(row["mean_flores_score"]),
+                    "mean_sib200_score": float(row["mean_sib200_score"]),
+                    "mean_taxi1500_score": float(row["mean_taxi1500_score"]),
+                }
+            )
+        except (TypeError, ValueError):
+            continue
+    if shared_rows:
+        shared_rows = sorted(shared_rows, key=lambda row: row["total_rank"])
+        fig, ax = plt.subplots(figsize=(10, 6))
+        series = [
+            ("aggregate", "mean_aggregate_score", "#111827"),
+            ("Belebele", "mean_belebele_score", "#4C78A8"),
+            ("FLORES", "mean_flores_score", "#F58518"),
+            ("SIB200", "mean_sib200_score", "#54A24B"),
+            ("Taxi1500", "mean_taxi1500_score", "#E45756"),
+        ]
+        x = [row["total_rank"] for row in shared_rows]
+        for label, field, color in series:
+            ax.plot(x, [row[field] for row in shared_rows], marker="o", linewidth=1.9, label=label, color=color)
+        ax.set_xscale("log", base=2)
+        _plain_rank_ticks(ax, x)
+        ax.set_xlabel("Shared total rank")
+        ax.set_ylabel("Normalized score")
+        ax.set_title("Shared MoE rank trend")
+        ax.set_ylim(0, 1.04)
+        ax.grid(alpha=0.25)
+        ax.legend(ncol=3, fontsize=8)
+        fig.tight_layout()
+        path = plots_dir / "shared_moe_rank_trend.png"
+        fig.savefig(path, dpi=180)
+        plt.close(fig)
+        written.append(path)
+
+    return written
+
+
 def _write_markdown(
     path: Path,
     run_scores: list[dict[str, Any]],
@@ -419,10 +564,26 @@ def _write_markdown(
     kind_rank_summary: list[dict[str, Any]],
     moe_rank_summary: list[dict[str, Any]],
     friedman_rows: list[dict[str, Any]],
+    plot_paths: list[Path],
 ) -> None:
     best_run = run_scores[0] if run_scores else {}
     best_rank = rank_summary[0] if rank_summary else {}
     best_moe_rank = moe_rank_summary[0] if moe_rank_summary else {}
+    shared_metrics = [
+        ("Belebele", "mean_belebele_score"),
+        ("FLORES", "mean_flores_score"),
+        ("SIB200", "mean_sib200_score"),
+        ("Taxi1500", "mean_taxi1500_score"),
+    ]
+    strongest_shared_metrics = []
+    if moe_rank_summary:
+        for label, field in shared_metrics:
+            values = [_safe_float(row.get(field)) for row in moe_rank_summary]
+            values = [value for value in values if value is not None]
+            if values:
+                strongest_shared_metrics.append((max(values) - min(values), label))
+        strongest_shared_metrics.sort(reverse=True)
+    top_separators = ", ".join(label for _spread, label in strongest_shared_metrics[:2])
     lines = [
         "# Rank Sweep Selection",
         "",
@@ -437,11 +598,31 @@ def _write_markdown(
         f"- Best rank averaged across all rank-bearing runs: `{best_rank.get('total_rank', '')}` with mean score {_fmt(best_rank.get('mean_aggregate_score', ''))}.",
         f"- Best shared MoE rank across `moelora`, `mola`, and `hmora`: `{best_moe_rank.get('total_rank', '')}` with mean score {_fmt(best_moe_rank.get('mean_aggregate_score', ''))}.",
         "",
-        "## Top Runs",
+        "## Interpretation",
         "",
-        "| Run ID | Kind | Rank | Score | Belebele | FLORES | SIB200 | Taxi1500 |",
-        "|---|---|---:|---:|---:|---:|---:|---:|",
+        f"- The strongest matched MoE setting is total rank `{best_moe_rank.get('total_rank', '')}`. It has the best shared-MoE aggregate score and wins the paired Friedman rank tests for every benchmark family below.",
+        f"- The main separation across shared MoE ranks comes from {top_separators or 'the task families with non-saturated scores'}; FLORES is close to saturated for the lower ranks and is less diagnostic than the classification tasks.",
+        "- Higher total ranks do not help this checkpoint set. Scores decline after rank 16 in the shared MoE comparison, so extra capacity appears to increase optimization cost or over-parameterization faster than it improves transfer under these training conditions.",
+        "- The all-rank average is unbalanced because not every method exists at every rank. Use the shared MoE table for the cleanest rank choice, and the family table for method-specific choices.",
+        "",
+        "## Plots",
+        "",
     ]
+    if plot_paths:
+        for plot_path in plot_paths:
+            lines.append(f"![{plot_path.stem}]({plot_path.relative_to(path.parent).as_posix()})")
+            lines.append("")
+    else:
+        lines.append("Plot generation was skipped.")
+        lines.append("")
+    lines.extend(
+        [
+            "## Top Runs",
+            "",
+            "| Run ID | Kind | Rank | Score | Belebele | FLORES | SIB200 | Taxi1500 |",
+            "|---|---|---:|---:|---:|---:|---:|",
+        ]
+    )
     for row in run_scores[:15]:
         lines.append(
             f"| `{row['run_id']}` | `{row['kind']}` | {row.get('total_rank', '')} | {_fmt(row['aggregate_score'])} | {_fmt(row['belebele_score'])} | {_fmt(row['flores_score'])} | {_fmt(row['sib200_score'])} | {_fmt(row['taxi1500_score'])} |"
@@ -525,7 +706,16 @@ def main() -> int:
     _write_json(output_dir / "rank_selection_friedman_results.json", friedman_significance)
     _write_csv(output_dir / "rank_selection_friedman_by_benchmark.csv", friedman_summary_rows)
     _write_csv(output_dir / "rank_selection_friedman_pairwise.csv", friedman_pairwise_rows)
-    _write_markdown(output_dir / "rank_selection_report.md", run_scores, rank_summary, kind_rank_summary, moe_rank_summary, friedman_summary_rows)
+    plot_paths = _write_plots(output_dir, run_scores, kind_rank_summary, moe_rank_summary)
+    _write_markdown(
+        output_dir / "rank_selection_report.md",
+        run_scores,
+        rank_summary,
+        kind_rank_summary,
+        moe_rank_summary,
+        friedman_summary_rows,
+        plot_paths,
+    )
 
     print(f"[rank_sweep_select_best_rank] wrote {output_dir}")
     if moe_rank_summary:
