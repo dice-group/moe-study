@@ -14,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from pipeline_tools.reporting.significance import build_significance_results  # noqa: E402
 from scripts.analysis.rank_sweep_select_best_rank import (  # noqa: E402
     PRIMARY_METRICS,
     _normalized_scores,
@@ -30,12 +31,34 @@ DEFAULT_ROOTS = [
     "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_final_rescue_nosync",
     "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_deterministic_budget_filtered_save",
     "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h",
+    "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005_calibrated",
+    "outputs/pipeline_runs/moe_study_hmora_attention_calibrated",
+    "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated",
+    "outputs/pipeline_runs/moe_study_hydralora_heads32_rerun",
+    "outputs/pipeline_runs/moe_study_remaining_problematic_recovery",
 ]
 DEFAULT_OUTPUT_DIR = (
     "outputs/pipeline_runs/"
     "moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_ready/"
     "analysis/expert_selection"
 )
+DEFAULT_STATUS_MD = (
+    "outputs/pipeline_runs/"
+    "moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_ready/"
+    "analysis/expert_status_tracker/expert_sweep_exact_status.md"
+)
+DEFAULT_ALLOWED_STATUSES = {"complete_clean"}
+COMPONENT_COUNTS = [2, 4, 8, 16, 32]
+LARGE_TOPK_COUNTS = [8, 16, 32]
+DENSE_MOV_IDS = ["mov_dense_e2", "mov_dense_e4", "mov_dense_e8", "mov_dense_e16", "mov_dense_e32"]
+HMORA_RERUN_IDS = [
+    "hmora_r2_e2_k1",
+    "hmora_r2_e32_k1",
+    "hmora_r2_e32_k2",
+    "hmora_r2_e32_k4",
+    "hmora_r2_e32_k8",
+    "hmora_r2_e32_k16",
+]
 
 RESULT_TS_RE = re.compile(r"results_(.+)\.json$")
 EXPERT_RE = re.compile(r"_e(\d+)(?:_|$)")
@@ -43,6 +66,47 @@ TOPK_RE = re.compile(r"_k(\d+)(?:_|$)")
 HEADS_RE = re.compile(r"_heads(\d+)$")
 NUP_RE = re.compile(r"_nup(\d+)$")
 COLA_B_RE = re.compile(r"_b(\d+)$")
+
+
+def _clean_md_cell(value: str) -> str:
+    value = value.strip()
+    if value.startswith("`") and value.endswith("`"):
+        value = value[1:-1]
+    return value.strip()
+
+
+def _markdown_table(path: Path, heading: str) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    start = None
+    for index, line in enumerate(lines):
+        if line.strip() == heading:
+            start = index + 1
+            break
+    if start is None:
+        return []
+
+    header: list[str] | None = None
+    rows: list[dict[str, str]] = []
+    for line in lines[start:]:
+        if not line.startswith("|"):
+            if header:
+                break
+            continue
+        cells = [_clean_md_cell(cell) for cell in line.strip().strip("|").split("|")]
+        if not header:
+            header = cells
+            continue
+        if all(set(cell) <= {"-", ":"} for cell in cells):
+            continue
+        if len(cells) == len(header):
+            rows.append(dict(zip(header, cells)))
+    return rows
+
+
+def _status_lookup(status_md: Path) -> dict[str, str]:
+    return {row["run_id"]: row["status"] for row in _markdown_table(status_md, "## Exact Matrix") if row.get("run_id")}
 
 
 def _result_timestamp(path: Path) -> str:
@@ -187,6 +251,22 @@ def _result_payload(run_id: str, roots: list[Path]) -> tuple[Path | None, list[P
         return root, files, results
 
     return None, [], {}
+
+
+def _dynamic_rerun_status_lookup(roots: list[Path]) -> dict[str, str]:
+    statuses: dict[str, str] = {}
+    for run_id in [*DENSE_MOV_IDS, *HMORA_RERUN_IDS]:
+        _root, _paths, results = _result_payload(run_id, roots)
+        run_exists = any((root / "runs" / run_id).exists() for root in roots)
+        if len(results) >= 42:
+            statuses[run_id] = "complete_clean"
+        elif results:
+            statuses[run_id] = "partial_benchmark"
+        elif run_exists:
+            statuses[run_id] = "running_recompute"
+        else:
+            statuses[run_id] = "not_computed"
+    return statuses
 
 
 def _collect(roots: list[Path]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -353,6 +433,11 @@ def _summarize_exact_group(rows: list[dict[str, Any]], fields: list[str]) -> lis
     return sorted(out, key=lambda row: tuple(str(row[field]) for field in fields))
 
 
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fields = list(rows[0].keys()) if rows else []
@@ -360,6 +445,165 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _complete_count_methods(run_rows: list[dict[str, Any]], counts: list[int]) -> set[str]:
+    by_method: dict[str, set[int]] = defaultdict(set)
+    for row in run_rows:
+        if row.get("top_k") not in ("", None) and row.get("top_k") != 1:
+            continue
+        try:
+            count = int(row["expert_count"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if count in counts:
+            variant = "topk1" if row.get("top_k") == 1 else str(row.get("axis_label", "components"))
+            by_method[f"{row['kind']}:{variant}"].add(count)
+    return {method for method, observed in by_method.items() if all(count in observed for count in counts)}
+
+
+def _component_count_payload(raw_rows: list[dict[str, Any]], run_rows: list[dict[str, Any]], counts: list[int]) -> dict[str, Any]:
+    algorithm_labels = [f"component_{count}" for count in counts]
+    complete_methods = _complete_count_methods(run_rows, counts)
+    by_unit: dict[tuple[str, str, str, str, str, str], dict[int, dict[str, Any]]] = defaultdict(dict)
+    for row in raw_rows:
+        if row.get("top_k") not in ("", None) and row.get("top_k") != 1:
+            continue
+        try:
+            count = int(row["expert_count"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if count not in counts:
+            continue
+        variant = "topk1" if row.get("top_k") == 1 else str(row.get("axis_label", "components"))
+        method_key = f"{row['kind']}:{variant}"
+        if method_key not in complete_methods:
+            continue
+        key = (
+            method_key,
+            str(row["benchmark"]),
+            str(row["task"]),
+            str(row["metric"]),
+            str(row["better"]),
+            str(row.get("direction", "")),
+        )
+        by_unit[key][count] = row
+
+    table_rows: list[dict[str, Any]] = []
+    for (_method_key, benchmark, task, metric, better, _direction), count_rows in sorted(by_unit.items()):
+        if any(count not in count_rows for count in counts):
+            continue
+        table_rows.append(
+            {
+                "benchmark": benchmark,
+                "metric_family": metric,
+                "task": task,
+                "better": better,
+                "approach_values": {f"component_{count}": float(count_rows[count]["value"]) for count in counts},
+            }
+        )
+    return {
+        "algorithm_labels": algorithm_labels,
+        "table_rows": table_rows,
+        "scope": "matched component_count using count-only methods and routed top_k=1 rows",
+        "included_method_variants": sorted(complete_methods),
+    }
+
+
+def _topk_payload(raw_rows: list[dict[str, Any]], counts: list[int]) -> dict[str, Any]:
+    topk_by_count: dict[int, set[int]] = defaultdict(set)
+    for row in raw_rows:
+        if row.get("top_k") in ("", None):
+            continue
+        try:
+            count = int(row["expert_count"])
+            top_k = int(row["top_k"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if count in counts:
+            topk_by_count[count].add(top_k)
+    common_topk = sorted(set.intersection(*(topk_by_count[count] for count in counts if topk_by_count[count]))) if topk_by_count else []
+    algorithm_labels = [f"topk_{top_k}" for top_k in common_topk]
+    by_unit: dict[tuple[str, int, str, str, str, str, str], dict[int, dict[str, Any]]] = defaultdict(dict)
+    for row in raw_rows:
+        if row.get("top_k") in ("", None):
+            continue
+        try:
+            count = int(row["expert_count"])
+            top_k = int(row["top_k"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if count not in counts:
+            continue
+        key = (
+            str(row["kind"]),
+            count,
+            str(row["benchmark"]),
+            str(row["task"]),
+            str(row["metric"]),
+            str(row["better"]),
+            str(row.get("direction", "")),
+        )
+        by_unit[key][top_k] = row
+
+    table_rows: list[dict[str, Any]] = []
+    for (_kind, _count, benchmark, task, metric, better, _direction), topk_rows in sorted(by_unit.items()):
+        if len(common_topk) < 2 or any(top_k not in topk_rows for top_k in common_topk):
+            continue
+        table_rows.append(
+            {
+                "benchmark": benchmark,
+                "metric_family": metric,
+                "task": task,
+                "better": better,
+                "approach_values": {f"topk_{top_k}": float(topk_rows[top_k]["value"]) for top_k in common_topk},
+            }
+        )
+    return {
+        "algorithm_labels": algorithm_labels,
+        "table_rows": table_rows,
+        "scope": "exploratory matched top-k effect within method/count/task blocks for counts 8, 16, 32",
+    }
+
+
+def _significance_rows(significance: dict[str, Any], algorithm_labels: list[str], prefix: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in significance.get("friedman_results", []):
+        if not isinstance(item, dict):
+            continue
+        row = {
+            "group_label": item.get("group_label", ""),
+            "n_units": item.get("n_units", ""),
+            "n_algorithms": item.get("n_algorithms", ""),
+            "friedman_statistic": item.get("friedman_statistic", ""),
+            "p_raw": item.get("p_raw", ""),
+            "p_fdr": item.get("p_fdr", ""),
+            "significant": item.get("significant", ""),
+            "significant_fdr": item.get("significant_fdr", ""),
+            "unique_winner_fdr": item.get("unique_winner_fdr", ""),
+            "kendalls_w": item.get("kendalls_w", ""),
+            "best_level": str(item.get("best_rank_approach", "")).replace(prefix, ""),
+            "best_avg_rank": item.get("best_avg_rank", ""),
+            "note": item.get("note", ""),
+        }
+        avg_ranks = item.get("avg_ranks", {})
+        if isinstance(avg_ranks, dict):
+            for label in algorithm_labels:
+                row[f"avg_{label.replace(prefix, '')}"] = avg_ranks.get(label, "")
+        rows.append(row)
+    return rows
+
+
+def _pairwise_rows(significance: dict[str, Any], prefix: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in significance.get("pairwise_results", []):
+        if not isinstance(item, dict):
+            continue
+        row = dict(item)
+        row["label_a"] = str(row.get("label_a", "")).replace(prefix, "")
+        row["label_b"] = str(row.get("label_b", "")).replace(prefix, "")
+        rows.append(row)
+    return rows
 
 
 def _plain_count_ticks(ax, counts: list[int]) -> None:
@@ -589,12 +833,35 @@ def _summary_table(lines: list[str], rows: list[dict[str, Any]]) -> None:
         )
 
 
+def _significance_table(lines: list[str], title: str, rows: list[dict[str, Any]], level_name: str) -> None:
+    lines.extend(
+        [
+            "",
+            f"## {title}",
+            "",
+            "| Benchmark | Units | p FDR | Kendall W | Best level | Avg rank | Unique winner |",
+            "|---|---:|---:|---:|---:|---:|---|",
+        ]
+    )
+    if not rows:
+        lines.append("|  | 0 |  |  |  |  | no matched rows |")
+        return
+    for row in rows:
+        lines.append(
+            f"| {row['group_label']} | {row['n_units']} | {_fmt(row.get('p_fdr', ''))} | "
+            f"{_fmt(row.get('kendalls_w', ''))} | {level_name} {row.get('best_level', '')} | "
+            f"{_fmt(row.get('best_avg_rank', ''))} | {'yes' if row.get('unique_winner_fdr') else 'no'} |"
+        )
+
+
 def _write_markdown(
     path: Path,
     run_scores: list[dict[str, Any]],
     expert_summary: list[dict[str, Any]],
     routed_moe_summary: list[dict[str, Any]],
     kind_expert_summary: list[dict[str, Any]],
+    component_significance_rows: list[dict[str, Any]],
+    topk_significance_rows: list[dict[str, Any]],
 ) -> None:
     best_run = run_scores[0] if run_scores else {}
     best_count = expert_summary[0] if expert_summary else {}
@@ -611,6 +878,7 @@ def _write_markdown(
         "",
         "Scoring uses primary metrics only: Belebele `acc_norm`, FLORES `bits_per_byte` (lower is better), SIB200 `f1`, and Taxi1500 `f1`.",
         "Each task metric is min-max normalized across observed expert/head sweep runs; run scores macro-average benchmark families.",
+        f"Rows are filtered through the expert status tracker; included statuses are: {', '.join(sorted(DEFAULT_ALLOWED_STATUSES))}.",
         "",
         "## Recommendation",
         "",
@@ -645,6 +913,20 @@ def _write_markdown(
     for kind in sorted(best_by_kind):
         row = best_by_kind[kind]
         lines.append(f"| `{kind}` | {row['expert_count']} | {_fmt(row['mean_aggregate_score'])} | `{row['best_run_id']}` | {row['n_runs']} |")
+    _significance_table(lines, "Component Count Friedman Tests", component_significance_rows, "count")
+    lines.extend(
+        [
+            "",
+            "The component-count test treats experts, heads, up-projections, CoLA-B, and dense MoV experts as a shared count-like capacity axis while pairing by method/axis variant and task.",
+        ]
+    )
+    _significance_table(lines, "Routed Top-k Friedman Tests", topk_significance_rows, "top-k")
+    lines.extend(
+        [
+            "",
+            "The top-k test is exploratory and keeps component count fixed inside matched method/count/task blocks for counts 8, 16, and 32.",
+        ]
+    )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -652,11 +934,33 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Select the best expert/head count from combined Noctua2 expert sweep results.")
     parser.add_argument("--root", action="append", default=[], help="Output root to scan. May be repeated.")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--status-md", default=DEFAULT_STATUS_MD, help="Expert status tracker markdown used to filter trusted rows.")
+    parser.add_argument(
+        "--allowed-status",
+        action="append",
+        default=[],
+        help="Status tracker row to include. May be repeated. Defaults to complete_clean.",
+    )
     args = parser.parse_args()
 
     roots = [REPO_ROOT / value for value in (args.root or DEFAULT_ROOTS)]
     output_dir = REPO_ROOT / args.output_dir
     run_rows, raw_rows = _collect(roots)
+    status_by_run = _status_lookup(REPO_ROOT / args.status_md)
+    status_by_run.update(_dynamic_rerun_status_lookup(roots))
+    allowed_statuses = set(args.allowed_status or DEFAULT_ALLOWED_STATUSES)
+    if status_by_run:
+        run_rows = [
+            {**row, "status": status_by_run.get(str(row["run_id"]), "")}
+            for row in run_rows
+            if status_by_run.get(str(row["run_id"]), "") in allowed_statuses
+        ]
+        allowed_run_ids = {str(row["run_id"]) for row in run_rows}
+        raw_rows = [
+            {**row, "status": status_by_run.get(str(row["run_id"]), "")}
+            for row in raw_rows
+            if str(row["run_id"]) in allowed_run_ids
+        ]
     if not raw_rows:
         raise SystemExit("No expert/head benchmark result metrics found.")
     scored_rows = _normalized_scores(raw_rows)
@@ -681,6 +985,16 @@ def main() -> int:
         ],
         ["kind", "expert_count", "top_k"],
     )
+    component_payload = _component_count_payload(raw_rows, run_rows, COMPONENT_COUNTS)
+    component_significance = build_significance_results(component_payload)
+    component_significance_rows = _significance_rows(
+        component_significance, component_payload["algorithm_labels"], "component_"
+    )
+    component_pairwise_rows = _pairwise_rows(component_significance, "component_")
+    topk_payload = _topk_payload(raw_rows, LARGE_TOPK_COUNTS)
+    topk_significance = build_significance_results(topk_payload)
+    topk_significance_rows = _significance_rows(topk_significance, topk_payload["algorithm_labels"], "topk_")
+    topk_pairwise_rows = _pairwise_rows(topk_significance, "topk_")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     _write_csv(output_dir / "expert_selection_raw_metrics.csv", scored_rows)
@@ -692,6 +1006,14 @@ def main() -> int:
     _write_csv(output_dir / "expert_selection_kind_exact_summary.csv", kind_exact_summary)
     _write_csv(output_dir / "expert_selection_large_topk_summary.csv", large_topk_summary)
     _write_csv(output_dir / "expert_selection_large_topk_exact_summary.csv", large_topk_exact_summary)
+    _write_json(output_dir / "expert_selection_component_count_friedman_payload.json", component_payload)
+    _write_json(output_dir / "expert_selection_component_count_friedman_results.json", component_significance)
+    _write_csv(output_dir / "expert_selection_component_count_friedman_by_benchmark.csv", component_significance_rows)
+    _write_csv(output_dir / "expert_selection_component_count_friedman_pairwise.csv", component_pairwise_rows)
+    _write_json(output_dir / "expert_selection_topk_friedman_payload.json", topk_payload)
+    _write_json(output_dir / "expert_selection_topk_friedman_results.json", topk_significance)
+    _write_csv(output_dir / "expert_selection_topk_friedman_by_benchmark.csv", topk_significance_rows)
+    _write_csv(output_dir / "expert_selection_topk_friedman_pairwise.csv", topk_pairwise_rows)
     _write_plots(
         output_dir,
         scored_run_scores,
@@ -701,7 +1023,15 @@ def main() -> int:
         large_topk_summary,
         large_topk_exact_summary,
     )
-    _write_markdown(output_dir / "expert_selection_report.md", scored_run_scores, expert_summary, routed_moe_summary, kind_expert_summary)
+    _write_markdown(
+        output_dir / "expert_selection_report.md",
+        scored_run_scores,
+        expert_summary,
+        routed_moe_summary,
+        kind_expert_summary,
+        component_significance_rows,
+        topk_significance_rows,
+    )
 
     print(f"[expert_sweep_select_best_expert] wrote {output_dir}")
     if expert_summary:

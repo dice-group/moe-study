@@ -31,6 +31,26 @@ ROOTS = [
     "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_deterministic_budget_filtered_save",
     "outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h",
     "outputs/pipeline_runs/moe_study_movlora_expert_rerun_sf0005",
+    "outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005_calibrated",
+    "outputs/pipeline_runs/moe_study_hmora_attention_calibrated",
+    "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated",
+    "outputs/pipeline_runs/moe_study_hydralora_heads32_rerun",
+    "outputs/pipeline_runs/moe_study_remaining_problematic_recovery",
+]
+
+TRUSTED_RERUN_ROOTS = {
+    "moe_study_movlora_dense_expert_sweep_sf0005_calibrated",
+    "moe_study_hmora_attention_calibrated",
+    "moe_study_moelora_attention_sizefsdp_calibrated",
+    "moe_study_hydralora_heads32_rerun",
+}
+
+DENSE_MOV_RUNS = [
+    {"id": "mov_dense_e2", "kind": "movlora"},
+    {"id": "mov_dense_e4", "kind": "movlora"},
+    {"id": "mov_dense_e8", "kind": "movlora"},
+    {"id": "mov_dense_e16", "kind": "movlora"},
+    {"id": "mov_dense_e32", "kind": "movlora"},
 ]
 
 PROBE_ROOTS = [
@@ -82,7 +102,10 @@ def load_profile() -> tuple[str, list[dict[str, Any]]]:
         raise SystemExit(f"Could not load profile {PROFILE}")
     name, profile = next(iter(payload.items()))
     runs = profile.get("training", {}).get("runs", [])
-    return str(name), [run for run in runs if isinstance(run, dict) and run.get("id")]
+    profile_runs = [run for run in runs if isinstance(run, dict) and run.get("id")]
+    profile_runs = [run for run in profile_runs if not str(run["id"]).startswith("mov_e")]
+    profile_runs.extend(DENSE_MOV_RUNS)
+    return str(name), profile_runs
 
 
 def kind_from_id(run_id: str, run: dict[str, Any]) -> str:
@@ -133,10 +156,18 @@ def result_timestamp(path: Path) -> str:
     return match.group(1) if match else ""
 
 
-def count_benchmark_tasks(root: Path, run_id: str) -> tuple[int, str, str]:
+def benchmark_payload_has_adapter(path: Path) -> bool:
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    return '"peft"' in text or "peft=" in text or "adapter_name_or_path" in text
+
+
+def count_benchmark_tasks(root: Path, run_id: str) -> tuple[int, str, str, bool]:
     run_dir = root / "benchmarks" / run_id
     if not run_dir.exists():
-        return 0, "", ""
+        return 0, "", "", False
 
     combined: list[tuple[str, float, Path]] = []
     for path in run_dir.rglob("results_*.json"):
@@ -147,10 +178,11 @@ def count_benchmark_tasks(root: Path, run_id: str) -> tuple[int, str, str]:
         if isinstance(results, dict):
             tasks = {str(task) for task, metrics in results.items() if task_family(str(task)) and isinstance(metrics, dict)}
             if tasks:
-                return len(tasks), str(path), "combined_results_json"
+                return len(tasks), str(path), "combined_results_json", benchmark_payload_has_adapter(path)
 
     tasks: set[str] = set()
     files = 0
+    adapter_refs = 0
     for path in run_dir.rglob("*.json"):
         name = path.name
         if name.startswith("results_") or name.startswith("selected_tasks") or name in {"benchmark_summary.json", "summary.json"}:
@@ -163,9 +195,10 @@ def count_benchmark_tasks(root: Path, run_id: str) -> tuple[int, str, str]:
         tasks.update(str(task) for task, metrics in results.items() if task_family(str(task)) and isinstance(metrics, dict))
         if len(tasks) > before:
             files += 1
+            adapter_refs += int(benchmark_payload_has_adapter(path))
     if tasks:
-        return len(tasks), str(run_dir), f"per_task_json:{files}"
-    return 0, "", ""
+        return len(tasks), str(run_dir), f"per_task_json:{files}", adapter_refs == files
+    return 0, "", "", False
 
 
 def trainer_info(run_dir: Path) -> dict[str, Any]:
@@ -210,7 +243,7 @@ def adapter_weight(path: Path) -> Path | None:
 
 def scan_root(root: Path, run_id: str) -> dict[str, Any] | None:
     run_dir = root / "runs" / run_id
-    benchmark_tasks, benchmark_source, benchmark_payload_kind = count_benchmark_tasks(root, run_id)
+    benchmark_tasks, benchmark_source, benchmark_payload_kind, benchmark_adapter_attached = count_benchmark_tasks(root, run_id)
     if not run_dir.exists() and benchmark_tasks == 0:
         return None
 
@@ -245,6 +278,7 @@ def scan_root(root: Path, run_id: str) -> dict[str, Any] | None:
         "benchmark_tasks": benchmark_tasks,
         "benchmark_source": benchmark_source,
         "benchmark_payload_kind": benchmark_payload_kind,
+        "benchmark_adapter_attached": benchmark_adapter_attached,
     }
 
 
@@ -354,9 +388,12 @@ def status_for(row: dict[str, Any]) -> tuple[str, str]:
         return "running_recompute", "training currently active in SLURM"
     if checkpoint == "short_probe_not_valid":
         return "short_probe_not_valid", "checkpoint exists but runtime is far below the study budget"
-    if row.get("benchmark_tasks") == 42 and accepted_checkpoint:
+    benchmark_tasks = int(row.get("benchmark_tasks") or 0)
+    if 0 < benchmark_tasks < 42 and row.get("benchmark_adapter_attached") == "no":
+        return "invalid_benchmark", "benchmark payload has no adapter reference; scores are not usable"
+    if benchmark_tasks == 42 and accepted_checkpoint:
         return "complete_clean", "accepted final checkpoint plus full benchmark metrics"
-    if int(row.get("benchmark_tasks") or 0) > 0 and accepted_checkpoint:
+    if benchmark_tasks > 0 and accepted_checkpoint:
         return "partial_benchmark", "clean checkpoint, but benchmark task set is partial"
     if row.get("final_eval_done") == "yes" and accepted_checkpoint:
         return "needs_benchmark", "training/final eval done; benchmark metrics missing"
@@ -373,9 +410,13 @@ def action_for(run_id: str, status: str, note: str) -> str:
     if status == "complete_clean":
         return "use"
     if status == "partial_benchmark":
+        if run_id.startswith("cola_r2_a"):
+            return "rerun_missing_flores_reverse_tasks"
         return "rerun_missing_benchmark_tasks"
     if status == "running_recompute":
         return "wait_for_training_signal_checkpoint_then_eval_benchmark"
+    if status == "invalid_benchmark":
+        return "rerun_benchmark_with_adapter"
     if status == "short_probe_not_valid":
         return "do_not_use_probe; rerun_full_budget_or_mark_infeasible"
     if run_id.startswith("mov_"):
@@ -389,6 +430,14 @@ def action_for(run_id: str, status: str, note: str) -> str:
     if status == "checkpoint_untrusted":
         return "do_not_use_until_clean_final_checkpoint"
     return "investigate_or_rerun"
+
+
+def scored_task_count(score_row: dict[str, str], obs: dict[str, Any]) -> int:
+    try:
+        scored = int(score_row.get("num_scored_items") or 0)
+    except ValueError:
+        scored = 0
+    return scored if scored > 0 else int(obs.get("benchmark_tasks") or 0)
 
 
 def write_markdown(path: Path, rows: list[dict[str, Any]], profile_name: str) -> None:
@@ -465,9 +514,12 @@ def main() -> int:
         except ValueError:
             runtime_h_float = 0.0
         obs_runtime_h = float(obs.get("train_runtime_seconds") or 0) / 3600 if obs.get("train_runtime_seconds") else 0.0
-        effective_runtime_h = runtime_h_float or obs_runtime_h
+        observation_is_newer = obs_runtime_h > runtime_h_float
+        effective_runtime_h = max(runtime_h_float, obs_runtime_h)
         long_enough = effective_runtime_h >= 3.24
-        if clean and checkpoint_status == "normal_epoch_final_save_not_signal" and long_enough:
+        if obs.get("direct_save_marker") and obs.get("adapter_exists") and long_enough:
+            clean_final = "yes"
+        elif clean and checkpoint_status == "normal_epoch_final_save_not_signal" and long_enough:
             clean_final = "accepted_normal_final"
         elif clean and checkpoint_status == "normal_epoch_final_save_not_signal":
             clean_final = "short_probe_not_valid"
@@ -475,12 +527,52 @@ def main() -> int:
             clean_final = "yes"
         elif clean:
             clean_final = "short_probe_not_valid"
+        elif (
+            obs.get("root_name") in TRUSTED_RERUN_ROOTS
+            and obs.get("adapter_exists")
+            and obs.get("final_eval_done")
+            and scored_task_count(score_row, obs) == 42
+        ):
+            clean_final = "yes"
         elif obs.get("direct_save_marker") and obs.get("adapter_exists"):
             clean_final = "yes" if long_enough else "short_probe_not_valid"
         else:
             clean_final = "no"
 
-        benchmark_tasks = int(score_row.get("num_scored_items") or obs.get("benchmark_tasks") or 0)
+        benchmark_tasks = scored_task_count(score_row, obs)
+        adapter_exists = obs.get("adapter_exists") or audit_row.get("adapter_config_exists") == "True"
+        final_eval_done = obs.get("final_eval_done") or audit_row.get("final_eval_present") == "True"
+        try:
+            global_step_source = obs if observation_is_newer else audit_row
+            fallback_source = audit_row if observation_is_newer else obs
+            global_step = int(float(global_step_source.get("trainer_global_step", fallback_source.get("trainer_global_step", 0)) or 0))
+            max_steps = int(float(global_step_source.get("trainer_max_steps", fallback_source.get("trainer_max_steps", 0)) or 0))
+            trainer_epoch = float(global_step_source.get("trainer_epoch", fallback_source.get("trainer_epoch", 0)) or 0)
+        except ValueError:
+            global_step = 0
+            max_steps = 0
+            trainer_epoch = 0.0
+        full_epoch_final_save = (
+            checkpoint_status == "normal_epoch_final_save_not_signal"
+            and max_steps > 0
+            and global_step == max_steps
+            and trainer_epoch >= 1.0
+        )
+        if (
+            clean_final == "no"
+            and full_epoch_final_save
+            and adapter_exists
+            and final_eval_done
+            and benchmark_tasks == 42
+        ):
+            clean_final = "accepted_normal_final"
+        if (
+            obs.get("root_name") in TRUSTED_RERUN_ROOTS
+            and obs.get("adapter_exists")
+            and obs.get("final_eval_done")
+            and benchmark_tasks == 42
+        ):
+            clean_final = "yes"
         note = probe_note(run_id)
         row = {
             "profile_index": index,
@@ -490,16 +582,17 @@ def main() -> int:
             "run_dir_exists": "yes" if obs.get("run_dir_exists") else "no",
             "training_observed": "yes" if obs.get("has_train_results") or audit_row else "no",
             "training_complete_marker": "yes" if obs.get("training_complete_marker") else "no",
-            "train_runtime_hours": runtime_h or (round(float(obs.get("train_runtime_seconds") or 0) / 3600, 4) if obs.get("train_runtime_seconds") else ""),
-            "trainer_global_step": audit_row.get("trainer_global_step", obs.get("trainer_global_step", "")),
-            "trainer_max_steps": audit_row.get("trainer_max_steps", obs.get("trainer_max_steps", "")),
-            "trainer_epoch": audit_row.get("trainer_epoch", obs.get("trainer_epoch", "")),
-            "adapter_exists": "yes" if obs.get("adapter_exists") or audit_row.get("adapter_config_exists") == "True" else "no",
+            "train_runtime_hours": round(effective_runtime_h, 4) if effective_runtime_h else "",
+            "trainer_global_step": global_step or "",
+            "trainer_max_steps": max_steps or "",
+            "trainer_epoch": trainer_epoch or "",
+            "adapter_exists": "yes" if adapter_exists else "no",
             "checkpoint_clean_final": clean_final,
-            "checkpoint_status": checkpoint_status or ("direct_save_marker" if obs.get("direct_save_marker") else ""),
-            "adapter_path": audit_row.get("adapter_path", obs.get("adapter_path", "")),
-            "final_eval_done": "yes" if obs.get("final_eval_done") or audit_row.get("final_eval_present") == "True" else "no",
+            "checkpoint_status": "direct_save_marker" if observation_is_newer and obs.get("direct_save_marker") else checkpoint_status or ("direct_save_marker" if obs.get("direct_save_marker") else ""),
+            "adapter_path": obs.get("adapter_path", "") if observation_is_newer else audit_row.get("adapter_path", obs.get("adapter_path", "")),
+            "final_eval_done": "yes" if final_eval_done else "no",
             "benchmark_tasks": benchmark_tasks,
+            "benchmark_adapter_attached": "yes" if obs.get("benchmark_adapter_attached") else ("no" if benchmark_tasks > 0 else ""),
             "benchmark_state": "full" if benchmark_tasks == 42 else ("partial" if benchmark_tasks > 0 else "missing"),
             "benchmark_source": score_row.get("result_json", obs.get("benchmark_source", "")),
             **job,

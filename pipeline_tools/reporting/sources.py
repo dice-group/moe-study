@@ -17,10 +17,6 @@ def read_summary_csv(path: Path) -> list[dict[str, str]]:
 
 
 def _skip_metric(task: str, metric: str) -> bool:
-    task_l = task.strip().lower()
-    metric_l = metric.strip().lower()
-    if (task_l.startswith("sib200_") or task_l.startswith("taxi1500_")) and "f1" in metric_l:
-        return True
     return False
 
 
@@ -72,6 +68,8 @@ def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
                 candidates = ("acc_norm,none", "acc,none")
             elif task.startswith("flores_en_perplexity_"):
                 candidates = ("byte_perplexity,none", "word_perplexity,none", "bits_per_byte,none")
+            elif task.startswith("sib200_") or task.startswith("taxi1500_"):
+                candidates = ("f1,none", "acc_norm,none", "acc,none")
             else:
                 candidates = ("acc_norm,none", "acc,none", "byte_perplexity,none", "word_perplexity,none")
             for candidate in candidates:

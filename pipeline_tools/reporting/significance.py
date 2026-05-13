@@ -280,6 +280,33 @@ def build_significance_results(payload: dict[str, Any]) -> dict[str, Any]:
             result["significant_fdr"] = bool(p_fdr is not None and p_fdr < 0.05)
         pairwise_results.extend(group_pairwise_results)
 
+    adjusted_omnibus = _bh_adjust([result.get("p_raw") for result in friedman_results])
+    for result, p_fdr in zip(friedman_results, adjusted_omnibus):
+        result["p_fdr"] = p_fdr
+        result["significant_fdr"] = bool(p_fdr is not None and p_fdr < 0.05)
+        best = str(result.get("best_rank_approach", ""))
+        if not best or not result["significant_fdr"]:
+            result["unique_winner_fdr"] = False
+            continue
+        relevant_pairwise = [
+            item
+            for item in pairwise_results
+            if item.get("group_label") == result.get("group_label")
+            and (item.get("label_a") == best or item.get("label_b") == best)
+        ]
+        best_wins = []
+        for item in relevant_pairwise:
+            if item.get("label_a") == best:
+                best_wins.append(int(item.get("wins_a") or 0) > int(item.get("wins_b") or 0))
+            elif item.get("label_b") == best:
+                best_wins.append(int(item.get("wins_b") or 0) > int(item.get("wins_a") or 0))
+        result["unique_winner_fdr"] = bool(
+            relevant_pairwise
+            and len(relevant_pairwise) == max(0, len(algorithm_labels) - 1)
+            and all(item.get("significant_fdr") for item in relevant_pairwise)
+            and all(best_wins)
+        )
+
     notes = [
         {"setting": "alpha", "value": "0.05"},
         {"setting": "omnibus_test", "value": "Friedman test, run separately for each benchmark group"},

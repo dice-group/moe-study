@@ -322,7 +322,11 @@ def _summarize_group(run_scores: list[dict[str, Any]], group_fields: list[str]) 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fields = list(rows[0].keys()) if rows else []
+    fields: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in fields:
+                fields.append(key)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
@@ -381,7 +385,10 @@ def _friedman_rows(significance: dict[str, Any], algorithm_labels: list[str]) ->
             "n_algorithms": item.get("n_algorithms", ""),
             "friedman_statistic": item.get("friedman_statistic", ""),
             "p_raw": item.get("p_raw", ""),
+            "p_fdr": item.get("p_fdr", ""),
             "significant": item.get("significant", ""),
+            "significant_fdr": item.get("significant_fdr", ""),
+            "unique_winner_fdr": item.get("unique_winner_fdr", ""),
             "kendalls_w": item.get("kendalls_w", ""),
             "best_rank": str(item.get("best_rank_approach", "")).replace("rank_", ""),
             "best_avg_rank": item.get("best_avg_rank", ""),
@@ -405,6 +412,35 @@ def _pairwise_rows(significance: dict[str, Any]) -> list[dict[str, Any]]:
         row["label_b"] = str(row.get("label_b", "")).replace("rank_", "")
         rows.append(row)
     return rows
+
+
+def _per_method_rank_significance(scored_rows: list[dict[str, Any]], run_scores: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    payloads: dict[str, Any] = {}
+    results: dict[str, Any] = {}
+    friedman_rows: list[dict[str, Any]] = []
+    pairwise_rows: list[dict[str, Any]] = []
+    kinds = sorted({str(row.get("kind")) for row in run_scores if row.get("total_rank") not in ("", None)})
+    for kind in kinds:
+        ranks = sorted(
+            {
+                int(row["total_rank"])
+                for row in run_scores
+                if str(row.get("kind")) == kind and row.get("total_rank") not in ("", None)
+            }
+        )
+        if len(ranks) < 3:
+            continue
+        payload = _friedman_rank_payload(scored_rows, ranks, {kind})
+        if not payload["table_rows"]:
+            continue
+        significance = build_significance_results(payload)
+        payloads[kind] = payload
+        results[kind] = significance
+        for row in _friedman_rows(significance, payload["algorithm_labels"]):
+            friedman_rows.append({"kind": kind, **row})
+        for row in _pairwise_rows(significance):
+            pairwise_rows.append({"kind": kind, **row})
+    return payloads, results, friedman_rows, pairwise_rows
 
 
 def _fmt(value: Any) -> str:
@@ -564,6 +600,7 @@ def _write_markdown(
     kind_rank_summary: list[dict[str, Any]],
     moe_rank_summary: list[dict[str, Any]],
     friedman_rows: list[dict[str, Any]],
+    per_method_friedman_rows: list[dict[str, Any]],
     plot_paths: list[Path],
 ) -> None:
     best_run = run_scores[0] if run_scores else {}
@@ -642,13 +679,29 @@ def _write_markdown(
             "Ranks are compared as algorithms using paired `(method, task)` rows for `moelora`, `mola`, and `hmora` at shared total ranks 16, 32, 64, 128, 256, and 512.",
             "Lower average Friedman rank is better.",
             "",
-            "| Benchmark | Units | p | Kendall W | Winning rank | Avg rank | Significant |",
+            "| Benchmark | Units | p FDR | Kendall W | Winning rank | Avg rank | Unique winner |",
             "|---|---:|---:|---:|---:|---:|---|",
         ]
     )
     for row in friedman_rows:
         lines.append(
-            f"| {row['group_label']} | {row['n_units']} | {_fmt(row['p_raw'])} | {_fmt(row['kendalls_w'])} | {row['best_rank']} | {_fmt(row['best_avg_rank'])} | {'yes' if row['significant'] else 'no'} |"
+            f"| {row['group_label']} | {row['n_units']} | {_fmt(row.get('p_fdr', ''))} | {_fmt(row['kendalls_w'])} | {row['best_rank']} | {_fmt(row['best_avg_rank'])} | {'yes' if row.get('unique_winner_fdr') else 'no'} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Exploratory Per-Method Rank Tests",
+            "",
+            "These tests use each method's available total-rank grid independently. They are useful diagnostics, but the shared MoE test above is the primary matched rank claim.",
+            "",
+            "| Kind | Benchmark | Units | p FDR | Winning rank | Unique winner |",
+            "|---|---|---:|---:|---:|---|",
+        ]
+    )
+    for row in per_method_friedman_rows:
+        lines.append(
+            f"| `{row['kind']}` | {row['group_label']} | {row['n_units']} | {_fmt(row.get('p_fdr', ''))} | {row['best_rank']} | {'yes' if row.get('unique_winner_fdr') else 'no'} |"
         )
 
     lines.extend(["", "## Best Rank By Family", "", "| Kind | Total rank | Score | Runs |", "|---|---:|---:|---:|"])
@@ -696,6 +749,9 @@ def main() -> int:
     friedman_significance = build_significance_results(friedman_payload)
     friedman_summary_rows = _friedman_rows(friedman_significance, friedman_payload["algorithm_labels"])
     friedman_pairwise_rows = _pairwise_rows(friedman_significance)
+    per_method_payloads, per_method_significance, per_method_friedman_rows, per_method_pairwise_rows = _per_method_rank_significance(
+        scored_rows, rankable
+    )
 
     _write_csv(output_dir / "rank_selection_raw_metrics.csv", scored_rows)
     _write_csv(output_dir / "rank_selection_run_scores.csv", run_scores)
@@ -706,6 +762,10 @@ def main() -> int:
     _write_json(output_dir / "rank_selection_friedman_results.json", friedman_significance)
     _write_csv(output_dir / "rank_selection_friedman_by_benchmark.csv", friedman_summary_rows)
     _write_csv(output_dir / "rank_selection_friedman_pairwise.csv", friedman_pairwise_rows)
+    _write_json(output_dir / "rank_selection_per_method_friedman_payload.json", per_method_payloads)
+    _write_json(output_dir / "rank_selection_per_method_friedman_results.json", per_method_significance)
+    _write_csv(output_dir / "rank_selection_per_method_friedman_by_benchmark.csv", per_method_friedman_rows)
+    _write_csv(output_dir / "rank_selection_per_method_friedman_pairwise.csv", per_method_pairwise_rows)
     plot_paths = _write_plots(output_dir, run_scores, kind_rank_summary, moe_rank_summary)
     _write_markdown(
         output_dir / "rank_selection_report.md",
@@ -714,6 +774,7 @@ def main() -> int:
         kind_rank_summary,
         moe_rank_summary,
         friedman_summary_rows,
+        per_method_friedman_rows,
         plot_paths,
     )
 
