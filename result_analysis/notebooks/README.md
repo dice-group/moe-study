@@ -33,3 +33,15 @@ Use this notebook to quickly inspect:
 
 This notebook is mainly for visualization and communication. 
 It was less deeply audited than the two significance notebooks and was mostly AI-assisted, so final statistical claims should still be taken from the two dedicated significance notebooks.
+
+## `mixed_rank_expert_followup_selection.ipynb`
+
+Concise reasoning notebook for deriving the next mixed follow-up matrix.
+Use this notebook to inspect:
+- how the best expert-count configs are varied over the best configured ranks
+- how the best rank configs are varied over the best expert counts
+- why `e2` uses `k1`
+- how the missing `e32` top-k values are selected from the expert sweep
+- the final canonical proposed config list
+
+This notebook is a planning artifact for the next training matrix, not a significance-result notebook.
