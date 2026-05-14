@@ -1,4 +1,5 @@
 import argparse
+import datetime as dt
 import json
 import sys
 from pathlib import Path
@@ -26,6 +27,14 @@ ADAPTER_KEY_MARKERS = (
     ".lora_",
     ".ia3_",
 )
+
+
+def _strip_adapter_name(key: str, adapter_name: str = "default") -> str:
+    if key.startswith("_fsdp_wrapped_module."):
+        key = key.removeprefix("_fsdp_wrapped_module.")
+    if key.startswith("model."):
+        key = key.removeprefix("model.")
+    return key.replace(f".{adapter_name}", "")
 
 
 def _split_targets(value: Any) -> list[str] | None:
@@ -58,10 +67,46 @@ def _language_list(language_map_path: Path) -> list[str] | None:
 
 def _adapter_state(full_state: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
     return {
-        key: value
+        _strip_adapter_name(key): value
         for key, value in full_state.items()
         if any(marker in key for marker in ADAPTER_KEY_MARKERS)
     }
+
+
+def _trainer_global_step(run_dir: Path) -> int | None:
+    state_path = run_dir / "trainer_state.json"
+    if not state_path.exists():
+        return None
+    payload = json.loads(state_path.read_text(encoding="utf-8"))
+    step = payload.get("global_step")
+    if isinstance(step, int):
+        return step
+    if isinstance(step, str) and step.strip().isdigit():
+        return int(step)
+    return None
+
+
+def _write_manifest(
+    *,
+    path: Path,
+    run_id: str,
+    source_path: Path,
+    output_dir: Path,
+    adapter_state: dict[str, torch.Tensor],
+) -> None:
+    stat = source_path.stat()
+    payload = {
+        "run_id": run_id,
+        "recovered_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "source": str(source_path),
+        "source_size_bytes": stat.st_size,
+        "source_mtime": dt.datetime.fromtimestamp(stat.st_mtime, dt.timezone.utc).isoformat(),
+        "output_dir": str(output_dir),
+        "num_adapter_tensors": len(adapter_state),
+        "num_keys_with_default_suffix": sum(".default" in key for key in adapter_state),
+        "method": "materialized_from_final_pytorch_model_bin_with_adapter_name_stripped",
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _build_config(
@@ -162,8 +207,14 @@ def _run(args: argparse.Namespace) -> int:
         run_id = str(run["id"])
         run_dir = root / "runs" / run_id
         full_state_path = run_dir / "pytorch_model.bin"
-        adapter_config_path = run_dir / "adapter_config.json"
-        adapter_model_path = run_dir / "adapter_model.bin"
+        target_dir = run_dir
+        if args.checkpoint_dir_from_trainer_state:
+            step = _trainer_global_step(run_dir)
+            if step is None:
+                raise SystemExit(f"{run_id}: trainer_state.json missing or has no global_step")
+            target_dir = run_dir / f"checkpoint-{step}_adapter"
+        adapter_config_path = target_dir / "adapter_config.json"
+        adapter_model_path = target_dir / "adapter_model.bin"
         if adapter_config_path.exists() and adapter_model_path.exists() and not args.force:
             print(f"[skip] {run_id}: adapter already materialized")
             continue
@@ -176,6 +227,8 @@ def _run(args: argparse.Namespace) -> int:
         adapter_state = _adapter_state(full_state)
         if not adapter_state:
             raise SystemExit(f"{run_id}: no adapter keys found in {full_state_path}")
+        if any(".default" in key for key in adapter_state):
+            raise SystemExit(f"{run_id}: adapter keys still contain '.default' after stripping")
 
         config = _build_config(
             run=run,
@@ -183,10 +236,18 @@ def _run(args: argparse.Namespace) -> int:
             base_model=base_model,
             language_map_path=language_map_path,
         )
-        config.save_pretrained(run_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        config.save_pretrained(target_dir)
         torch.save(adapter_state, adapter_model_path)
+        _write_manifest(
+            path=target_dir / "adapter_recovery_manifest.json",
+            run_id=run_id,
+            source_path=full_state_path,
+            output_dir=target_dir,
+            adapter_state=adapter_state,
+        )
         materialized.append(run_id)
-        print(f"[ok] {run_id}: keys={len(adapter_state)} dir={run_dir}")
+        print(f"[ok] {run_id}: keys={len(adapter_state)} dir={target_dir}")
 
     print(f"materialized={len(materialized)}")
     return 0
@@ -198,6 +259,7 @@ def main() -> int:
     parser.add_argument("--profile", required=True)
     parser.add_argument("--run-id", action="append", default=[])
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--checkpoint-dir-from-trainer-state", action="store_true")
     return _run(parser.parse_args())
 
 

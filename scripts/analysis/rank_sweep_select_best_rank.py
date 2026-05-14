@@ -28,6 +28,7 @@ DEFAULT_OUTPUT_DIR = (
     "moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs_alltargets_calibrated/"
     "analysis/rank_selection"
 )
+MATCHED_TOTAL_RANKS = [16, 32, 64, 128, 256]
 
 RANK_RE = re.compile(r"_r(\d+)$")
 TOTAL_RANK_RE = re.compile(r"_tr(\d+)_")
@@ -371,7 +372,28 @@ def _friedman_rank_payload(scored_rows: list[dict[str, Any]], ranks: list[int], 
                 },
             }
         )
-    return {"algorithm_labels": algorithm_labels, "table_rows": table_rows}
+    return {
+        "algorithm_labels": algorithm_labels,
+        "table_rows": table_rows,
+        "scope": "matched total-rank comparison",
+        "included_kinds": sorted(kinds),
+        "included_ranks": ranks,
+    }
+
+
+def _complete_kinds_for_ranks(run_scores: list[dict[str, Any]], ranks: list[int]) -> set[str]:
+    by_kind: dict[str, set[int]] = defaultdict(set)
+    for row in run_scores:
+        kind = str(row.get("kind", ""))
+        if not kind or kind == "movlora":
+            continue
+        try:
+            rank = int(row.get("total_rank"))
+        except (TypeError, ValueError):
+            continue
+        if rank in ranks:
+            by_kind[kind].add(rank)
+    return {kind for kind, observed in by_kind.items() if all(rank in observed for rank in ranks)}
 
 
 def _friedman_rows(significance: dict[str, Any], algorithm_labels: list[str]) -> list[dict[str, Any]]:
@@ -382,7 +404,7 @@ def _friedman_rows(significance: dict[str, Any], algorithm_labels: list[str]) ->
         row = {
             "group_label": item.get("group_label", ""),
             "n_units": item.get("n_units", ""),
-            "n_algorithms": item.get("n_algorithms", ""),
+            "n_rank_levels": item.get("n_algorithms", ""),
             "friedman_statistic": item.get("friedman_statistic", ""),
             "p_raw": item.get("p_raw", ""),
             "p_fdr": item.get("p_fdr", ""),
@@ -637,10 +659,10 @@ def _write_markdown(
         "",
         "## Interpretation",
         "",
-        f"- The strongest matched MoE setting is total rank `{best_moe_rank.get('total_rank', '')}`. It has the best shared-MoE aggregate score and wins the paired Friedman rank tests for every benchmark family below.",
+        f"- The primary paired significance test compares total rank `{MATCHED_TOTAL_RANKS[0]}` through `{MATCHED_TOTAL_RANKS[-1]}` across every method with that complete grid, covering both MoE and non-MoE approaches.",
         f"- The main separation across shared MoE ranks comes from {top_separators or 'the task families with non-saturated scores'}; FLORES is close to saturated for the lower ranks and is less diagnostic than the classification tasks.",
         "- Higher total ranks do not help this checkpoint set. Scores decline after rank 16 in the shared MoE comparison, so extra capacity appears to increase optimization cost or over-parameterization faster than it improves transfer under these training conditions.",
-        "- The all-rank average is unbalanced because not every method exists at every rank. Use the shared MoE table for the cleanest rank choice, and the family table for method-specific choices.",
+        "- The all-rank average is unbalanced because not every method exists at every rank. Use the matched total-rank Friedman table for the cleanest significance claim, and the family table for method-specific choices.",
         "",
         "## Plots",
         "",
@@ -676,7 +698,7 @@ def _write_markdown(
             "",
             "## Friedman Rank Test By Benchmark",
             "",
-            "Ranks are compared as algorithms using paired `(method, task)` rows for `moelora`, `mola`, and `hmora` at shared total ranks 16, 32, 64, 128, 256, and 512.",
+            "Ranks are compared as algorithms using paired `(method, task)` rows for every complete rank method at total ranks 16, 32, 64, 128, and 256.",
             "Lower average Friedman rank is better.",
             "",
             "| Benchmark | Units | p FDR | Kendall W | Winning rank | Avg rank | Unique winner |",
@@ -693,7 +715,7 @@ def _write_markdown(
             "",
             "## Exploratory Per-Method Rank Tests",
             "",
-            "These tests use each method's available total-rank grid independently. They are useful diagnostics, but the shared MoE test above is the primary matched rank claim.",
+            "These tests use each method's available total-rank grid independently. They are useful diagnostics, but the matched 16..256 test above is the primary total-rank claim.",
             "",
             "| Kind | Benchmark | Units | p FDR | Winning rank | Unique winner |",
             "|---|---|---:|---:|---:|---|",
@@ -744,8 +766,8 @@ def main() -> int:
         if {row.get("kind") for row in moe_rows if row.get("total_rank") == rank} == {"moelora", "mola", "hmora"}
     }
     moe_rank_summary = _summarize_group([row for row in moe_rows if row.get("total_rank") in common_moe_ranks], ["total_rank"])
-    shared_moe_ranks = sorted(int(rank) for rank in common_moe_ranks)
-    friedman_payload = _friedman_rank_payload(scored_rows, shared_moe_ranks, {"moelora", "mola", "hmora"})
+    matched_total_rank_kinds = _complete_kinds_for_ranks(rankable, MATCHED_TOTAL_RANKS)
+    friedman_payload = _friedman_rank_payload(scored_rows, MATCHED_TOTAL_RANKS, matched_total_rank_kinds)
     friedman_significance = build_significance_results(friedman_payload)
     friedman_summary_rows = _friedman_rows(friedman_significance, friedman_payload["algorithm_labels"])
     friedman_pairwise_rows = _pairwise_rows(friedman_significance)
@@ -783,6 +805,11 @@ def main() -> int:
         print(
             "[rank_sweep_select_best_rank] best_shared_moe_rank="
             f"{moe_rank_summary[0]['total_rank']} score={float(moe_rank_summary[0]['mean_aggregate_score']):.4f}"
+        )
+    if matched_total_rank_kinds:
+        print(
+            "[rank_sweep_select_best_rank] matched_total_rank_kinds="
+            f"{','.join(sorted(matched_total_rank_kinds))} ranks={','.join(map(str, MATCHED_TOTAL_RANKS))}"
         )
     if run_scores:
         print(

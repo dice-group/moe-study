@@ -176,11 +176,24 @@ def _task_to_lang_code(task: str) -> Optional[str]:
     # take suffix after first underscore, e.g. belebele_eng_Latn -> eng_Latn
     if "_" not in task:
         return None
-    if task.startswith("flores"):  # expected format: "flores_src-tgt" 
-        rest = task.replace("flores_", "")
+    if task.startswith("flores_en_perplexity_"):
+        rest = task.replace("flores_en_perplexity_", "", 1)
         if "-" in rest:
-            # translation usually requires the TARGET language ID
-            _, target = rest.split("-", 1)
+            src, target = rest.split("-", 1)
+            if src == "eng_Latn" and target != "eng_Latn":
+                return target
+            if target == "eng_Latn" and src != "eng_Latn":
+                return src
+            return target
+        return rest
+    if task.startswith("flores"):  # expected fallback format: "flores_src-tgt"
+        rest = task.replace("flores_", "", 1)
+        if "-" in rest:
+            src, target = rest.split("-", 1)
+            if src == "eng_Latn" and target != "eng_Latn":
+                return target
+            if target == "eng_Latn" and src != "eng_Latn":
+                return src
             return target
         return rest # Fallback if no hyphen
     return task.split("_", 1)[1]
@@ -513,6 +526,11 @@ def main() -> int:
     parser.add_argument("--log-samples", action="store_true", help="Log lm_eval samples in results/W&B")
     parser.add_argument("--log-router-metrics", action="store_true", help="Log CoLA/Hydra router metrics from PEFT")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--allow-missing-language-ids",
+        action="store_true",
+        help="Skip with_ids tasks whose inferred language is not present in adapter_config.json.",
+    )
     parser.add_argument("--include-path", type=str, default=None, help="Additional path to include if there are external tasks")
     parser.add_argument("--seed", type=int, default=int(os.environ.get("LM_EVAL_RANDOM_SEED", 42)), help="Random seed for lm_eval (python random).")
     parser.add_argument("--numpy-seed", type=int, default=int(os.environ.get("LM_EVAL_NUMPY_SEED", 42)), help="Numpy random seed for lm_eval.")
@@ -554,12 +572,15 @@ def main() -> int:
         device_map = "auto"
         logger.info("Defaulting device_map=auto for cuda eval")
 
-    # Build HF model_args for lm_eval
+    # Build HF model_args for lm_eval. Keep model weights tied to the adapter's
+    # recorded base model, but honor an explicit tokenizer path to avoid remote
+    # metadata calls when a local cached tokenizer snapshot is provided.
     base_model = _load_base_model_name(ckpt) or args.tokenizer
+    tokenizer_name = args.tokenizer or base_model
     if base_model and args.tokenizer and base_model != args.tokenizer:
         print(
             f"[WARN] Eval tokenizer '{args.tokenizer}' does not match adapter base model '{base_model}'. "
-            "Using adapter base model for weights.",
+            "Using adapter base model for weights and explicit tokenizer for tokenization.",
             file=sys.stderr,
         )
 
@@ -574,7 +595,7 @@ def main() -> int:
         _run_eval(
             pretrained=base_model,
             peft=str(ckpt),
-            tokenizer=base_model,
+            tokenizer=tokenizer_name,
             tasks=tasks,
             batch_size=args.batch_size,
             output_path=outdir / "no_language_ids.json",
@@ -597,17 +618,31 @@ def main() -> int:
 
     if effective_mode in ("with_ids", "both"):
         # Run per-task so each task gets a fixed language ID
+        skipped_language_id_tasks: list[str] = []
+        task_language_ids: list[tuple[str, int]] = []
         for task in tasks:
             code = _task_to_lang_code(task)
             if code is None:
+                skipped_language_id_tasks.append(f"{task}: no language code inferred")
                 continue
             lang_id = lang_map.get(code)
             if lang_id is None:
+                skipped_language_id_tasks.append(f"{task}: inferred language {code!r} missing from adapter language_list")
                 continue
+            task_language_ids.append((task, lang_id))
+        if skipped_language_id_tasks and not args.allow_missing_language_ids:
+            preview = "\n".join(f"- {item}" for item in skipped_language_id_tasks[:20])
+            extra = "" if len(skipped_language_id_tasks) <= 20 else f"\n... and {len(skipped_language_id_tasks) - 20} more"
+            raise SystemExit(
+                "with_ids eval skipped tasks because no valid language_id could be assigned:\n"
+                f"{preview}{extra}\n"
+                "Fix task-to-language mapping or pass --allow-missing-language-ids for an intentional partial run."
+            )
+        for task, lang_id in task_language_ids:
             _run_eval(
                 pretrained=base_model,
                 peft=str(ckpt),
-                tokenizer=base_model,
+                tokenizer=tokenizer_name,
                 tasks=[task],
                 batch_size=args.batch_size,
                 output_path=outdir / f"with_language_ids_{task}.json",

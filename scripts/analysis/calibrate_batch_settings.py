@@ -1176,8 +1176,12 @@ def _best_anchor_settings(
 
 
 def _infeasible_anchor_ids(rows: list[dict[str, str]]) -> set[str]:
+    successful = {str(row["anchor_id"]) for row in rows if _truthy(row.get("success", ""))}
     infeasible = set()
     for row in rows:
+        anchor_id = str(row["anchor_id"])
+        if anchor_id in successful:
+            continue
         if _truthy(row.get("success", "")):
             continue
         try:
@@ -1185,7 +1189,7 @@ def _infeasible_anchor_ids(rows: list[dict[str, str]]) -> set[str]:
         except ValueError:
             batch_size = 0
         if batch_size == 1:
-            infeasible.add(str(row["anchor_id"]))
+            infeasible.add(anchor_id)
     return infeasible
 
 

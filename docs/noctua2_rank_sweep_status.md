@@ -1,6 +1,6 @@
 # Noctua2 Rank Sweep Status
 
-Updated: 2026-05-10 14:04:52 UTC
+Updated: 2026-05-12 01:56:43 UTC
 
 Profile: `moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs_alltargets_calibrated`
 CSV: `outputs/pipeline_runs/moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs_alltargets_calibrated/rank_sweep_completion_status.csv`
