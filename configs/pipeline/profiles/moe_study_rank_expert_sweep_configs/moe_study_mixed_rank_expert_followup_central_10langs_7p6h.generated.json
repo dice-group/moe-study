@@ -1,0 +1,457 @@
+{
+  "moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h": {
+    "extends": "moe_study_mixed_rank_expert_followup_noctua2_a100_4gpu_10_langs_7p2h",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-central-noctua2-a100-4gpu-10langs-7p6h",
+      "language_count_hint": 10
+    },
+    "tokenization": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h/runs",
+      "lora": {
+        "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+      },
+      "executor": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "07:56:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "runs": [
+        {
+          "id": "moelora_tr64_e32_k8",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 8,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "batch_size": 1,
+            "grad_accum": 12,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_tr128_e32_k8",
+          "kind": "moelora",
+          "lora": {
+            "rank": 128,
+            "alpha": 256,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 8,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "batch_size": 1,
+            "grad_accum": 12,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "mola_tr64_e32_k4",
+          "kind": "mola",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mola_num_experts": 32,
+            "mola_num_null_experts": 64,
+            "mola_router_aux_loss_coef": 0.01,
+            "mola_top_k": 4
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 4,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "mola_tr128_e32_k4",
+          "kind": "mola",
+          "lora": {
+            "rank": 4,
+            "alpha": 8,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mola_num_experts": 32,
+            "mola_num_null_experts": 64,
+            "mola_router_aux_loss_coef": 0.01,
+            "mola_top_k": 4
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 4,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_tr64_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_tr128_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "rank": 128,
+            "alpha": 256,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "hydralora_r2_heads2",
+          "kind": "hydralora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hydralora_lora_num": 2,
+            "hydralora_use_experts": false,
+            "language_guidance_scope": "none",
+            "language_prior_weight": 0.0
+          },
+          "train": {
+            "batch_size": 1,
+            "grad_accum": 12,
+            "disable_gradient_checkpointing": false
+          }
+        },
+        {
+          "id": "hydralora_r4_heads2",
+          "kind": "hydralora",
+          "lora": {
+            "rank": 4,
+            "alpha": 8
+          },
+          "params": {
+            "hydralora_lora_num": 2,
+            "hydralora_use_experts": false,
+            "language_guidance_scope": "none",
+            "language_prior_weight": 0.0
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "disable_gradient_checkpointing": false
+          }
+        },
+        {
+          "id": "mov_dense_e2",
+          "kind": "movlora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "target": "k_proj,v_proj,down_proj"
+          },
+          "params": {
+            "movlora_num_experts": 2,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          },
+          "train": {
+            "batch_size": 12,
+            "grad_accum": 4,
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "mola_tr4_e2_k1",
+          "kind": "mola",
+          "lora": {
+            "rank": 6,
+            "alpha": 4,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "params": {
+            "mola_num_experts": 2,
+            "mola_num_null_experts": 4,
+            "mola_router_aux_loss_coef": 0.01,
+            "mola_top_k": 1
+          },
+          "train": {
+            "batch_size": 3,
+            "grad_accum": 6,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "mola_tr8_e2_k1",
+          "kind": "mola",
+          "lora": {
+            "rank": 4,
+            "alpha": 8,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "params": {
+            "mola_num_experts": 2,
+            "mola_num_null_experts": 4,
+            "mola_router_aux_loss_coef": 0.01,
+            "mola_top_k": 1
+          },
+          "train": {
+            "batch_size": 3,
+            "grad_accum": 6,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_tr4_e2_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 4,
+            "alpha": 8,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 2,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": true
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "hydralora_r2_heads32",
+          "kind": "hydralora",
+          "distributed": {
+            "enabled": true,
+            "num_processes": 4,
+            "num_machines": 1,
+            "machine_rank": 0,
+            "main_process_ip": "127.0.0.1",
+            "main_process_port": 29501,
+            "config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"
+          },
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hydralora_lora_num": 32,
+            "hydralora_use_experts": false,
+            "language_guidance_scope": "none",
+            "language_prior_weight": 0.0
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "max_steps": 10000,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "save_only_model": false,
+            "skip_final_save": false,
+            "cleanup_large_artifacts_after_train": false,
+            "report_to": "none",
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": true
+          }
+        },
+        {
+          "id": "moelora_tr8_e2_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 8,
+            "alpha": 16,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 2,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": true
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "lora_r4",
+          "kind": "lora",
+          "lora": {
+            "rank": 4,
+            "alpha": 8
+          },
+          "train": {
+            "batch_size": 4,
+            "grad_accum": 3,
+            "disable_gradient_checkpointing": false
+          }
+        }
+      ]
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_subdir": "final_eval_loss",
+      "batch_size": "train",
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h/final_eval_loss",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state"
+    },
+    "benchmark": {
+      "enabled": true,
+      "batch_size": "auto",
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h/benchmarks",
+      "eval_script": "scripts/eval/lm_eval_checkpoint_adapter_only.sh",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state"
+    },
+    "summary": {
+      "baseline_id": "lora_r4",
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h/gate.json"
+    },
+    "baseline_eval": {
+      "enabled": false
+    },
+    "report": {
+      "enabled": true,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "07:56:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      },
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      },
+      "summary": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "01:00:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      },
+      "report": {
+        "type": "slurm",
+        "partition": "normal",
+        "cpus_per_task": 2,
+        "mem": "16G",
+        "time": "01:00:00"
+      }
+    },
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled",
+      "project": "moe-study-rank-expert-sweep"
+    },
+    "wandb_mode": "disabled"
+  }
+}
