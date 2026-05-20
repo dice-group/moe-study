@@ -1,0 +1,36 @@
+{
+  "base_model": "meta-llama/Llama-3.1-8B",
+  "sample_root": "outputs/sharded_samples",
+  "language_map": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/language_map_from_csv.json",
+  "languages_csv": "result_analysis/l2v_nested_samples/96.csv",
+  "languages_csv_column": "subset",
+  "languages_csv_split_column": "split",
+  "languages_csv_split": "train",
+  "languages_extra": ["english"],
+  "output_root": "outputs/routing_analysis/moe_study_final_winners_96_langs",
+  "batch_size": 1,
+  "max_sequences": 100,
+  "max_length": 1024,
+  "text_field": "text",
+  "device": "cuda",
+  "torch_dtype": "bfloat16",
+  "use_language_ids": true,
+  "create_figures": true,
+  "adapters": [
+    {
+      "run_id": "mola_tr64_e32_k4",
+      "label": "MoLA tr64 e32 k4",
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/runs/mola_tr64_e32_k4/checkpoint-7678_adapter"
+    },
+    {
+      "run_id": "moelora_tr64_e32_k4",
+      "label": "MoE-LoRA tr64 e32 k4",
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/runs/moelora_tr64_e32_k4/checkpoint-9636_adapter"
+    },
+    {
+      "run_id": "hydralora_r2_heads32",
+      "label": "HydraLoRA r2 heads32",
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/runs/hydralora_r2_heads32/checkpoint-3876_adapter"
+    }
+  ]
+}
