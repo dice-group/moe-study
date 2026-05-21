@@ -128,6 +128,66 @@ def batched(items: list[str], size: int):
         yield items[idx : idx + size]
 
 
+def is_cuda_oom(exc: BaseException) -> bool:
+    text = str(exc).lower()
+    return "cuda" in text and "out of memory" in text
+
+
+def run_language_batches(
+    *,
+    model: Any,
+    tokenizer: Any,
+    texts: list[str],
+    config: AnalysisConfig,
+    batch_size: int,
+    language_id: int,
+    run_id: str,
+    language: str,
+) -> int:
+    import torch
+
+    ordered_texts = sorted(texts, key=len) if config.length_sort_batches else texts
+    device = model_device(model)
+    effective_batch_size = max(1, int(batch_size))
+    index = 0
+    while index < len(ordered_texts):
+        batch_texts = ordered_texts[index : index + effective_batch_size]
+        try:
+            encoded = tokenizer(
+                batch_texts,
+                truncation=True,
+                max_length=config.max_length,
+                padding=True,
+                return_tensors="pt",
+            )
+            encoded = {key: value.to(device) for key, value in encoded.items()}
+            encoded["logits_to_keep"] = 1
+            if config.use_language_ids:
+                encoded["language_ids"] = torch.full(
+                    (len(batch_texts),),
+                    int(language_id),
+                    dtype=torch.long,
+                    device=device,
+                )
+            with torch.no_grad():
+                _ = model(**encoded)
+            index += len(batch_texts)
+        except RuntimeError as exc:
+            if not config.auto_find_batch_size or effective_batch_size <= 1 or not is_cuda_oom(exc):
+                raise
+            new_batch_size = max(1, effective_batch_size // 2)
+            LOGGER.warning(
+                "CUDA OOM for %s/%s at batch_size=%d; retrying with batch_size=%d",
+                run_id,
+                language,
+                effective_batch_size,
+                new_batch_size,
+            )
+            effective_batch_size = new_batch_size
+            torch.cuda.empty_cache()
+    return effective_batch_size
+
+
 def save_npz(output_path: Path, payload: dict[str, Any], *, languages: list[str], run_id: str, peft_type: str) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     save_payload = dict(payload)
@@ -160,6 +220,8 @@ def analyze_adapter(
     collector = RoutingCollector(method, adapter_cfg)
     collector.attach(model)
     lang_to_id = language_id_map(config)
+    adapter_batch_size = spec.batch_size or config.batch_size
+    effective_batch_sizes: dict[str, int] = {}
 
     try:
         for language in config.languages:
@@ -174,26 +236,23 @@ def analyze_adapter(
                 continue
             collector.set_language(language)
             language_id = lang_to_id.get(language, -1)
-            LOGGER.info("Analyzing %s for %s (%d sequences)", spec.run_id, language, len(texts))
-            for batch_texts in batched(texts, config.batch_size):
-                encoded = tokenizer(
-                    batch_texts,
-                    truncation=True,
-                    max_length=config.max_length,
-                    padding=True,
-                    return_tensors="pt",
-                )
-                device = model_device(model)
-                encoded = {key: value.to(device) for key, value in encoded.items()}
-                if config.use_language_ids:
-                    encoded["language_ids"] = torch.full(
-                        (len(batch_texts),),
-                        int(language_id),
-                        dtype=torch.long,
-                        device=device,
-                    )
-                with torch.no_grad():
-                    _ = model(**encoded)
+            LOGGER.info(
+                "Analyzing %s for %s (%d sequences, batch_size=%d)",
+                spec.run_id,
+                language,
+                len(texts),
+                adapter_batch_size,
+            )
+            effective_batch_sizes[language] = run_language_batches(
+                model=model,
+                tokenizer=tokenizer,
+                texts=texts,
+                config=config,
+                batch_size=adapter_batch_size,
+                language_id=language_id,
+                run_id=spec.run_id,
+                language=language,
+            )
     finally:
         collector.remove()
 
@@ -210,6 +269,10 @@ def analyze_adapter(
         "languages": config.languages,
         "captured_modules": len(payload["layer_labels"]),
         "captured_tokens": int(payload["tokens"].sum()),
+        "configured_batch_size": int(adapter_batch_size),
+        "effective_batch_sizes": effective_batch_sizes,
+        "auto_find_batch_size": config.auto_find_batch_size,
+        "length_sort_batches": config.length_sort_batches,
         "routing_matrix": str(npz_path),
         "adapter_config": adapter_cfg,
     }
@@ -253,6 +316,8 @@ def analyze_adapter(
         "axis_name": str(payload["axis_name"]),
         "captured_modules": len(payload["layer_labels"]),
         "captured_tokens": int(payload["tokens"].sum()),
+        "configured_batch_size": int(adapter_batch_size),
+        "min_effective_batch_size": int(min(effective_batch_sizes.values())) if effective_batch_sizes else int(adapter_batch_size),
         "output_dir": str(output_dir),
         "routing_matrix": str(npz_path),
         "figures": figures,

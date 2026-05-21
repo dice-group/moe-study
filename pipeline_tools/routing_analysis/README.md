@@ -17,6 +17,13 @@ python -m pipeline_tools.routing_analysis \
   --config configs/routing_analysis/final_winners_96_langs.json
 ```
 
+The completed 96-language, 1000-sequence analysis used:
+
+```bash
+python -m pipeline_tools.routing_analysis \
+  --config configs/routing_analysis/final_winners_96_langs/initial_1000seq.json
+```
+
 The configured final-winner checkpoints are read-only inputs. Outputs are written under
 `outputs/routing_analysis/moe_study_final_winners_96_langs/` as compressed routing
 matrices, per-run `metadata.json`, optional figures, and a top-level `summary.json`.

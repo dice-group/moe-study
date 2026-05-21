@@ -15,6 +15,7 @@ class AdapterSpec:
     run_id: str
     checkpoint: Path
     label: str
+    batch_size: int | None = None
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,8 @@ class AnalysisConfig:
     torch_dtype: str
     use_language_ids: bool
     create_figures: bool
+    auto_find_batch_size: bool
+    length_sort_batches: bool
 
 
 def repo_root_from_here() -> Path:
@@ -160,6 +163,7 @@ def load_config(config_path: Path) -> AnalysisConfig:
                 run_id=run_id,
                 checkpoint=checkpoint,
                 label=str(item.get("label") or run_id),
+                batch_size=int(item["batch_size"]) if item.get("batch_size") is not None else None,
             )
         )
     if not adapter_specs:
@@ -181,6 +185,8 @@ def load_config(config_path: Path) -> AnalysisConfig:
         torch_dtype=str(payload.get("torch_dtype", "bfloat16")),
         use_language_ids=bool(payload.get("use_language_ids", True)),
         create_figures=bool(payload.get("create_figures", True)),
+        auto_find_batch_size=bool(payload.get("auto_find_batch_size", False)),
+        length_sort_batches=bool(payload.get("length_sort_batches", True)),
     )
 
 

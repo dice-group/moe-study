@@ -20,17 +20,17 @@
     {
       "run_id": "mola_tr64_e32_k4",
       "label": "MoLA tr64 e32 k4",
-      "checkpoint": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/runs/mola_tr64_e32_k4/checkpoint-7678_adapter"
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/runs/mola_tr64_e32_k4/checkpoint-7678_adapter/checkpoint-7678_adapter"
     },
     {
       "run_id": "moelora_tr64_e32_k4",
       "label": "MoE-LoRA tr64 e32 k4",
-      "checkpoint": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/runs/moelora_tr64_e32_k4/checkpoint-9636_adapter"
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/runs/moelora_tr64_e32_k4/checkpoint-9636_adapter/checkpoint-9636_adapter"
     },
     {
       "run_id": "hydralora_r2_heads32",
       "label": "HydraLoRA r2 heads32",
-      "checkpoint": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/runs/hydralora_r2_heads32/checkpoint-3876_adapter"
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/runs/hydralora_r2_heads32/checkpoint-3876_adapter/checkpoint-3876_adapter"
     }
   ]
 }

@@ -1,0 +1,54 @@
+{
+  "routing_analysis_96_initial_1000seq_sample": {
+    "output_root": "outputs/pipeline_runs/routing_analysis_96_initial_1000seq",
+    "logs_dir": "outputs/pipeline_runs/routing_analysis_96_initial_1000seq/logs",
+    "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
+    "language_map_csv": "result_analysis/l2v_nested_samples/96.csv",
+    "language_map_csv_subset_column": "subset",
+    "language_map_csv_family_column": "family",
+    "language_map_csv_split_column": "split",
+    "language_map_csv_split": "train",
+    "language_map_extra_languages": {
+      "english": "English"
+    },
+    "executor": {
+      "type": "local",
+      "cuda_visible_devices": "1"
+    },
+    "sample": {
+      "enabled": true,
+      "source_type": "fineweb_datatrove",
+      "languages": [],
+      "max_languages": 0,
+      "target_docs_per_language": 1000,
+      "fairness_policy": "equal_documents",
+      "auto_adjust_target_to_min_available": false,
+      "allow_upsample": false,
+      "upsample_cap_factor": 1.0,
+      "fail_on_missing": true,
+      "availability_csv": "outputs/pipeline_runs/routing_analysis_96_initial_100seq/fineweb2-language-distribution-with-english.csv",
+      "availability_split": "train",
+      "output_dir": "outputs/pipeline_runs/routing_analysis_96_initial_1000seq/sampled",
+      "shard_subdir": "samples",
+      "num_proc": 8
+    },
+    "tokenization": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/routing_analysis_96_initial_1000seq/tokenized"
+    },
+    "training": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/routing_analysis_96_initial_1000seq/runs",
+      "runs": []
+    },
+    "summary": {
+      "enabled": false,
+      "gate_json": "outputs/pipeline_runs/routing_analysis_96_initial_1000seq/gate.json",
+      "summary_csv": "outputs/pipeline_runs/routing_analysis_96_initial_1000seq/summary.csv"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/routing_analysis_96_initial_1000seq/report.xlsx"
+    }
+  }
+}
