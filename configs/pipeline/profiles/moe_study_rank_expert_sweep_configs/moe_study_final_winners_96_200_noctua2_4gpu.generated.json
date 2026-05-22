@@ -1,0 +1,439 @@
+{
+  "moe_study_final_winners_noctua2_a100_4gpu_base": {
+    "extends": "moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h",
+    "sample": {
+      "enabled": false,
+      "output_dir": "outputs/sharded_samples"
+    },
+    "tokenization": {
+      "enabled": true,
+      "model_name": "meta-llama/Llama-3.1-8B",
+      "num_proc": 4,
+      "max_length": 1024,
+      "eval_fraction": 0.02,
+      "sample_seed": 1234,
+      "mask_pad_labels": true,
+      "skip_if_output_exists": true,
+      "slurm_array_enabled": true,
+      "slurm_array_ranks": 50,
+      "check_parallel_enabled": true,
+      "shard_counts_tsv": "data_prep/merlin_data_prep/distributed_data_processor/configs/shard_doc_counts.tsv",
+      "languages_csv_column": "subset",
+      "languages_csv_split": "train",
+      "languages_extra": [
+        "english"
+      ],
+      "language_rates_csv_column": "subset",
+      "language_rates_csv_split": "train",
+      "language_rates_csv_documents_column": "documents",
+      "language_rates_english_key": "english",
+      "english_median_check": true,
+      "language_rates_english_docs_count": 25900000000,
+      "language_rates_english_undersample_divisor": 50,
+      "language_rates_counts_tsv": "/scratch-otus/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv",
+      "language_rates_counts_tsv_has_header": false,
+      "language_rates_counts_tsv_language_column": "language",
+      "language_rates_counts_tsv_count_column": "count"
+    },
+    "training": {
+      "report_to": "none",
+      "train": {
+        "max_steps": null,
+        "num_train_epochs": 1.0
+      },
+      "runs": [
+        {
+          "id": "moelora_tr64_e32_k4",
+          "kind": "moelora",
+          "lora": {
+            "rank": 64,
+            "alpha": 128,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 32,
+            "moelora_sparse_top_k": 4,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": false
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "max_steps": null,
+            "num_train_epochs": 1.0
+          }
+        },
+        {
+          "id": "hydralora_r2_heads32",
+          "kind": "hydralora",
+          "distributed": {
+            "enabled": true,
+            "num_processes": 4,
+            "num_machines": 1,
+            "machine_rank": 0,
+            "main_process_ip": "127.0.0.1",
+            "main_process_port": 29501,
+            "config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"
+          },
+          "lora": {
+            "rank": 2,
+            "alpha": 4
+          },
+          "params": {
+            "hydralora_lora_num": 32,
+            "hydralora_use_experts": false,
+            "language_guidance_scope": "none",
+            "language_prior_weight": 0.0
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "max_steps": null,
+            "num_train_epochs": 1.0,
+            "logging_steps": 50,
+            "save_steps": 999999,
+            "save_strategy": "no",
+            "save_total_limit": 1,
+            "save_only_model": false,
+            "skip_final_save": false,
+            "cleanup_large_artifacts_after_train": false,
+            "report_to": "none",
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": true
+          }
+        },
+        {
+          "id": "mola_tr64_e32_k4",
+          "kind": "mola",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "mola_num_experts": 32,
+            "mola_num_null_experts": 64,
+            "mola_router_aux_loss_coef": 0.01,
+            "mola_top_k": 4
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 4,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false,
+            "max_steps": null,
+            "num_train_epochs": 1.0
+          }
+        }
+      ]
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_subdir": "final_eval_loss",
+      "batch_size": "train",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state"
+    },
+    "benchmark": {
+      "enabled": true,
+      "batch_size": "auto",
+      "eval_script": "scripts/eval/lm_eval_checkpoint_adapter_only.sh",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state",
+      "include_belebele": true,
+      "include_sib200": true,
+      "include_taxi1500": true,
+      "include_flores": true
+    },
+    "summary": {
+      "baseline_id": "moelora_tr64_e32_k4"
+    },
+    "baseline_eval": {
+      "enabled": false
+    },
+    "report": {
+      "enabled": true
+    },
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled",
+      "project": "moe-study-final-winners"
+    },
+    "wandb_mode": "disabled",
+    "stage_executors": {
+      "tokenize": {
+        "type": "slurm",
+        "partition": "normal",
+        "cpus_per_task": 4,
+        "mem": "32G",
+        "time": "12:00:00"
+      },
+      "tokenize_check": {
+        "type": "slurm",
+        "partition": "normal",
+        "cpus_per_task": 4,
+        "mem": "32G",
+        "time": "04:00:00"
+      }
+    },
+    "language_map_path": "configs/pg_language_groupings/empty_grouping.json",
+    "language_map_csv_subset_column": "subset",
+    "language_map_csv_family_column": "family",
+    "language_map_csv_split_column": "split",
+    "language_map_csv_split": "train",
+    "language_map_extra_languages": {
+      "english": "English"
+    },
+    "language_map_extra_family": "English"
+  },
+  "moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h": {
+    "extends": "moe_study_final_winners_noctua2_a100_4gpu_base",
+    "output_root": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-winners-noctua2-a100-4gpu-96langs-34p5h",
+      "language_count_hint": 96
+    },
+    "language_map_csv": "result_analysis/l2v_nested_samples/96.csv",
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/tokenized",
+      "sample_fraction": 0.0025,
+      "languages_csv": "result_analysis/l2v_nested_samples/96.csv",
+      "language_rates_csv": "result_analysis/l2v_nested_samples/96.csv"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/runs",
+      "executor": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "34:30:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/final_eval_loss"
+    },
+    "benchmark": {
+      "tasks_file": "configs/lm_eval_tasks_96_langs.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "34:30:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      },
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      },
+      "summary": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "01:00:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      },
+      "report": {
+        "type": "slurm",
+        "partition": "normal",
+        "cpus_per_task": 2,
+        "mem": "16G",
+        "time": "01:00:00"
+      }
+    }
+  },
+  "moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h": {
+    "extends": "moe_study_final_winners_noctua2_a100_4gpu_base",
+    "output_root": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-winners-noctua2-a100-4gpu-200langs-72h",
+      "language_count_hint": 200
+    },
+    "language_map_csv": "result_analysis/l2v_nested_samples/200.csv",
+    "tokenization": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h/tokenized",
+      "sample_fraction": 0.005,
+      "languages_csv": "result_analysis/l2v_nested_samples/200.csv",
+      "language_rates_csv": "result_analysis/l2v_nested_samples/200.csv"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h/runs",
+      "executor": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "72:30:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1800",
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h/final_eval_loss"
+    },
+    "benchmark": {
+      "tasks_file": "configs/lm_eval_tasks_200_langs.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "72:30:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1800",
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      },
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      },
+      "summary": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "01:00:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      },
+      "report": {
+        "type": "slurm",
+        "partition": "normal",
+        "cpus_per_task": 2,
+        "mem": "16G",
+        "time": "01:00:00"
+      }
+    }
+  },
+  "moe_study_final_winners_noctua2_a100_4gpu_96_langs_benchmark_24h": {
+    "extends": "moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h",
+    "stage_executors": {
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "24:00:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      }
+    }
+  },
+  "moe_study_final_winners_noctua2_a100_4gpu_200_langs_benchmark_24h": {
+    "extends": "moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h",
+    "benchmark": {
+      "fail_if_no_tasks": true
+    },
+    "stage_executors": {
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "24:00:00",
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1208,n2gpu1213,n2gpu1228"
+        ]
+      }
+    }
+  },
+  "moe_study_final_winners_noctua2_a100_4gpu_200_langs_benchmark_24h_direct_local": {
+    "extends": "moe_study_final_winners_noctua2_a100_4gpu_200_langs_benchmark_24h",
+    "stage_executors": {
+      "benchmark": {
+        "type": "local"
+      }
+    }
+  }
+}

@@ -426,7 +426,11 @@ def _resolve_profile_languages(
     if explicit:
         return sorted(set(explicit))
 
-    if sample_manifest_path.exists():
+    try:
+        manifest_exists = sample_manifest_path.exists()
+    except OSError:
+        manifest_exists = False
+    if manifest_exists:
         try:
             manifest = _load_json(sample_manifest_path)
             selection = manifest.get("selection", {})
@@ -437,7 +441,11 @@ def _resolve_profile_languages(
             pass
 
     plan_csv = sampled_dir / "sampling_plan.csv"
-    if plan_csv.exists():
+    try:
+        plan_exists = plan_csv.exists()
+    except OSError:
+        plan_exists = False
+    if plan_exists:
         langs: list[str] = []
         with plan_csv.open("r", encoding="utf-8") as handle:
             reader = csv.DictReader(handle)

@@ -1,0 +1,9 @@
+flores_en_perplexity_arb_Arab-eng_Latn
+flores_en_perplexity_arb_Latn-eng_Latn
+flores_en_perplexity_azj_Latn-eng_Latn
+flores_en_perplexity_hun_Latn-eng_Latn
+flores_en_perplexity_ind_Latn-eng_Latn
+flores_en_perplexity_jpn_Jpan-eng_Latn
+flores_en_perplexity_kor_Hang-eng_Latn
+flores_en_perplexity_rus_Cyrl-eng_Latn
+flores_en_perplexity_vie_Latn-eng_Latn
