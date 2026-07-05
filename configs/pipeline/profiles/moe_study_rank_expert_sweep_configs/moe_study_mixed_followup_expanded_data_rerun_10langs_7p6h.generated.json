@@ -1,0 +1,256 @@
+{
+  "moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h": {
+    "extends": "moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-expanded-data-rerun-noctua2-a100-4gpu-10langs-7p6h",
+      "language_count_hint": 10
+    },
+    "sample": {
+      "languages": [
+        "arb_Arab",
+        "arb_Latn",
+        "azj_Cyrl",
+        "azj_Latn",
+        "cmn_Hani",
+        "english",
+        "fas_Arab",
+        "hun_Latn",
+        "ind_Latn",
+        "jpn_Jpan",
+        "kor_Hang",
+        "rus_Cyrl",
+        "vie_Latn"
+      ]
+    },
+    "tokenization": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_followup_expanded_data_rerun_10_langs/tokenized_expanded_400k_train"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h/runs",
+      "runs": [
+        {
+          "id": "hydralora_r4_heads2",
+          "kind": "hydralora",
+          "lora": {
+            "rank": 4,
+            "alpha": 8
+          },
+          "params": {
+            "hydralora_lora_num": 2,
+            "hydralora_use_experts": false,
+            "language_guidance_scope": "none",
+            "language_prior_weight": 0.0
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "max_steps": 8333,
+            "num_train_epochs": 1.0,
+            "disable_gradient_checkpointing": false
+          }
+        },
+        {
+          "id": "lora_r4",
+          "kind": "lora",
+          "lora": {
+            "rank": 4,
+            "alpha": 8
+          },
+          "train": {
+            "batch_size": 4,
+            "grad_accum": 3,
+            "max_steps": 8333,
+            "num_train_epochs": 1.0,
+            "disable_gradient_checkpointing": false
+          }
+        },
+        {
+          "id": "moelora_tr4_e2_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 4,
+            "alpha": 8,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 2,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": true
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "max_steps": 8333,
+            "num_train_epochs": 1.0,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "moelora_tr8_e2_k1",
+          "kind": "moelora",
+          "lora": {
+            "rank": 8,
+            "alpha": 16,
+            "target": "q_proj,k_proj,v_proj,o_proj"
+          },
+          "params": {
+            "moelora_gate_temperature": 1.0,
+            "moelora_num_experts": 2,
+            "moelora_sparse_top_k": 1,
+            "moelora_task_embedding_dim": 64,
+            "moelora_force_disable_gradient_checkpointing": true
+          },
+          "train": {
+            "batch_size": 2,
+            "grad_accum": 6,
+            "max_steps": 8333,
+            "num_train_epochs": 1.0,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "mola_tr4_e2_k1",
+          "kind": "mola",
+          "lora": {
+            "rank": 6,
+            "alpha": 4,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "params": {
+            "mola_num_experts": 2,
+            "mola_num_null_experts": 4,
+            "mola_router_aux_loss_coef": 0.01,
+            "mola_top_k": 1
+          },
+          "train": {
+            "batch_size": 3,
+            "grad_accum": 6,
+            "max_steps": 5555,
+            "num_train_epochs": 1.0,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "mola_tr8_e2_k1",
+          "kind": "mola",
+          "lora": {
+            "rank": 4,
+            "alpha": 8,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "params": {
+            "mola_num_experts": 2,
+            "mola_num_null_experts": 4,
+            "mola_router_aux_loss_coef": 0.01,
+            "mola_top_k": 1
+          },
+          "train": {
+            "batch_size": 3,
+            "grad_accum": 6,
+            "max_steps": 5555,
+            "num_train_epochs": 1.0,
+            "disable_gradient_checkpointing": true,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "mov_dense_e2",
+          "kind": "movlora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "target": "k_proj,v_proj,down_proj"
+          },
+          "params": {
+            "movlora_num_experts": 2,
+            "movlora_top_k": 0,
+            "movlora_router_temperature": 1.0,
+            "movlora_router_jitter_noise": 0.0,
+            "movlora_router_bias": false,
+            "movlora_router_init_std": 0.02,
+            "movlora_router_ignore_padding_tokens": false
+          },
+          "train": {
+            "batch_size": 12,
+            "grad_accum": 4,
+            "max_steps": 2083,
+            "num_train_epochs": 1.0,
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        }
+      ]
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "lora_r4",
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "07:56:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h": {
+    "extends": "moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-expanded-data-rerun-smoke-noctua2-a100-4gpu-10langs-7p6h",
+      "language_count_hint": 10
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h/runs"
+    },
+    "final_eval_loss": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h/final_eval_loss"
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h/benchmarks"
+    },
+    "summary": {
+      "enabled": false,
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h/gate.json"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "time": "00:30:00"
+      }
+    }
+  }
+}
