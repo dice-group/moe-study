@@ -1,0 +1,7 @@
+stage,languages,hours,runs,role
+One-axis rank sweep,10,3.6,47,Effect of rank
+One-axis expert-count sweep,10,3.6,63,Effect of expert count
+Mixed follow-up,10,7.2,22,Joint configurations and shortlist
+Broader validation (96 languages),96,34.5,5,Test the shortlist at scale
+Broader validation (200 languages),200,72.0,5,Test the shortlist at scale
+TOTAL,--,,142,125 unique; 9528 evaluation runs

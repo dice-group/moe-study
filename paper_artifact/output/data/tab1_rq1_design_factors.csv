@@ -1,0 +1,5 @@
+factor,analysis,best,runner_up,benchmark_winners,executed_followup_choices
+Rank,Architecture blocks,2,8,Belebele: 8; FLORES: 2; SIB200: 2; Taxi1500: 2,"2,8"
+Rank,Architecture-collapsed,2,4,Belebele: 2; FLORES: 2; SIB200: 4; Taxi1500: 2,"2,8"
+Expert count,Architecture blocks,32,16,Belebele: 32; FLORES: 32; SIB200: 16; Taxi1500: 32,"32,16"
+Expert count,Architecture-collapsed,32,16,Belebele: 32; FLORES: 32; SIB200: 16; Taxi1500: 32,"32,16"

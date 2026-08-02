@@ -1,0 +1,9 @@
+family,method,rank_settings,rank_runs,component_settings,component_runs,shared_rank_panel,note
+mola,AdaMoE,2--128,7,2--32,15,True,Complete shared rank panel
+adamole,AdaMoLE,--,0,2--16,4,False,Higher ranks unstable; $E{=}32$ infeasible
+hmora,HMoRA,2--128,7,2--32,15,True,Complete shared rank panel
+hydralora,HydraLoRA,2--256,8,2--32,5,True,Complete shared rank panel
+lora,LoRA,2--1024,10,--,0,True,"Single adapter, so no expert count"
+moelora,MOELoRA,2--64,6,2--32,14,True,"Shared rank panel; $E{=}32$, $k{=}16$ infeasible"
+movlora,MoV,--,1,2--32,5,False,Rank is not defined
+mtllora,MTL-LoRA,2--256,8,2--32,5,True,Complete shared rank panel

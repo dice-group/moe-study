@@ -1,0 +1,105 @@
+paths:
+  results_root: reports/moe_study
+  selection_notebook: notebooks/moe_study_final_analysis.ipynb
+  rank_sweep_xlsx: moe_study_rank_sweep.xlsx
+  component_sweep_xlsx: moe_study_expert_sweep.xlsx
+  mixed_followup_xlsx: moe_study_mixed_followup.xlsx
+  final_96_xlsx: moe_study_final_96_languages_2026-07-25.xlsx
+  final_200_xlsx: moe_study_final_200_languages_2026-07-25.xlsx
+  figures_dir: paper_latex/data/figures
+
+output:
+  tables_dir: paper_resources/output/tables
+  data_dir: paper_resources/output/data
+
+analysis:
+  alpha: 0.05
+  exclude_kinds: [cola]
+  benchmarks: [Belebele, FLORES, SIB200, Taxi1500]
+  rank_levels: [2, 4, 8, 16, 32, 64]
+  component_levels: [2, 4, 8, 16, 32]
+  executed_rank_choices: [2, 8]
+  executed_component_choices: [32, 16]
+  primary_metrics:
+    - {benchmark: Belebele, metric_prefix: acc_norm, exact: true}
+    - {benchmark: FLORES, metric_prefix: "bits_per_byte ", exact: false}
+    - {benchmark: SIB200, metric_prefix: acc, exact: true}
+    - {benchmark: Taxi1500, metric_prefix: acc, exact: true}
+  # Only for benchmarks with an unambiguous random-guess floor, which is used to
+  # size a difference against the base model's margin above chance. Belebele is
+  # four-way multiple choice. SIB-200 and Taxi1500 have unbalanced label sets, so
+  # no floor is declared and the headroom column stays empty for them.
+  chance_levels:
+    Belebele: 0.25
+
+study_funnel:
+  sweep_languages: 10
+  rank_budget_hours: 3.6
+  component_budget_hours: 3.6
+  followup_budget_hours: 7.2
+  planned_regimes: [96, 200]
+  final_budget_hours: {96: 34.5, 200: 72}
+  expected_runs: {rank: 47, component: 63, followup: 22}
+  # Counted over canonical configuration keys, not raw run ids: the stages spell
+  # the same configuration differently, so raw ids undercount the repeats.
+  expected_unique_configs: 115
+  expected_repeated_followup_configs: 14
+
+rq3:
+  baseline_run_id: baseline::l-3-1-8b
+  baseline_label: Base model
+  regimes: [96, 200]
+  # The five configurations promoted from the mixed follow-up, in follow-up order.
+  finalists:
+    - {run_id: mtllora_lr5e5_r8_nup16, followup_run_id: mtllora_r8_nup16, label: "MTL-LoRA r8/16"}
+    - {run_id: moelora_tr32_e16_k8, followup_run_id: moelora_tr32_e16_k8, label: "MOELoRA r2/16 k8"}
+    - {run_id: hydralora_r2, followup_run_id: hydralora_r2, label: "HydraLoRA r2"}
+    - {run_id: moelora_tr64_e32_k8, followup_run_id: moelora_tr64_e32_k8, label: "MOELoRA r2/32 k8"}
+    - {run_id: mola_tr16_e8_k6, followup_run_id: mola_tr16_e8_k6, label: "AdaMoE r2/8 k6"}
+  resource_groups: [HIGH, MEDIUM, LOW]
+
+rq2:
+  leaderboard_top_n: 8
+  # Post-hoc family reproduced from the analysis notebook, which tested the top three.
+  finalists:
+    - mtllora_r8_nup16
+    - moelora_tr32_e16_k8
+    - hydralora_r2
+  # The five follow-up configurations actually carried to the broader regimes.
+  promoted:
+    - mtllora_r8_nup16
+    - moelora_tr32_e16_k8
+    - hydralora_r2
+    - moelora_tr64_e32_k8
+    - mola_tr16_e8_k6
+  labels:
+    hydralora: HydraLoRA
+    moelora: MOELoRA
+    # Run ids keep the historical mola/adamoe_1 prefix; the method is AdaMoE.
+    mola: AdaMoE
+    mtllora: MTL-LoRA
+  parent_groups:
+    - architecture: moelora
+      configured_rank: 2
+      parent: moelora_tr16_e8_k2
+      children: [moelora_tr32_e16_k8, moelora_tr64_e32_k4, moelora_tr64_e32_k8]
+    - architecture: moelora
+      configured_rank: 8
+      parent: moelora_tr64_e8_k2
+      children: [moelora_tr128_e16_k8, moelora_tr256_e32_k4, moelora_tr256_e32_k8]
+    - architecture: mola
+      configured_rank: 2
+      parent: mola_tr16_e8_k6
+      children: [mola_tr32_e16_k1, mola_tr32_e16_k8, mola_tr64_e32_k4]
+    - architecture: mola
+      configured_rank: 8
+      parent: mola_tr64_e8_k6
+      children: [mola_tr128_e16_k1, mola_tr128_e16_k8, mola_tr256_e32_k4]
+    - architecture: hydralora
+      configured_rank: 2
+      parent: hydralora_r2
+      children: [hydralora_r2_heads16, hydralora_r2_heads32]
+    - architecture: mtllora
+      configured_rank: 8
+      parent: mtllora_r8
+      children: [mtllora_r8_nup16, mtllora_r8_nup32]

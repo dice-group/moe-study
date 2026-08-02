@@ -1,0 +1,18 @@
+name: moe-paper-resources
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pandas=2.2.*
+  - numpy=1.26.*
+  - scipy=1.13.*
+  - openpyxl=3.1.*
+  - lxml=5.*
+  - pyyaml=6.0.*
+  - matplotlib-base=3.9.*
+  # For the reference notebooks under notebooks/paper/. A Jupyter front end is
+  # not listed: ipykernel is enough for VS Code or an external jupyter install.
+  # scripts/run_all.py produces every table and figure without any of these.
+  - ipykernel=7.3.*
+  - nbclient=0.11.*
+  - nbformat=5.10.*
