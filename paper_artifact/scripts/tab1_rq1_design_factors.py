@@ -171,8 +171,8 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
         "lccccc",
         [r"Setting & Belebele & FLORES & SIB-200 & Taxi1500 & Overall \\"],
         full_rows,
-        "Average position of each rank and expert count on the balanced panels; "
-        "lower is better, best per column within each factor in bold.",
+        "Average position of each rank and expert count on the balanced panels. "
+        "Lower is better, best per column within each factor in bold.",
         "tab:rq1-full-ranks",
         placement="tbp",
         col_sep="3pt",

@@ -12,8 +12,10 @@ import common as C
 
 
 def _p_cell(p_value: float) -> str:
-    text = "$" + C.fmt_p(p_value) + "$" + C.sig_stars(p_value)
-    return rf"\textbf{{{text}}}" if p_value < 0.05 else text
+    # No bold emphasis here: \textbf leaves math-mode content at normal weight,
+    # so the old \textbf{$...$***} bolded only the asterisks. The stars already
+    # mark significance, which is what the bold was duplicating.
+    return "$" + C.fmt_p(p_value) + "$" + C.sig_stars(p_value)
 
 
 def _pair_cell(row: pd.Series) -> str:
@@ -23,19 +25,18 @@ def _pair_cell(row: pd.Series) -> str:
         direction = r"$\rightarrow$"
     else:
         direction = r"$=$"
-    content = direction + " " + "$" + C.fmt_p(row["p_holm"]) + "$" + C.sig_stars(row["p_holm"])
-    return rf"\textbf{{{content}}}" if row["p_holm"] < 0.05 else content
+    return direction + " " + "$" + C.fmt_p(row["p_holm"]) + "$" + C.sig_stars(row["p_holm"])
 
 
 def main(config_path: Path = C.CONFIG_PATH) -> None:
     cfg = C.load_config(config_path)
     data = C.load_primary(C.results_path(cfg, "mixed_followup_xlsx"), cfg)
     benchmarks = cfg["analysis"]["benchmarks"]
-    finalists = cfg["rq2"]["finalists"]
+    posthoc_family = cfg["rq2"]["posthoc_family"]
     ranking, _ = C.followup_ranking(data, benchmarks)
-    if ranking.head(3).index.tolist() != finalists:
-        raise ValueError("The configured finalist set is no longer the follow-up top three")
-    omnibus, pairs = C.followup_tests(data, benchmarks, finalists)
+    if ranking.head(3).index.tolist() != posthoc_family:
+        raise ValueError("The configured post-hoc family is no longer the follow-up top three")
+    omnibus, pairs = C.followup_tests(data, benchmarks, posthoc_family)
     expected_omnibus = np.array(
         [4.2497759484e-08, 3.4400658461e-29, 1.2831631670e-14, 4.2497759484e-08]
     )
@@ -49,8 +50,15 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
     if set(significant_pairs.itertuples(index=False, name=None)) != expected_pairs:
         raise ValueError("RQ2 top-three post-hoc conclusions no longer match the notebook")
 
-    pair_order = list(combinations(finalists, 2))
-    pair_headers = ["MTL-LoRA--MOELoRA", "MTL-LoRA--HydraLoRA", "MOELoRA--HydraLoRA"]
+    pair_order = list(combinations(posthoc_family, 2))
+    # Set on two lines: with the names on one line the tabular is 563pt wide
+    # against a 455pt text block and overruns the margins on both sides.
+    # Stacking keeps the full method names, which abbreviating would not.
+    pair_headers = [
+        r"\shortstack{MTL-LoRA\\--MOELoRA}",
+        r"\shortstack{MTL-LoRA\\--HydraLoRA}",
+        r"\shortstack{MOELoRA\\--HydraLoRA}",
+    ]
     body = []
     for omnibus_row in omnibus.itertuples(index=False):
         row_pairs = pairs[pairs["benchmark"].eq(omnibus_row.benchmark)].set_index(
@@ -80,9 +88,10 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
             + r" \\"
         ],
         body,
-        "Omnibus and pairwise tests for the mixed follow-up. Arrows point toward "
-        "the descriptively better configuration, and bold marks "
-        r"$p_{\mathrm{Holm}}<.05$.",
+        "Omnibus and pairwise tests for the mixed follow-up. The omnibus test "
+        "covers all 22 configurations, while the pairwise columns cover the top "
+        "three of the five promoted, which is every pairing of those three. "
+        "Arrows point toward the descriptively better configuration.",
         "tab:rq2-tests",
         environment="table*",
         placement="tp",

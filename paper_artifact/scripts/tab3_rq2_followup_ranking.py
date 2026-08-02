@@ -18,7 +18,7 @@ def _integer_or_dash(value: float) -> str:
     return "--" if pd.isna(value) else str(int(value))
 
 
-def _rows(ranking: pd.DataFrame, finalists: set[str]) -> list[str]:
+def _rows(ranking: pd.DataFrame, promoted: set[str]) -> list[str]:
     rows = []
     for run_id, row in ranking.iterrows():
         cells = [
@@ -36,7 +36,7 @@ def _rows(ranking: pd.DataFrame, finalists: set[str]) -> list[str]:
             # repeats five of its rows print the same numbers.
             f"{row['macro_avg_rank']:.2f}",
         ]
-        if run_id in finalists:
+        if run_id in promoted:
             cells = [rf"\textbf{{{cell}}}" for cell in cells]
         rows.append(" & ".join(cells) + r" \\")
     return rows
@@ -67,12 +67,14 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
     data = C.load_primary(C.results_path(cfg, "mixed_followup_xlsx"), cfg)
     ranking, _ = C.followup_ranking(data, cfg["analysis"]["benchmarks"])
     labels = cfg["rq2"]["labels"]
-    finalists = cfg["rq2"]["finalists"]
+    posthoc_family = cfg["rq2"]["posthoc_family"]
     promoted = cfg["rq2"]["promoted"]
 
-    actual_top = ranking.head(len(finalists)).index.tolist()
-    if actual_top != finalists:
-        raise ValueError(f"Follow-up post-hoc family changed: expected {finalists}, got {actual_top}")
+    actual_top = ranking.head(len(posthoc_family)).index.tolist()
+    if actual_top != posthoc_family:
+        raise ValueError(
+            f"Follow-up post-hoc family changed: expected {posthoc_family}, got {actual_top}"
+        )
     actual_promoted = ranking.head(len(promoted)).index.tolist()
     if actual_promoted != promoted:
         raise ValueError(f"Promoted set changed: expected {promoted}, got {actual_promoted}")
@@ -95,7 +97,7 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
         r"\# & Run ID & Method & Rank $r$ & Experts & Top-$k$ & Belebele & FLORES & SIB-200 & Taxi1500 & Overall \\"
     ]
     full_caption = (
-        "Average position of every mixed follow-up configuration; lower is better, "
+        "Average position of every mixed follow-up configuration. Lower is better, "
         f"and bold marks the {C.spell_count(len(promoted))} configurations carried "
         "to the broader validation."
     )
@@ -105,7 +107,7 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
         [r"Method & Rank $r$ & Experts & Top-$k$ & Belebele & FLORES & SIB-200 & Taxi1500 & Overall \\"],
         _shortlist_rows(ranking.head(len(promoted))),
         f"The {C.spell_count(len(promoted))} configurations carried to the broader validation, with "
-        "their average positions among all 22 follow-up configurations; lower is "
+        "their average positions among all 22 follow-up configurations. Lower is "
         "better, best per column in bold.",
         "tab:rq2-followup",
         environment="table*",

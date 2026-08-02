@@ -251,7 +251,8 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
         appendix_rows,
         "Every configuration against the base model in the broader regimes. "
         "Median difference and rank-biserial effect are signed so that positive "
-        "favours the configuration.",
+        "favours the configuration. Median differences are in each benchmark's "
+        "own units and do not compare across benchmarks.",
         "tab:rq3-vs-baseline-tests",
         environment="table*",
         placement="tp",

@@ -60,8 +60,10 @@ rq3:
 
 rq2:
   leaderboard_top_n: 8
-  # Post-hoc family reproduced from the analysis notebook, which tested the top three.
-  finalists:
+  # Post-hoc family reproduced from the analysis notebook, which tested the top
+  # three. Deliberately not named "finalists": rq3.finalists is the five
+  # configurations promoted to the broader regimes, which is a different set.
+  posthoc_family:
     - mtllora_r8_nup16
     - moelora_tr32_e16_k8
     - hydralora_r2

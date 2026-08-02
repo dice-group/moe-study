@@ -215,8 +215,9 @@ def _cross_benchmark_table(cfg: dict, baseline: str, regimes: list[int], benchma
          r"\cmidrule(lr){2-5}",
          " & " + " & ".join(C.benchmark_label(b) for b in benchmarks) + r" \\"],
         rows,
-        "Rank correlation between the gain on one benchmark and the base-model "
-        "score on another.",
+        "Spearman correlation between the gain on one benchmark and the "
+        "base-model score on another. The diagonal is empty because it would "
+        "take both values from the same benchmark.",
         "tab:rq4-cross-benchmark",
         # Placed with [H] at the end of the appendix text rather than floated.
         # A float deferred out of the first column is only reconsidered at the

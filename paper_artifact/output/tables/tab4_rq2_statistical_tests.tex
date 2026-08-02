@@ -4,14 +4,14 @@
 \small
 \begin{tabular}{lrrrccc}
 \toprule
-Benchmark & $n$ & Kendall's $W$ & Omnibus $p_{\mathrm{Holm}}$ & MTL-LoRA--MOELoRA & MTL-LoRA--HydraLoRA & MOELoRA--HydraLoRA \\
+Benchmark & $n$ & Kendall's $W$ & Omnibus $p_{\mathrm{Holm}}$ & \shortstack{MTL-LoRA\\--MOELoRA} & \shortstack{MTL-LoRA\\--HydraLoRA} & \shortstack{MOELoRA\\--HydraLoRA} \\
 \midrule
-Belebele & 9 & 0.410 & \textbf{$4.2\!\times\!10^{-8}$***} & $\rightarrow$ $1$ & $\leftarrow$ $1$ & $\leftarrow$ $0.781$ \\
-FLORES & 18 & 0.511 & \textbf{$3.4\!\times\!10^{-29}$***} & \textbf{$\rightarrow$ $0.011$*} & $\leftarrow$ $1$ & \textbf{$\leftarrow$ $0.002$**} \\
-SIB-200 & 9 & 0.612 & \textbf{$1.3\!\times\!10^{-14}$***} & $\leftarrow$ $0.176$ & $=$ $1$ & $\rightarrow$ $0.078$ \\
-Taxi1500 & 6 & 0.604 & \textbf{$4.2\!\times\!10^{-8}$***} & $\leftarrow$ $1$ & $\rightarrow$ $1$ & $\rightarrow$ $1$ \\
+Belebele & 9 & 0.410 & $4.2\!\times\!10^{-8}$*** & $\rightarrow$ $1$ & $\leftarrow$ $1$ & $\leftarrow$ $0.781$ \\
+FLORES & 18 & 0.511 & $3.4\!\times\!10^{-29}$*** & $\rightarrow$ $0.011$* & $\leftarrow$ $1$ & $\leftarrow$ $0.002$** \\
+SIB-200 & 9 & 0.612 & $1.3\!\times\!10^{-14}$*** & $\leftarrow$ $0.176$ & $=$ $1$ & $\rightarrow$ $0.078$ \\
+Taxi1500 & 6 & 0.604 & $4.2\!\times\!10^{-8}$*** & $\leftarrow$ $1$ & $\rightarrow$ $1$ & $\rightarrow$ $1$ \\
 \bottomrule
 \end{tabular}
-\caption{Omnibus and pairwise tests for the mixed follow-up. Arrows point toward the descriptively better configuration, and bold marks $p_{\mathrm{Holm}}<.05$.}
+\caption{Omnibus and pairwise tests for the mixed follow-up. The omnibus test covers all 22 configurations, while the pairwise columns cover the top three of the five promoted, which is every pairing of those three. Arrows point toward the descriptively better configuration.}
 \label{tab:rq2-tests}
 \end{table*}
