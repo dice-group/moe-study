@@ -4,7 +4,7 @@ This repo contains the implementation of a MoE-LoRA study comparing multiple
 fine-tuning approaches for massively multilingual continual pretraining while
 scaling language coverage from 10 to 200 languages.
 
-> **Note:** We use a custom fork of [LLaMA-Factory](https://anonymous.4open.science/r/LLaMA-Factory-Merlin-85A8) for the MoE-LoRA method implementations. Because it is added as a submodule, it is not directly supported by `anonymous.4open.science`.
+> **Note:** We use a custom fork of [LLaMA-Factory](https://anonymous.4open.science/r/LLaMA-Factory-D6EA) for the MoE-LoRA method implementations. Because it is added as a submodule, it is not directly supported by `anonymous.4open.science`.
 
 ## Main entry points
 - Main study pipeline executor: `python -m pipeline.run --config configs/pipeline --profile <profile>`
