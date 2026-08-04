@@ -77,7 +77,7 @@ Interpretation:
 ## What is needed for exact local recreation
 To reproduce cluster-stable ~4 on this machine, one of these is required:
 1. Mount/copy full dataset path:
-   - `/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison/llama-3.2-1B_tokenizer/10_langs`
+   - `/scratch/anonymous-project/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison/llama-3.2-1B_tokenizer/10_langs`
 2. Or copy enough representative ranks (not one shard) to approximate full distribution and scale.
 
 ## Useful files and logs

@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-CONDA_BIN_DEFAULT="/upb/users/j/joeldag/profiles/unix/cs/.conda/envs/merlin/bin"
+CONDA_BIN_DEFAULT="/anonymous-institution/users/j/anonymous-user/profiles/unix/cs/.conda/envs/merlin/bin"
 if [[ -d "${CONDA_BIN_DEFAULT}" ]]; then
   export PATH="${CONDA_BIN_DEFAULT}:${PATH}"
 fi

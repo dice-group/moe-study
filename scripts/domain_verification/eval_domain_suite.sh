@@ -102,7 +102,7 @@ else
   esac
 fi
 
-MERLIN_BIN="/upb/users/j/joeldag/profiles/unix/cs/.conda/envs/merlin/bin"
+MERLIN_BIN="/anonymous-institution/users/j/anonymous-user/profiles/unix/cs/.conda/envs/merlin/bin"
 LM_EVAL_BIN="${LM_EVAL_BIN:-${MERLIN_BIN}/lm_eval}"
 PYTHON_BIN="${PYTHON_BIN:-${MERLIN_BIN}/python}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

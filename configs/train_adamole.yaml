@@ -1,6 +1,6 @@
 stage: sft
 model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
-dataset: "/upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/data_dir/fineweb_stage1.jsonl"
+dataset: "/anonymous-institution/users/j/anonymous-user/profiles/unix/cs/MERLIN/moe-study/data_dir/fineweb_stage1.jsonl"
 template: llama3
 cutoff_len: 1024
 max_samples: 20000
@@ -23,7 +23,7 @@ report_to: none
 do_train: true
 resize_vocab: true
 
-output_dir: /upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/outputs/adamole-llama3-8b-sft
+output_dir: /anonymous-institution/users/j/anonymous-user/profiles/unix/cs/MERLIN/moe-study/outputs/adamole-llama3-8b-sft
 overwrite_output_dir: true
 adamole_num_experts: 4
 adamole_max_threshold: 0.25

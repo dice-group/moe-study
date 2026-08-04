@@ -43,7 +43,7 @@ CLUSTER_PRESETS = {
         "base_profile": "moe_study_profile_noctua2_a100_4gpu_10_langs",
         "source_profile": "moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs",
         "calibrated_profile": "moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs_calibrated",
-        "experiment_tag": "moe-study-rank-expert-sweep-noctua2-a100-4gpu-10langs",
+        "experiment_tag": "moe-study-rank-expert-sweep-anonymous-cluster-a100-4gpu-10langs",
         "profile_path": Path("configs/pipeline/profiles/moe_study_rank_expert_sweep_noctua2_4gpu.generated.json"),
         "calibrated_profile_path": Path("configs/pipeline/profiles/moe_study_rank_expert_sweep_noctua2_4gpu_calibrated.generated.json"),
         "output_root": Path("outputs/pipeline_runs/moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs"),

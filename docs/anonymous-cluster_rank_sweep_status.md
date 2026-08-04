@@ -1,4 +1,4 @@
-# Noctua2 Rank Sweep Status
+# anonymous-cluster Rank Sweep Status
 
 Updated: 2026-05-12 01:56:43 UTC
 

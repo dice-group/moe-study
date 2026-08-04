@@ -37,8 +37,5 @@ Quick checklist:
 - (Optional) create separate `lm_eval` env for evaluations
 
 ## Study artifacts
-- Main study notes and details: `https://docs.google.com/document/d/1sSwH7xHYJsKHvBT7nrPL2CDcKXo9vIiIb-4YMeuNLPc/edit?tab=t.6ddn6ncjl3yf`
-- Result table Excel workbooks are also backed up in Sciebo: `https://uni-paderborn.sciebo.de/apps/files/files/964369178?dir=/MoE%20%2B%20LoRA%20Empirical%20Study/MoE%20Study`
-- Configuration space spreadsheet: `https://docs.google.com/spreadsheets/d/1w53Qei57JmuF7Kk8X7uVzHTrbkC2Ri2kVV1rCTro0cc/edit?gid=0#gid=0`
-- Final adapter-only BACKUP on PC2DATA: `/pc2/groups/hpc-prf-merlin/joeldag/moe-study-final-results-adapter-only-2026-07-05`
+[paper_artifact/README.md](paper_artifact/README.md)
 

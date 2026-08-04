@@ -4,7 +4,7 @@
     "output_root": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m",
     "logs_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m/logs",
     "executor": {
-      "conda_base": "/pc2/users/j/joeldag/miniconda3",
+      "conda_base": "/cluster/user/miniconda3",
       "conda_env": "merlin",
       "modules": [
         "toolchain/foss/2024a",
@@ -46,14 +46,14 @@
     },
     "sample": {
       "enabled": false,
-      "output_dir": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/sharded_samples"
+      "output_dir": "/cluster/user/moe-study/outputs/sharded_samples"
     },
-    "language_map_csv": "/scratch/hpc-prf-merlin/joel/moe-study/result_analysis/l2v_nested_samples/200.csv",
+    "language_map_csv": "/cluster/user/moe-study/result_analysis/l2v_nested_samples/200.csv",
     "tokenization": {
       "output_dir": "outputs/pipeline_runs/moe_study_lora_scaling_200_langs_50m/tokenized",
-      "languages_csv": "/scratch/hpc-prf-merlin/joel/moe-study/result_analysis/l2v_nested_samples/200.csv",
-      "language_rates_csv": "/scratch/hpc-prf-merlin/joel/moe-study/result_analysis/l2v_nested_samples/200.csv",
-      "language_rates_counts_tsv": "/scratch/hpc-prf-merlin/joel/moe-study/result_analysis/l2v_nested_samples/language_sample_counts.tsv",
+      "languages_csv": "/cluster/user/moe-study/result_analysis/l2v_nested_samples/200.csv",
+      "language_rates_csv": "/cluster/user/moe-study/result_analysis/l2v_nested_samples/200.csv",
+      "language_rates_counts_tsv": "/cluster/user/moe-study/result_analysis/l2v_nested_samples/language_sample_counts.tsv",
       "sample_fraction": 0.000063
     },
     "training": {

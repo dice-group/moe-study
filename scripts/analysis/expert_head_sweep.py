@@ -41,11 +41,11 @@ CLUSTER_PRESETS = {
         "calibrated_output_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_otus_cluster_10_langs_calibrated"),
         "probe_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_batch_search"),
     },
-    "noctua2": {
+    "anonymous-cluster": {
         "base_profile": "moe_study_profile_noctua2_a100_10_langs",
         "source_profile": "moe_study_expert_head_sweep_r2_noctua2_a100_10_langs",
         "calibrated_profile": "moe_study_expert_head_sweep_r2_noctua2_a100_10_langs_calibrated",
-        "experiment_tag": "moe-study-expert-head-sweep-r2-noctua2-a100-10langs",
+        "experiment_tag": "moe-study-expert-head-sweep-r2-anonymous-cluster-a100-10langs",
         "profile_path": Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2.generated.json"),
         "calibrated_profile_path": Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2_calibrated.generated.json"),
         "output_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_10_langs"),
@@ -56,7 +56,7 @@ CLUSTER_PRESETS = {
         "base_profile": "moe_study_profile_noctua2_a100_4gpu_10_langs",
         "source_profile": "moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs",
         "calibrated_profile": "moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_calibrated",
-        "experiment_tag": "moe-study-expert-head-sweep-r2-noctua2-a100-4gpu-10langs",
+        "experiment_tag": "moe-study-expert-head-sweep-r2-anonymous-cluster-a100-4gpu-10langs",
         "profile_path": Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2_4gpu.generated.json"),
         "calibrated_profile_path": Path("configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2_4gpu_calibrated.generated.json"),
         "output_root": Path("outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs"),

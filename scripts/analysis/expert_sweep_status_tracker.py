@@ -317,7 +317,7 @@ def load_analysis_scores() -> dict[str, dict[str, str]]:
 def squeue_jobs() -> dict[str, dict[str, str]]:
     try:
         proc = subprocess.run(
-            ["squeue", "-u", "joeldag", "-h", "-o", "%i|%j|%T|%M|%D|%R"],
+            ["squeue", "-u", "anonymous-user", "-h", "-o", "%i|%j|%T|%M|%D|%R"],
             cwd=REPO_ROOT,
             check=False,
             text=True,

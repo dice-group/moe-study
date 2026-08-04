@@ -8,7 +8,7 @@
     },
     "language_map_path": "configs/pg_language_groupings/12_languages_grouping.json",
     "executor": {
-      "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3",
+      "conda_base": "/opt/software/cluster/EB-SW/software/Miniforge3/25.3.0-3",
       "conda_env": "merlin",
       "cpus_per_task": 32,
       "gres": "gpu:h100:1",

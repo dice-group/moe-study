@@ -1,13 +1,13 @@
 {
   "global": {
-    "output_root": "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs",
-    "log_root": "/scratch/hpc-prf-merlin/joel/moe-study/scripts/slurm/comparison/logs",
+    "output_root": "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs",
+    "log_root": "/cluster/user/moe-study/scripts/slurm/comparison/logs",
     "dataset_dir": "./LLaMA-Factory/data",
     "wandb_project": "moe-study-comparison",
     "wandb_group_prefix": "llama3.1-8B_benchmark",
-    "tokenized_base": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison",
+    "tokenized_base": "/scratch/anonymous-project/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison",
     "moelpr_language_column": "language",
-    "moelpr_language_map": "/scratch/hpc-prf-merlin/joel/moe-study/configs/moelpr_lang_map.json",
+    "moelpr_language_map": "/cluster/user/moe-study/configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",
     "flash_attn": "fa2",
     "auto_find_batch_size": "false",

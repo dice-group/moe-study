@@ -8,8 +8,8 @@ WANDB_ENTITY="${WANDB_ENTITY:-}"
 WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-matrix-${PROFILE}-$(date +%Y%m%d_%H%M%S)}"
 
 DATASET_DIR="${DATASET_DIR:-${REPO_ROOT:-$(pwd)}/LLaMA-Factory/data}"
-TOKENIZED_BASE_DIR="${TOKENIZED_BASE_DIR:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_labeled}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs_labeled}"
+TOKENIZED_BASE_DIR="${TOKENIZED_BASE_DIR:-/scratch/anonymous-project/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_labeled}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs_labeled}"
 LOG_ROOT="${LOG_ROOT:-${REPO_ROOT:-$(pwd)}/scripts/slurm/comparison/logs/matrix_labeled}"
 
 RUN_MODE="${RUN_MODE:-slurm}"

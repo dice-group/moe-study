@@ -30,7 +30,7 @@
       "english_median_check": true,
       "language_rates_english_docs_count": 25900000000,
       "language_rates_english_undersample_divisor": 50,
-      "language_rates_counts_tsv": "/scratch-otus/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv",
+      "language_rates_counts_tsv": "/scratch-otus/anonymous-project/anonymous-user/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv",
       "language_rates_counts_tsv_has_header": false,
       "language_rates_counts_tsv_language_column": "language",
       "language_rates_counts_tsv_count_column": "count"
@@ -196,7 +196,7 @@
     "output_root": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h",
     "logs_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/logs",
     "run_naming": {
-      "experiment_tag": "moe-study-final-winners-noctua2-a100-4gpu-96langs-34p5h",
+      "experiment_tag": "moe-study-final-winners-anonymous-cluster-a100-4gpu-96langs-34p5h",
       "language_count_hint": 96
     },
     "language_map_csv": "result_analysis/l2v_nested_samples/96.csv",
@@ -297,7 +297,7 @@
     "output_root": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h",
     "logs_dir": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h/logs",
     "run_naming": {
-      "experiment_tag": "moe-study-final-winners-noctua2-a100-4gpu-200langs-72h",
+      "experiment_tag": "moe-study-final-winners-anonymous-cluster-a100-4gpu-200langs-72h",
       "language_count_hint": 200
     },
     "language_map_csv": "result_analysis/l2v_nested_samples/200.csv",

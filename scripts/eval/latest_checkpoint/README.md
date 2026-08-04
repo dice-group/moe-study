@@ -60,7 +60,7 @@ python -m lm_eval.tasks.flores_en_perplexity.gen_flores_config
 ## Create flores tasks
 1. clone lm harness fork
 ```
-git clone git@github.com:dice-group/lm-evaluation-harness.git
+git clone git@github.com:anonymous-group/lm-evaluation-harness.git
 cd lm-evaluation-harness
 ```
 2. in the repo perfor 

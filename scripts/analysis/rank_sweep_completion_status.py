@@ -158,7 +158,7 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]], csv_path: Path, prof
         and int(float(row["global_step"])) < int(float(row["max_steps"]))
     ]
     lines = [
-        "# Noctua2 Rank Sweep Status",
+        "# anonymous-cluster Rank Sweep Status",
         "",
         f"Updated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
         "",
@@ -195,7 +195,7 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]], csv_path: Path, prof
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Write completion status for the Noctua2 rank/expert sweep.")
+    parser = argparse.ArgumentParser(description="Write completion status for the anonymous-cluster rank/expert sweep.")
     parser.add_argument("--config", default="configs/pipeline", help="Pipeline config bundle path.")
     parser.add_argument("--profile", default=DEFAULT_PROFILE, help="Resolved profile name for the 55-run study matrix.")
     parser.add_argument("--root", action="append", default=[], help="Output root to scan. May be repeated.")

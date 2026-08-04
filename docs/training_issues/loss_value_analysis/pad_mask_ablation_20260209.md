@@ -1,7 +1,7 @@
 # Pad Label Masking Ablation (CoLA, Llama-3.2-1B, 10-lang sampled subset)
 
 Background:
-- I (Joel) observed relatively high training losses depending on the base model: ~4.0 for the 1B model and ~5.4–6.0 for the 8B model. This was initially not concerning. However, we later noticed that we were not outperforming the respective base models during training, which suggested a potential issue in the pipeline.
+- I (anonymous-user) observed relatively high training losses depending on the base model: ~4.0 for the 1B model and ~5.4–6.0 for the 8B model. This was initially not concerning. However, we later noticed that we were not outperforming the respective base models during training, which suggested a potential issue in the pipeline.
 - After extensive debugging, I examined the tokenized dataset to investigate whether the construction of the 'labels' field in the tokenized data could be responsible for the unexpectedly high losses and lack of improvement over the base models.
 - Date: 2026-02-09  
 

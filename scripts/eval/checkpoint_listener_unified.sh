@@ -48,22 +48,22 @@ SYNC_SCRIPT=""
 SYNC_PYTHON="python3"
 ROOTS_FILE=""
 WATCH_ROOTS=(
-  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/adamole/paper-best_20260120_222802"
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/adamole/paper-best_20260120_222802"
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/adamole/paper-best_20260120_222802"
+  "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/adamole/paper-best_20260120_222802"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/adamole/paper-best_20260120_222802"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/adamole/paper-best_20260120_222802"
 
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/mola/paper-best_20260120_222802"
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/mola/paper-best_20260120_222802"
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/mola/paper-best_20260120_222802"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/mola/paper-best_20260120_222802"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/mola/paper-best_20260120_222802"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/mola/paper-best_20260120_222802"
 
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/cola/paper-best_20260114_012804/"
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/cola/paper-best_20260114_012128/"
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/cola/paper-best_20260114_003639/"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/cola/paper-best_20260114_012804/"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/cola/paper-best_20260114_012128/"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/cola/paper-best_20260114_003639/"
   
 
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/hydralora/paper-best_20260114_012804"
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/hydralora/paper-best_20260114_012128/"
-  # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/hydralora/paper-best_20260114_003639/"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-10_langs/hydralora/paper-best_20260114_012804"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-96_langs/hydralora/paper-best_20260114_012128/"
+  # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.1-8B_tokenizer-200_langs/hydralora/paper-best_20260114_003639/"
 )
 MARK_TAG=""
 

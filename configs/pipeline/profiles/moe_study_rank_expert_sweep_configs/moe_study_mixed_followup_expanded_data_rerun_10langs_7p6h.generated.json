@@ -4,7 +4,7 @@
     "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h",
     "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_noctua2_a100_4gpu_10_langs_7p6h/logs",
     "run_naming": {
-      "experiment_tag": "moe-study-mixed-followup-expanded-data-rerun-noctua2-a100-4gpu-10langs-7p6h",
+      "experiment_tag": "moe-study-mixed-followup-expanded-data-rerun-anonymous-cluster-a100-4gpu-10langs-7p6h",
       "language_count_hint": 10
     },
     "sample": {
@@ -224,7 +224,7 @@
     "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h",
     "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_expanded_data_rerun_smoke_noctua2_a100_4gpu_10_langs_7p6h/logs",
     "run_naming": {
-      "experiment_tag": "moe-study-mixed-followup-expanded-data-rerun-smoke-noctua2-a100-4gpu-10langs-7p6h",
+      "experiment_tag": "moe-study-mixed-followup-expanded-data-rerun-smoke-anonymous-cluster-a100-4gpu-10langs-7p6h",
       "language_count_hint": 10
     },
     "training": {

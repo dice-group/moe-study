@@ -4,7 +4,7 @@
     "output_root": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated",
     "logs_dir": "outputs/pipeline_runs/moe_study_moelora_attention_sizefsdp_calibrated/logs",
     "run_naming": {
-      "experiment_tag": "moe-study-rank-expert-sweep-noctua2-a100-4gpu-10langs-calibrated",
+      "experiment_tag": "moe-study-rank-expert-sweep-anonymous-cluster-a100-4gpu-10langs-calibrated",
       "language_count_hint": 10
     },
     "tokenization": {

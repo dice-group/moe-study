@@ -107,7 +107,7 @@ This is the easiest profile to use for local GPU validation runs.
 
 ## Current `moe_study_profile_noctua2_a100_10_langs`
 
-This profile adapts the 10-language MoE-study cluster setup for Noctua2.
+This profile adapts the 10-language MoE-study cluster setup for anonymous-cluster.
 
 Current behavior:
 
@@ -116,14 +116,14 @@ Current behavior:
 - `gres=gpu:a100:1`
 - `cpus_per_task=32`
 - `mem=192G`
-- Conda base `/opt/software/pc2/EB-SW/software/Miniforge3/24.1.2-0`
+- Conda base `/opt/software/cluster/EB-SW/software/Miniforge3/24.1.2-0`
 - Conda env `merlin`
 - CUDA module `system/CUDA/12.6.0`
 - training `flash_attn=sdpa`
 
-Use this profile for A100 single-GPU pipeline checks and expert/head calibration probes on Noctua2.
+Use this profile for A100 single-GPU pipeline checks and expert/head calibration probes on anonymous-cluster.
 
-For full-node Noctua2 calibration, use:
+For full-node anonymous-cluster calibration, use:
 
 - `moe_study_profile_noctua2_a100_4gpu_10_langs`
 
@@ -219,42 +219,42 @@ The expert/head-count sweep helper is:
 
 - `scripts/analysis/expert_head_sweep.py`
 
-For Noctua2 A100 calibration:
+For anonymous-cluster A100 calibration:
 
 ```bash
-python scripts/analysis/expert_head_sweep.py write-profile --cluster noctua2
-python scripts/analysis/expert_head_sweep.py validate-profile --cluster noctua2
-python scripts/analysis/expert_head_sweep.py list-anchors --cluster noctua2
+python scripts/analysis/expert_head_sweep.py write-profile --cluster anonymous-cluster
+python scripts/analysis/expert_head_sweep.py validate-profile --cluster anonymous-cluster
+python scripts/analysis/expert_head_sweep.py list-anchors --cluster anonymous-cluster
 ```
 
-For full-node 4x A100 calibration, replace `noctua2` with `noctua2_4gpu`.
+For full-node 4x A100 calibration, replace `anonymous-cluster` with `noctua2_4gpu`.
 
 Submit one wave of batch probes:
 
 ```bash
-python scripts/analysis/expert_head_sweep.py submit-wave --cluster noctua2 --max-submissions 8
+python scripts/analysis/expert_head_sweep.py submit-wave --cluster anonymous-cluster --max-submissions 8
 ```
 
 Collect completed probes:
 
 ```bash
-python scripts/analysis/expert_head_sweep.py collect-results --cluster noctua2 --cleanup-successful
+python scripts/analysis/expert_head_sweep.py collect-results --cluster anonymous-cluster --cleanup-successful
 ```
 
 After every active approach has at least one successful probe, write the calibrated profile:
 
 ```bash
-python scripts/analysis/expert_head_sweep.py write-calibrated-profile --cluster noctua2
+python scripts/analysis/expert_head_sweep.py write-calibrated-profile --cluster anonymous-cluster
 ```
 
-The Noctua2 probe path records GPU telemetry under:
+The anonymous-cluster probe path records GPU telemetry under:
 
 - `outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_batch_search/`
 
-Current Noctua2 A100 result:
+Current anonymous-cluster A100 result:
 
 - The single-GPU A100 path is not sufficient for the worst expert anchors.
-- The working Noctua2 sweep profile is:
+- The working anonymous-cluster sweep profile is:
   - `moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_working_calibrated`
   - `configs/pipeline/profiles/moe_study_expert_head_sweep_r2_noctua2_4gpu_working_calibrated.generated.json`
 - The current ready-for-longer-run profile with softer stability reductions is:

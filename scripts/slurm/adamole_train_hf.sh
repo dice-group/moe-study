@@ -16,20 +16,20 @@ module load tools
 module load cuda
 module load python/3.11
 
-source /opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3/etc/profile.d/conda.sh
-conda activate /scratch/hpc-prf-merlin/htyllm-pg/joel/conda/envs/moe-study
+source /opt/software/cluster/EB-SW/software/Miniforge3/25.3.0-3/etc/profile.d/conda.sh
+conda activate /scratch/anonymous-project/htyllm-pg/anonymous-user/conda/envs/moe-study
 
 export LOG_LEVEL=DEBUG
-export HF_HOME=/scratch/hpc-prf-merlin/shared_cache/huggingface
+export HF_HOME=/scratch/anonymous-project/shared_cache/huggingface
 export TRANSFORMERS_CACHE=$HF_HOME
-export HF_DATASETS_CACHE=/scratch/hpc-prf-merlin/shared_cache/huggingface/datasets
+export HF_DATASETS_CACHE=/scratch/anonymous-project/shared_cache/huggingface/datasets
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 echo "Starting training job"
 srun python src/train_hf.py \
-  --config /scratch/hpc-prf-merlin/moe-study/configs/train_adamole_hf.yaml \
-  --tokenized_dataset_dir /scratch/hpc-prf-merlin/project_data/moe_study/tokenized \
-  --tokenizer /scratch/hpc-prf-merlin/project_data/moe_study/250K_vocab_size/trained_multilingual_tokenizer_llama-3.2-1B \
+  --config /scratch/anonymous-project/moe-study/configs/train_adamole_hf.yaml \
+  --tokenized_dataset_dir /scratch/anonymous-project/project_data/moe_study/tokenized \
+  --tokenizer /scratch/anonymous-project/project_data/moe_study/250K_vocab_size/trained_multilingual_tokenizer_llama-3.2-1B \
   --use_method adamole \
   --lora_r 4 \
   --lora_alpha 16 \

@@ -19,9 +19,9 @@ Below: GPU-hour budgets with resulting wall-clock times for specific GPU counts.
 
 ## Language distribution verification (tokenized data)
 
-- Tokenized dataset checked: `/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison/llama-3.2-1B_tokenizer/200_langs`
-- Original counts: `/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv`
-- Realized counts: `/scratch/hpc-prf-merlin/joel/moe-study/data_prep/merlin_data_prep/distributed_data_processor/scripts/extras/lang_stats.tsv`
+- Tokenized dataset checked: `/scratch/anonymous-project/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison/llama-3.2-1B_tokenizer/200_langs`
+- Original counts: `/cluster/user/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv`
+- Realized counts: `/cluster/user/moe-study/data_prep/merlin_data_prep/distributed_data_processor/scripts/extras/lang_stats.tsv`
 - Comparison script: `data_prep/merlin_data_prep/distributed_data_processor/scripts/extras/compare_language_distribution.py`
 - Method: `tokenize_slurm.py` samples by **language rates (probabilities)**, not fixed counts.
 - Results (English excluded on purpose):

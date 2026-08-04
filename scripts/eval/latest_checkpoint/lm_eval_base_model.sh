@@ -11,8 +11,8 @@
 
 set -euo pipefail
 
-REPO_ROOT="${REPO_ROOT:-/scratch/hpc-prf-merlin/joel/moe-study}"
-HARNESS_ROOT="${LM_EVAL_HARNESS_PATH:-/scratch/hpc-prf-merlin/joel/moe-study/scripts/eval/latest_checkpoint/lm-evaluation-harness}"
+REPO_ROOT="${REPO_ROOT:-/cluster/user/moe-study}"
+HARNESS_ROOT="${LM_EVAL_HARNESS_PATH:-/cluster/user/moe-study/scripts/eval/latest_checkpoint/lm-evaluation-harness}"
 
 MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:-meta-llama/Llama-3.2-1B}"
 TASKS_FILE="${TASKS_FILE:-${REPO_ROOT}/configs/lm_eval_tasks_10_langs.txt}"
@@ -22,7 +22,7 @@ WANDB_PROJECT="${WANDB_PROJECT:-moe-study-comparison_labeled_eval}"
 WANDB_ENTITY="${WANDB_ENTITY:-}"
 WANDB_GROUP="${WANDB_GROUP:-llama32-1b-base-10langs}"
 WANDB_NAME="${WANDB_NAME:-llama32-1b-base-10langs_$(date +%Y%m%d_%H%M%S)}"
-OUT_ROOT="${OUT_ROOT:-/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/base_model_eval}"
+OUT_ROOT="${OUT_ROOT:-/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/base_model_eval}"
 OUTPUT_DIR="${OUTPUT_DIR:-${OUT_ROOT}/$(date +%Y%m%d_%H%M%S)}"
 
 join_include_paths() {

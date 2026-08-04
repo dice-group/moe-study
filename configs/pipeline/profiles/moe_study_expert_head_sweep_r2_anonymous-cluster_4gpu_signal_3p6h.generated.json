@@ -2,7 +2,7 @@
   "moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_signal_3p6h": {
     "executor": {
       "type": "slurm",
-      "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/24.1.2-0",
+      "conda_base": "/opt/software/cluster/EB-SW/software/Miniforge3/24.1.2-0",
       "conda_env": "merlin",
       "cpus_per_task": 64,
       "gres": "gpu:a100:4",
@@ -44,11 +44,11 @@
       "slurm_array_enabled": true,
       "slurm_array_ranks": 50,
       "check_parallel_enabled": true,
-      "languages_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
+      "languages_csv": "/cluster/user/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
       "languages_csv_column": "subset",
       "languages_csv_split": "train",
       "languages_extra": [],
-      "language_rates_csv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
+      "language_rates_csv": "/cluster/user/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/10.csv",
       "language_rates_csv_column": "subset",
       "language_rates_csv_split": "train",
       "language_rates_csv_documents_column": "documents",
@@ -56,7 +56,7 @@
       "english_median_check": false,
       "language_rates_english_docs_count": 25900000000,
       "language_rates_english_undersample_divisor": 50,
-      "language_rates_counts_tsv": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv",
+      "language_rates_counts_tsv": "/cluster/user/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv",
       "language_rates_counts_tsv_has_header": false,
       "language_rates_counts_tsv_language_column": "language",
       "language_rates_counts_tsv_count_column": "count"
@@ -810,7 +810,7 @@
       }
     },
     "run_naming": {
-      "experiment_tag": "moe-study-expert-head-sweep-r2-noctua2-a100-4gpu-10langs-signal-3p6h",
+      "experiment_tag": "moe-study-expert-head-sweep-r2-anonymous-cluster-a100-4gpu-10langs-signal-3p6h",
       "language_count_hint": 10
     },
     "language_map_csv": "result_analysis/l2v_nested_samples/10.csv",

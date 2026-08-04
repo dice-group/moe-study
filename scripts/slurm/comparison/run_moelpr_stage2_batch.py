@@ -18,12 +18,12 @@ CONFIG_PATHS = [
     "scripts/slurm/comparison/comparison_config_llama3_2_3b.json",
 ]
 STAGE1_DIRS = [
-    "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-1B_tokenizer-10_langs/moelpr/paper-best_stage1_20260126_204129",
-    # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-1B_tokenizer-96_langs/moelpr/paper-best_stage1_20260126_204008",
-    # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-1B_tokenizer-200_langs/moelpr/paper-best_stage1_20260126_203734",
-    # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-3B_tokenizer-10_langs/moelpr/paper-best_stage1_20260126_202526",
-    # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-3B_tokenizer-96_langs/moelpr/paper-best_stage1_20260126_201857",
-    # "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-3B_tokenizer-200_langs/moelpr/paper-best_stage1_20260126_201628"
+    "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-1B_tokenizer-10_langs/moelpr/paper-best_stage1_20260126_204129",
+    # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-1B_tokenizer-96_langs/moelpr/paper-best_stage1_20260126_204008",
+    # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-1B_tokenizer-200_langs/moelpr/paper-best_stage1_20260126_203734",
+    # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-3B_tokenizer-10_langs/moelpr/paper-best_stage1_20260126_202526",
+    # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-3B_tokenizer-96_langs/moelpr/paper-best_stage1_20260126_201857",
+    # "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-3B_tokenizer-200_langs/moelpr/paper-best_stage1_20260126_201628"
 ]
 GPUS_PER_NODE = 4
 

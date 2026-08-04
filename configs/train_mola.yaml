@@ -1,6 +1,6 @@
 stage: sft
 model_name_or_path: meta-llama/Llama-3.1-8B
-dataset: "/upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/data_dir/fineweb_stage1.jsonl"
+dataset: "/anonymous-institution/users/j/anonymous-user/profiles/unix/cs/MERLIN/moe-study/data_dir/fineweb_stage1.jsonl"
 dataset_dir: "data_dir"
 cutoff_len: 256
 max_samples: null

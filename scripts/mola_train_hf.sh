@@ -10,7 +10,7 @@ export LOG_LEVEL=DEBUG
 # they trained on 3 seeds and averaged results TODO?
 
 python src/train_hf.py \
-  --config /upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/configs/train_mola.yaml \
+  --config /anonymous-institution/users/j/anonymous-user/profiles/unix/cs/MERLIN/moe-study/configs/train_mola.yaml \
   --use_method mola \
   --lora_r 8 \
   --lora_alpha 16 \

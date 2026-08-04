@@ -4,7 +4,7 @@
     "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_noctua2_a100_4gpu_10_langs_7p2h",
     "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_noctua2_a100_4gpu_10_langs_7p2h/logs",
     "run_naming": {
-      "experiment_tag": "moe-study-mixed-rank-expert-followup-noctua2-a100-4gpu-10langs-7p2h",
+      "experiment_tag": "moe-study-mixed-rank-expert-followup-anonymous-cluster-a100-4gpu-10langs-7p2h",
       "language_count_hint": 10
     },
     "tokenization": {

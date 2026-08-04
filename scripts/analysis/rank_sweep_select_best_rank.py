@@ -739,7 +739,7 @@ def _write_markdown(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Select the best rank from completed Noctua2 rank-sweep benchmark results.")
+    parser = argparse.ArgumentParser(description="Select the best rank from completed anonymous-cluster rank-sweep benchmark results.")
     parser.add_argument("--config", default="configs/pipeline")
     parser.add_argument("--profile", default=DEFAULT_PROFILE)
     parser.add_argument("--root", action="append", default=[])

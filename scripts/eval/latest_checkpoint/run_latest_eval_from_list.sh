@@ -7,10 +7,10 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 # Edit this list as needed.
 DIRS=(
   # active run set: llama-3.2-1B 10 langs (labeled)
-  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/adamole/paper-best_20260210_021455"
-  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/cola/paper-best_20260210_021455"
-  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/hydralora/paper-best_20260210_021455"
-  "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/lora/paper-best_20260210_021455"
+  "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/adamole/paper-best_20260210_021455"
+  "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/cola/paper-best_20260210_021455"
+  "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/hydralora/paper-best_20260210_021455"
+  "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs_labeled/llama-3.2-1B_tokenizer-10_langs/lora/paper-best_20260210_021455"
 )
 
 # Defaults (override via env if needed)

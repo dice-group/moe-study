@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-CONDA_BIN_DEFAULT="/upb/users/j/joeldag/profiles/unix/cs/.conda/envs/merlin/bin"
+CONDA_BIN_DEFAULT="/anonymous-institution/users/j/anonymous-user/profiles/unix/cs/.conda/envs/merlin/bin"
 if [[ -d "${CONDA_BIN_DEFAULT}" ]]; then
   export PATH="${CONDA_BIN_DEFAULT}:${PATH}"
 fi
@@ -19,7 +19,7 @@ MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:-meta-llama/Llama-3.2-1B}"
 SAMPLED_ROOT="${SAMPLED_ROOT:-${REPO_ROOT}/sampled_data/llama-3.2-1B/200_langs}"
 SHARD_DIR="${SHARD_DIR:-${SAMPLED_ROOT}/samples}"
 TOKENIZER_PY="${TOKENIZER_PY:-${REPO_ROOT}/data_prep/merlin_data_prep/distributed_data_processor/src/tokenize_slurm.py}"
-PYTHON_BIN="${PYTHON_BIN:-/upb/users/j/joeldag/profiles/unix/cs/.conda/envs/merlin/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-/anonymous-institution/users/j/anonymous-user/profiles/unix/cs/.conda/envs/merlin/bin/python}"
 
 TOKENIZED_ROOT="${TOKENIZED_ROOT:-/tmp/tokenized_200langs_padmask_ablation_1b}"
 TOKENIZED_MASKED_DIR="${TOKENIZED_MASKED_DIR:-${TOKENIZED_ROOT}/masked}"

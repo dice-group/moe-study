@@ -305,16 +305,16 @@ Important operational profiles:
 - quick local smoke tests: `local_mini`, `local_mini_quick`
 - MOE Study cluster: `moe_study_profile_otus_cluster`
 - MOE Study GPU VM: `moe_study_profile_lola_gpuvm`
-- MOE Study Noctua2 A100: `moe_study_profile_noctua2_a100_10_langs`
-- MOE Study Noctua2 full A100 node: `moe_study_profile_noctua2_a100_4gpu_10_langs`
-- MOE Study Noctua2 calibrated expert/head sweep: `moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_working_calibrated`
-- MOE Study Noctua2 ready longer-run sweep: `moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_ready`
+- MOE Study anonymous-cluster A100: `moe_study_profile_noctua2_a100_10_langs`
+- MOE Study anonymous-cluster full A100 node: `moe_study_profile_noctua2_a100_4gpu_10_langs`
+- MOE Study anonymous-cluster calibrated expert/head sweep: `moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_working_calibrated`
+- MOE Study anonymous-cluster ready longer-run sweep: `moe_study_expert_head_sweep_r2_noctua2_a100_4gpu_10_langs_ready`
 - HALA cluster: `hala_otus`
 - HALA GPU VM: `hala_lola`
 
-Noctua2 calibration note:
+anonymous-cluster calibration note:
 
-- Noctua2 currently exposes 40 GB A100 GPUs on the `gpu` partition.
+- anonymous-cluster currently exposes 40 GB A100 GPUs on the `gpu` partition.
 - Use the 4x A100 FSDP profile for the expert/head sweep.
 - The working calibrated sweep has 65 runs: AdaMoLE and MoE-LoRA are capped at 4 experts because e8/e16/e32 anchors OOM at batch 1 on 40 GB A100.
 - Measured settings are tracked in `outputs/pipeline_runs/moe_study_expert_head_sweep_r2_noctua2_4gpu_batch_search_v2/approach_batch_settings_working.csv`.
@@ -395,14 +395,14 @@ Use the cross-project research vault for durable notes that should survive
 individual agent sessions:
 
 ```text
-/local/joeldag/repos/research-vault
+/local/anonymous-user/repos/research-vault
 ```
 
 After meaningful research, debugging, experiment-design, or run-analysis work,
 write a compact session summary to:
 
 ```text
-/local/joeldag/repos/research-vault/000 Inbox/Agent Sessions/
+/local/anonymous-user/repos/research-vault/000 Inbox/Agent Sessions/
 ```
 
 Prefer summaries over full transcripts. Include the repo path, task, decisions,

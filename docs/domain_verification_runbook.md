@@ -43,14 +43,14 @@ Hard truth:
 ## 2. Asset Validation
 
 ```bash
-/upb/users/j/joeldag/profiles/unix/cs/.conda/envs/merlin/bin/python \
+/anonymous-institution/users/j/anonymous-user/profiles/unix/cs/.conda/envs/merlin/bin/python \
   scripts/domain_verification/prepare_assets.py
 ```
 
 Optional full download into HF cache:
 
 ```bash
-/upb/users/j/joeldag/profiles/unix/cs/.conda/envs/merlin/bin/python \
+/anonymous-institution/users/j/anonymous-user/profiles/unix/cs/.conda/envs/merlin/bin/python \
   scripts/domain_verification/prepare_assets.py --download-datasets
 ```
 

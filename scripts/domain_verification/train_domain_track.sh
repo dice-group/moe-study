@@ -128,7 +128,7 @@ case "$TRACK" in
 esac
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MERLIN_BIN="/upb/users/j/joeldag/profiles/unix/cs/.conda/envs/merlin/bin"
+MERLIN_BIN="/anonymous-institution/users/j/anonymous-user/profiles/unix/cs/.conda/envs/merlin/bin"
 PYTHON_BIN="${PYTHON_BIN:-${MERLIN_BIN}/python}"
 TORCHRUN_BIN="${TORCHRUN_BIN:-${MERLIN_BIN}/torchrun}"
 TRAIN_ENTRY="${REPO_ROOT}/LLaMA-Factory/src/train.py"

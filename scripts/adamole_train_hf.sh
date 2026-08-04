@@ -6,7 +6,7 @@ export LOG_LEVEL=DEBUG
 
 echo "Starting training job"
 python src/train_hf.py \
-  --config /upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study/configs/train_adamole_hf.yaml \
+  --config /anonymous-institution/users/j/anonymous-user/profiles/unix/cs/MERLIN/moe-study/configs/train_adamole_hf.yaml \
   --tokenizer /data/MERLIN/multilingual_tokenizer/250K_vocab_size/trained_multilingual_tokenizer_llama-3.2-1B \
   --tokenized_dataset_dir /data/MERLIN/tokenized_test_data \
   --use_method adamole \

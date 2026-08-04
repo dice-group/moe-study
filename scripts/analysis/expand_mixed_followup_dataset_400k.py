@@ -27,10 +27,10 @@ RUN_ROOT = REPO_ROOT / "outputs/pipeline_runs/moe_study_mixed_followup_expanded_
 BASE_TOKENIZED = RUN_ROOT / "tokenized"
 BASE_SHARD_PLAN = RUN_ROOT / "tokenized_shard_plan"
 SOURCE_SHARD_ROOT = REPO_ROOT / "outputs/sharded_samples"
-ORIGINAL_SOURCE_ROOT = Path("/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/sharded_samples")
+ORIGINAL_SOURCE_ROOT = Path("/cluster/user/repos/moe-study/data_dir/fw_l2v_samples/sharded_samples")
 LANGUAGE_MAP = RUN_ROOT / "language_map_from_csv.json"
 TOKENIZER_PATH = Path(
-    "/scratch/hpc-prf-merlin/shared_cache/huggingface/hub/"
+    "/scratch/anonymous-project/shared_cache/huggingface/hub/"
     "models--meta-llama--Llama-3.1-8B/snapshots/d04e592bb4f6aa9cfee91e2e20afa771667e1d4b"
 )
 

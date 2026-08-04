@@ -8,7 +8,7 @@ LANGS=(
 )
 
 MODEL_NAME=${MODEL_NAME:-meta-llama/Llama-3.2-1B}
-EXTENDED_TOKENIZER=${EXTENDED_TOKENIZER:-/scratch/hpc-prf-merlin/project_data/moe_study/trained_multilingual_tokenizers/256k_vocab/llama-3.2-1B/}
+EXTENDED_TOKENIZER=${EXTENDED_TOKENIZER:-/scratch/anonymous-project/project_data/moe_study/trained_multilingual_tokenizers/256k_vocab/llama-3.2-1B/}
 DATASET_DIR=${DATASET_DIR:-./loss_analysis_dataset}
 FALLBACK_DATASET=${FALLBACK_DATASET:-$DATASET_DIR/english.jsonl.gz}
 OUTPUT_ROOT=${OUTPUT_ROOT:-./loss_analysis_output}
@@ -74,7 +74,7 @@ module load toolchain/foss/2024a
 module load system/CUDA/12.6.0
 module load lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0
 
-source /opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3/etc/profile.d/conda.sh
+source /opt/software/cluster/EB-SW/software/Miniforge3/25.3.0-3/etc/profile.d/conda.sh
 conda activate moe-study
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_VISIBLE_DEVICES=${SLURM_JOB_GPUS:-0}

@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="/scratch/hpc-prf-merlin/joel/moe-study"
+REPO_ROOT="/cluster/user/moe-study"
 export SLURM_CPU_BIND="${SLURM_CPU_BIND:-none}"
 export SLURM_CPU_BIND_VERBOSE="${SLURM_CPU_BIND_VERBOSE:-0}"
 
@@ -29,7 +29,7 @@ set -u
 
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/scripts/slurm/tests/io_copy_test_runs}"
 MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:-meta-llama/Llama-3.2-1B}"
-TOKENIZED_BASE="${TOKENIZED_BASE:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison}"
+TOKENIZED_BASE="${TOKENIZED_BASE:-/scratch/anonymous-project/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison}"
 TOKENIZER_NAME="${TOKENIZER_NAME:-llama-3.2-1B_tokenizer}"
 DATASET_NAME="${DATASET_NAME:-200_langs}"
 TOKENIZED_SRC="${TOKENIZED_SRC:-${TOKENIZED_BASE}/${TOKENIZER_NAME}/${DATASET_NAME}}"

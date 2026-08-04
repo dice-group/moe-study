@@ -11,14 +11,14 @@
 #SBATCH --time=2:00:00
 
 
-LANGS=($(ls /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset/*.jsonl.gz | xargs -n1 basename | sed 's/.jsonl.gz//'))
+LANGS=($(ls /scratch/anonymous-project/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset/*.jsonl.gz | xargs -n1 basename | sed 's/.jsonl.gz//'))
 LANG=${LANGS[$SLURM_ARRAY_TASK_ID]}
 
 srun python -u merge_tokenizer.py \
   --base_tokenizer meta-llama/Llama-3.2-1B \
-  --target_tokenizer /scratch/hpc-prf-merlin/project_data/moe_study/trained_multilingual_tokenizer_llama-3.2-1B \
-  --data_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset \
+  --target_tokenizer /scratch/anonymous-project/project_data/moe_study/trained_multilingual_tokenizer_llama-3.2-1B \
+  --data_dir /scratch/anonymous-project/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset \
   --min_freq 5 \
   --limit 100000 \
-  --output_dir /scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/extended_tokenizer/test \
+  --output_dir /scratch/anonymous-project/project_data/moe_study/fw_samples/extended_tokenizer/test \
   --lang ${LANG} \

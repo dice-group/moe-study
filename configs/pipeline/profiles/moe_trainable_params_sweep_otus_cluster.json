@@ -2,7 +2,7 @@
   "moe_trainable_params_sweep_otus_cluster": {
     "output_root": "outputs/pipeline_runs/moe_trainable_params_sweep_otus_cluster",
     "executor": {
-      "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3",
+      "conda_base": "/opt/software/cluster/EB-SW/software/Miniforge3/25.3.0-3",
       "conda_env": "merlin",
       "cpus_per_task": 4,
       "gres": "gpu:h100:1",
@@ -28,7 +28,7 @@
     },
     "tokenization": {
       "enabled": false,
-      "output_dir": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_labeled/llama-3.1-8B_tokenizer/10_langs"
+      "output_dir": "/scratch/anonymous-project/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_labeled/llama-3.1-8B_tokenizer/10_langs"
     },
     "audit": {
       "enabled": false

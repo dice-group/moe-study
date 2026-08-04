@@ -931,7 +931,7 @@ def _write_markdown(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Select the best expert/head count from combined Noctua2 expert sweep results.")
+    parser = argparse.ArgumentParser(description="Select the best expert/head count from combined anonymous-cluster expert sweep results.")
     parser.add_argument("--root", action="append", default=[], help="Output root to scan. May be repeated.")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--status-md", default=DEFAULT_STATUS_MD, help="Expert status tracker markdown used to filter trusted rows.")

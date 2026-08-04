@@ -6,7 +6,7 @@
     "wandb_project": "moe-study-comparison-smoke",
     "wandb_entity": "",
     "wandb_group_prefix": "refactor-benchmark-smoke",
-    "tokenized_base": "/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison",
+    "tokenized_base": "/scratch/anonymous-project/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison",
     "moelpr_language_column": "language",
     "moelpr_language_map": "./configs/moelpr_lang_map.json",
     "moelpr_original_language": "english",

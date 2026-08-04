@@ -4,13 +4,13 @@
     "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_all15_512ctx_sf0005_alltargets_noctua2_a100_4gpu_10_langs_7p6h",
     "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_all15_512ctx_sf0005_alltargets_noctua2_a100_4gpu_10_langs_7p6h/logs",
     "run_naming": {
-      "experiment_tag": "moe-study-mixed-followup-all15-512ctx-sf0005-alltargets-noctua2-a100-4gpu-10langs-7p6h",
+      "experiment_tag": "moe-study-mixed-followup-all15-512ctx-sf0005-alltargets-anonymous-cluster-a100-4gpu-10langs-7p6h",
       "language_count_hint": 10
     },
     "language_map_csv": "result_analysis/l2v_nested_samples/10.csv",
     "sample": {
       "enabled": false,
-      "output_dir": "/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/sharded_samples"
+      "output_dir": "/cluster/user/repos/moe-study/data_dir/fw_l2v_samples/sharded_samples"
     },
     "tokenization": {
       "enabled": true,

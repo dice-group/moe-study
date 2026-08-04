@@ -47,7 +47,7 @@ mkdir -p "${XDG_CACHE_HOME}" "${TRITON_CACHE_DIR}" "${TORCH_EXTENSIONS_DIR}"
 
 DATASET_DIR="${DATASET_DIR:-./LLaMA-Factory/data}"
 TOKENIZED_PATH="${MOELPR_TOKENIZED_PATH:?MOELPR_TOKENIZED_PATH not set}"
-TOKENIZED_PATH2="${MOELPR_TOKENIZED_PATH_STAGE2:-${MOELPR_TOKENIZED_PATH2:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/moelpr/llama-3.2-1B_tokenizer/moelpr_stage2_eng}}"
+TOKENIZED_PATH2="${MOELPR_TOKENIZED_PATH_STAGE2:-${MOELPR_TOKENIZED_PATH2:-/scratch/anonymous-project/project_data/moe_study/tokenized/moelpr/llama-3.2-1B_tokenizer/moelpr_stage2_eng}}"
 MODEL_NAME_OR_PATH="${MODEL_NAME_OR_PATH:?MODEL_NAME_OR_PATH not set}"
 LANGUAGE_COLUMN="${MOELPR_LANGUAGE_COLUMN:?MOELPR_LANGUAGE_COLUMN not set}"
 LANGUAGE_MAP="${MOELPR_LANGUAGE_MAP:?MOELPR_LANGUAGE_MAP not set}"

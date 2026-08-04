@@ -18,8 +18,8 @@ MATRIX_CONDA_ENV="${CONDA_ENV:-}"
 MATRIX_MODULE_INIT="${MODULE_INIT:-}"
 
 MATRIX_DATASET_DIR="${DATASET_DIR:-${REPO_ROOT}/LLaMA-Factory/data}"
-MATRIX_TOKENIZED_BASE_DIR="${TOKENIZED_BASE_DIR:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_labeled}"
-MATRIX_OUTPUT_ROOT="${OUTPUT_ROOT:-/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs}"
+MATRIX_TOKENIZED_BASE_DIR="${TOKENIZED_BASE_DIR:-/scratch/anonymous-project/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison_labeled}"
+MATRIX_OUTPUT_ROOT="${OUTPUT_ROOT:-/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs}"
 MATRIX_LOG_ROOT="${LOG_ROOT:-${REPO_ROOT}/scripts/slurm/comparison/logs/matrix}"
 
 MATRIX_WANDB_PROJECT="${WANDB_PROJECT:-moe-study-comparison}"

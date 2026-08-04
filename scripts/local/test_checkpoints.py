@@ -7,7 +7,7 @@ import torch.distributed.checkpoint as dist_cp
 import torch.distributed as dist
 
 WATCH_ROOTS = [
-    "/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-3B_tokenizer-200_langs/mola/paper-best_20260124_223511"
+    "/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/llama-3.2-3B_tokenizer-200_langs/mola/paper-best_20260124_223511"
 ]
 
 APPROACHES = ("adamole", "mola", "cola", "hydralora")

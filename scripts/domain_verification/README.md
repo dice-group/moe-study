@@ -57,7 +57,7 @@ Idea is, you only have to restart 'run_nightly_queue_2gpu.sh' and will get the r
 
 ## Where Outputs Are
 
-(e.g base path on lola = '/upb/users/j/joeldag/profiles/unix/cs/MERLIN/moe-study')
+(e.g base path on lola = '/anonymous-institution/users/j/anonymous-user/profiles/unix/cs/MERLIN/moe-study')
 - train/eval status:
 - `outputs/domain_verification_night_20260210/nightly_queue_logs/train_status.tsv`
 - `outputs/domain_verification_night_20260210/nightly_queue_logs/eval_status.tsv`

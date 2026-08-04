@@ -2,8 +2,8 @@ import os, gzip
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-tsv = "/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/tokenizer_lang_sample_sizes.tsv"
-prep_dir = "/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset"
+tsv = "/scratch/anonymous-project/project_data/moe_study/fw_samples/tokenizer_lang_sample_sizes.tsv"
+prep_dir = "/scratch/anonymous-project/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset"
 
 df = pd.read_csv(tsv, sep="\t")
 

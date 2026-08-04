@@ -5,10 +5,10 @@ language keep rates so each model-size x tier stays within the token budgets
 in `docs/token_budgets_moe_study.md`.
 
 ## Inputs and layout
-- Sharded L2V data: `/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/sharded_samples/`
-- Tier language lists: `/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/{5,10,22,46,96,200}.csv`
-- Per-language doc counts: `/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv`
-- Tokenization probes: `/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/token_probe_tokens_*.tsv`
+- Sharded L2V data: `/cluster/user/repos/moe-study/data_dir/fw_l2v_samples/sharded_samples/`
+- Tier language lists: `/cluster/user/repos/moe-study/data_dir/fineweb2_metadata/l2v_nested_samples/{5,10,22,46,96,200}.csv`
+- Per-language doc counts: `/cluster/user/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_sample_counts.tsv`
+- Tokenization probes: `/cluster/user/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/token_probe_tokens_*.tsv`
 
 ## Step 1: Count documents per language
 We count documents across shards (not per-language single-job, to balance very
@@ -51,7 +51,7 @@ Logic:
   keep-rate that hits this cap.
 
 Outputs:
-- `/scratch/hpc-prf-merlin/nikit/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_rates/<tokenizer>/<tier>_langs.json`
+- `/cluster/user/repos/moe-study/data_dir/fw_l2v_samples/lang_counts/language_rates/<tokenizer>/<tier>_langs.json`
 
 ## Step 4: Subsample + tokenize
 We tokenize and subsample using the distributed data processor with the rates

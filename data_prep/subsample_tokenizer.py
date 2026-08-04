@@ -5,9 +5,9 @@ from datasets import load_dataset
 
 random.seed(42)
 
-tsv = "/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/tokenizer_lang_sample_sizes.tsv"
-data_dir = "/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/samples"
-out_dir = "/scratch/hpc-prf-merlin/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset"
+tsv = "/scratch/anonymous-project/project_data/moe_study/fw_samples/tokenizer_lang_sample_sizes.tsv"
+data_dir = "/scratch/anonymous-project/project_data/moe_study/fw_samples/samples"
+out_dir = "/scratch/anonymous-project/project_data/moe_study/fw_samples/preprocessed_tokenizer_subset"
 os.makedirs(out_dir, exist_ok=True)
 
 df = pd.read_csv(tsv, sep="\t")

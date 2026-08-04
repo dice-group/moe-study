@@ -186,7 +186,7 @@ _SLURM_DEFAULTS: dict[str, Any] = {
         "system/CUDA/12.6.0",
         "lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0",
     ],
-    "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/25.3.0-3",
+    "conda_base": "/opt/software/cluster/EB-SW/software/Miniforge3/25.3.0-3",
     "conda_env": "merlin",
     "poll_interval_seconds": 30,
     "extra_sbatch_flags": [],

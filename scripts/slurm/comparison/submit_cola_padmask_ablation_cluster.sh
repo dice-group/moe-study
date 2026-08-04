@@ -12,7 +12,7 @@ DEPEND_ON_PREP_FOR_BOTH="${DEPEND_ON_PREP_FOR_BOTH:-1}"
 TIMESTAMP="${TIMESTAMP:-$(date +%Y%m%d_%H%M%S)}"
 RUN_TAG="${RUN_TAG:-padmask_ablation_${TIMESTAMP}}"
 
-TOKENIZED_BASE="${TOKENIZED_BASE:-/scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison}"
+TOKENIZED_BASE="${TOKENIZED_BASE:-/scratch/anonymous-project/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison}"
 TOKENIZER_NAME="${TOKENIZER_NAME:-llama-3.2-1B_tokenizer}"
 DATASET_NAME="${DATASET_NAME:-10_langs}"
 SOURCE_TOKENIZED_PATH="${SOURCE_TOKENIZED_PATH:-${TOKENIZED_BASE}/${TOKENIZER_NAME}/${DATASET_NAME}}"
@@ -27,7 +27,7 @@ WANDB_RUN_GROUP="${WANDB_RUN_GROUP:-cola-padmask-ablation-${DATASET_NAME}-${TIME
 WANDB_MODE="${WANDB_MODE:-online}"
 WANDB_NAME_PREFIX="${WANDB_NAME_PREFIX:-l3-1b-base-10langs-cola-padmask-ab}"
 
-OUTPUT_BASE="${OUTPUT_BASE:-/scratch/hpc-prf-merlin/project_data/moe_study/moe_study_comparison_outputs/${TOKENIZER_NAME}-${DATASET_NAME}/cola}"
+OUTPUT_BASE="${OUTPUT_BASE:-/scratch/anonymous-project/project_data/moe_study/moe_study_comparison_outputs/${TOKENIZER_NAME}-${DATASET_NAME}/cola}"
 OUTPUT_DIR_UNMASKED="${OUTPUT_DIR_UNMASKED:-${OUTPUT_BASE}/${RUN_TAG}/unmasked}"
 OUTPUT_DIR_MASKED="${OUTPUT_DIR_MASKED:-${OUTPUT_BASE}/${RUN_TAG}/masked}"
 

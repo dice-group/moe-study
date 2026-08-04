@@ -58,7 +58,7 @@ Decision key:
 ## Global comparison settings (shared unless noted)
 
 Data and routing:
-- `tokenized_base = /scratch/hpc-prf-merlin/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison` (Unified; `scripts/slurm/comparison/comparison_config.json`)
+- `tokenized_base = /scratch/anonymous-project/project_data/moe_study/tokenized/fw_l2v_samples_moe_study_comparison` (Unified; `scripts/slurm/comparison/comparison_config.json`)
 - `dataset_dir = ./LLaMA-Factory/data` (Unified; `scripts/slurm/comparison/comparison_config.json`)
 - `template = llama3` (Unified; all job scripts)
 - `tokenized_path = <tokenizer>/<tier>` (Unified; `run_comparison.py` sets `GENERIC_TOKENIZED_PATH`)
