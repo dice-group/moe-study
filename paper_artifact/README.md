@@ -1,4 +1,4 @@
-# Paper resources: generated tables and figures
+# Paper resources: tables and figures
 
 This directory regenerates every table and figure in the paper from the
 workbooks under `reports/moe_study/`. All counts exclude CoLA, whose failed and
