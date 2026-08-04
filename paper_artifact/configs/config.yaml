@@ -6,6 +6,7 @@ paths:
   mixed_followup_xlsx: moe_study_mixed_followup.xlsx
   final_96_xlsx: moe_study_final_96_languages_2026-07-25.xlsx
   final_200_xlsx: moe_study_final_200_languages_2026-07-25.xlsx
+  resource_labels_csv: languages/fw2_metadata_with_resource_category.csv
   figures_dir: paper_latex/data/figures
 
 output:
@@ -31,6 +32,10 @@ analysis:
   # no floor is declared and the headroom column stays empty for them.
   chance_levels:
     Belebele: 0.25
+  # English is supplied separately by the training/evaluation pipeline rather
+  # than by the FineWeb2 language table.
+  resource_label_overrides:
+    eng_Latn: HIGH
 
 study_funnel:
   sweep_languages: 10

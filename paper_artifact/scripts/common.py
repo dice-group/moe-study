@@ -89,7 +89,11 @@ def load_final_panel(path: Path, cfg: dict) -> pd.DataFrame:
 
     The base model is a comparison system in these regimes rather than an
     excluded training run, so the is_baseline filter used for the sweeps is not
-    applied here.
+    applied here. Resource labels are replaced with the canonical FineWeb2
+    assignments. The workbooks carry an older lookup that both left aliases and
+    alternate scripts unknown and drew its tier boundaries differently, so the
+    replacement fills those gaps and also moves some already-labelled languages
+    between tiers.
     """
     raw = pd.read_excel(path, sheet_name="benchmark_raw")
     data = raw[_primary_metric_mask(raw, cfg["analysis"]["primary_metrics"])].copy()
@@ -102,7 +106,38 @@ def load_final_panel(path: Path, cfg: dict) -> pd.DataFrame:
     flores = data["benchmark"].eq("FLORES")
     data.loc[flores, "score_family"] = "FLORES " + direction.loc[flores]
     data["score"] = data["value"].where(data["better"].ne("lower"), -data["value"])
+    data["resource_availability"] = data["language"].map(_resource_label_map(cfg))
+    missing = sorted(data.loc[data["resource_availability"].isna(), "language"].unique())
+    if missing:
+        raise ValueError(f"No canonical resource label for evaluation languages: {missing}")
     return data
+
+
+def _resource_label_map(cfg: dict) -> dict[str, str]:
+    """Canonical resource tier keyed by the benchmark/FineWeb2 subset code."""
+    labels = pd.read_csv(
+        repo_path(cfg, "resource_labels_csv"),
+        usecols=["subset", "resource_category"],
+    ).dropna()
+    labels["resource_category"] = labels["resource_category"].astype(str).str.upper()
+
+    conflicts = labels.groupby("subset")["resource_category"].nunique()
+    conflicts = sorted(conflicts[conflicts.gt(1)].index)
+    if conflicts:
+        raise ValueError(f"Conflicting canonical resource labels for: {conflicts}")
+
+    mapping = labels.drop_duplicates("subset").set_index("subset")["resource_category"].to_dict()
+    mapping.update(
+        {
+            language: str(tier).upper()
+            for language, tier in cfg["analysis"].get("resource_label_overrides", {}).items()
+        }
+    )
+    allowed = set(cfg["rq3"]["resource_groups"])
+    invalid = {language: tier for language, tier in mapping.items() if tier not in allowed}
+    if invalid:
+        raise ValueError(f"Invalid canonical resource labels: {invalid}")
+    return mapping
 
 
 def final_ranking(data: pd.DataFrame, benchmarks: list[str]) -> pd.DataFrame:

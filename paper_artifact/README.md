@@ -20,7 +20,10 @@ equal weight in macro rankings. No cross-workbook score normalization is used.
 
 The sweep loader drops the base model, which is not a training run there. The
 broader-regime loader keeps it, because in those regimes the unadapted model is
-one of the six compared systems.
+one of the six compared systems. It also replaces the workbooks' legacy
+resource lookup with the finalized FineWeb2 subset labels and fails if any
+evaluated language has no canonical tier; English is the sole explicit
+override because the pipeline supplies it separately from the FineWeb2 table.
 
 ## Two kinds of run
 
@@ -55,7 +58,7 @@ one of the six compared systems.
 | tab4_rq2_statistical_tests.tex | Follow-up omnibus and top-three post-hoc tests |
 | tab5_rq3_final_ranking.tex | **RQ3/RQ4 main table**: six systems in two regimes, each position paired with its better/tie/worse verdict against the base model |
 | tab7_rq3_transfer.tex | Shortlist position at each of the three stages |
-| tab8_rq4_resource.tex | Average rank by language-resource level |
+| tab8_rq4_resource.tex | Win rate against the base model by language-resource level |
 | tabA3_rq3_vs_baseline_tests.tex | Full broader-regime tests against the base model |
 | fig1_rq3_transfer.pdf | **Figure 1**: how the shortlist reorders across stages |
 

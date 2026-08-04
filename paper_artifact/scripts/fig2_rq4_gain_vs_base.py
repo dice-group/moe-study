@@ -31,11 +31,11 @@ from scipy.stats import spearmanr
 
 import common as C
 
-# Ordinal ramp, blue steps 250/450/600 of the validated sequential scale. Tiers
+# Ordinal ramp, blue steps 250/450/700 of the validated sequential scale. Tiers
 # are ordered, so lightness carries the order and the panel still reads in
-# greyscale. Unlabelled languages take muted ink, not a fourth hue.
-TIER_COLORS = {"HIGH": "#86b6ef", "MEDIUM": "#2a78d6", "LOW": "#184f95"}
-UNKNOWN = "#c3c2b7"
+# greyscale. Step 700 rather than 600 at the dark end: at this marker size the
+# two darker tiers are the confusable pair, and 600 left them the closest.
+TIER_COLORS = {"HIGH": "#86b6ef", "MEDIUM": "#2a78d6", "LOW": "#0d366b"}
 INK = "#0b0b0b"
 MUTED = "#52514e"
 TREND = "#eb6834"
@@ -50,12 +50,22 @@ def gain_frame(data: pd.DataFrame, baseline: str, benchmark: str) -> pd.DataFram
     subset = data[data["benchmark"].eq(benchmark)]
     pivot = subset.pivot_table(index="language", columns="run_id", values="score")
     pivot = pivot.dropna()
-    tiers = subset.drop_duplicates("language").set_index("language")["resource_availability"]
+    tiers = (
+        subset.drop_duplicates("language")
+        .set_index("language")["resource_availability"]
+        .reindex(pivot.index)
+    )
+    missing = tiers.index[tiers.isna()].tolist()
+    if missing:
+        raise ValueError(f"No resource tier for plotted languages: {missing}")
+    unexpected = sorted(set(tiers) - set(TIER_COLORS))
+    if unexpected:
+        raise ValueError(f"Unexpected resource tiers in figure: {unexpected}")
     return pd.DataFrame(
         {
             "base": pivot[baseline],
             "gain": pivot.drop(columns=baseline).sub(pivot[baseline], axis=0).mean(axis=1),
-            "tier": tiers.reindex(pivot.index).fillna("unknown"),
+            "tier": tiers,
         }
     )
 
@@ -72,13 +82,13 @@ def draw_panel(axes, frame: pd.DataFrame, title: str | None, flip_x: bool) -> tu
     x = -frame["base"] if flip_x else frame["base"]
 
     axes.axhline(0.0, color="#c3c2b7", linewidth=0.9, zorder=1)
-    for tier, color in [("unknown", UNKNOWN), ("HIGH", TIER_COLORS["HIGH"]),
+    for tier, color in [("HIGH", TIER_COLORS["HIGH"]),
                         ("MEDIUM", TIER_COLORS["MEDIUM"]), ("LOW", TIER_COLORS["LOW"])]:
         mask = frame["tier"].eq(tier)
         if not mask.any():
             continue
         axes.scatter(x[mask], frame["gain"][mask], s=13, c=color, linewidths=0.4,
-                     edgecolors="white", zorder=3 if tier != "unknown" else 2)
+                     edgecolors="white", zorder=3)
 
     # Least-squares line for the eye; the quoted statistic stays the rank
     # correlation, which does not assume the relationship is linear.
@@ -150,9 +160,9 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
         Line2D([], [], marker="o", linestyle="", markersize=5, markerfacecolor=color,
                markeredgecolor="white", markeredgewidth=0.4, label=label)
         for label, color in [("High", TIER_COLORS["HIGH"]), ("Medium", TIER_COLORS["MEDIUM"]),
-                             ("Low", TIER_COLORS["LOW"]), ("Unlabelled", UNKNOWN)]
+                             ("Low", TIER_COLORS["LOW"])]
     ]
-    figure.legend(handles=handles, loc="lower center", ncol=4, frameon=False, fontsize=8,
+    figure.legend(handles=handles, loc="lower center", ncol=3, frameon=False, fontsize=8,
                   bbox_to_anchor=(0.5, -0.01), handletextpad=0.3, columnspacing=1.4,
                   labelcolor=MUTED)
     figure.supxlabel("Base-model performance on that language (better to the right)",
