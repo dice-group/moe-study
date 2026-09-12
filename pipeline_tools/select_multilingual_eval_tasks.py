@@ -26,6 +26,8 @@ def _task_lang_from_sib200(task: str) -> str | None:
 
 
 def _task_lang_from_taxi1500(task: str) -> str | None:
+    if task.startswith("taxi1500_v2_"):
+        return task.replace("taxi1500_v2_", "", 1)
     if not task.startswith("taxi1500_"):
         return None
     return task.replace("taxi1500_", "", 1)

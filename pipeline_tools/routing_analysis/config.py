@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-SUPPORTED_PEFT_TYPES = {"MOLA", "MOELORA", "HYDRALORA"}
+SUPPORTED_PEFT_TYPES = {"MOLA", "MOELORA", "HYDRALORA", "MTLLORA"}
 
 
 @dataclass(frozen=True)
@@ -23,8 +23,10 @@ class AnalysisConfig:
     repo_root: Path
     base_model: str
     sample_root: Path
+    sample_manifest: Path | None
     language_map: Path | None
     languages: list[str]
+    analysis_languages: list[str]
     output_root: Path
     adapters: list[AdapterSpec]
     batch_size: int
@@ -37,6 +39,9 @@ class AnalysisConfig:
     create_figures: bool
     auto_find_batch_size: bool
     length_sort_batches: bool
+    strict_samples: bool
+    static_validation_languages: list[str]
+    checkpoint_hashes: bool
 
 
 def repo_root_from_here() -> Path:
@@ -173,8 +178,10 @@ def load_config(config_path: Path) -> AnalysisConfig:
         repo_root=repo_root,
         base_model=str(payload["base_model"]).strip(),
         sample_root=abs_path(repo_root, payload.get("sample_root")) or repo_root,
+        sample_manifest=abs_path(repo_root, payload.get("sample_manifest")),
         language_map=language_map,
         languages=languages,
+        analysis_languages=languages,
         output_root=abs_path(repo_root, payload.get("output_root")) or (repo_root / "outputs" / "routing_analysis"),
         adapters=adapter_specs,
         batch_size=int(payload.get("batch_size", 1)),
@@ -187,6 +194,13 @@ def load_config(config_path: Path) -> AnalysisConfig:
         create_figures=bool(payload.get("create_figures", True)),
         auto_find_batch_size=bool(payload.get("auto_find_batch_size", False)),
         length_sort_batches=bool(payload.get("length_sort_batches", True)),
+        strict_samples=bool(payload.get("strict_samples", True)),
+        static_validation_languages=[
+            str(item).strip()
+            for item in payload.get("static_validation_languages", ["english", "arb_Arab", "jpn_Jpan"])
+            if str(item).strip()
+        ],
+        checkpoint_hashes=bool(payload.get("checkpoint_hashes", True)),
     )
 
 
@@ -210,6 +224,8 @@ def validate_config(config: AnalysisConfig) -> list[dict[str, Any]]:
             raise ValueError(f"{name} must be positive")
     if not config.sample_root.exists():
         raise FileNotFoundError(f"sample_root does not exist: {config.sample_root}")
+    if config.sample_manifest is not None and not config.sample_manifest.exists():
+        raise FileNotFoundError(f"sample_manifest does not exist: {config.sample_manifest}")
     if config.language_map is not None and not config.language_map.exists():
         raise FileNotFoundError(f"language_map does not exist: {config.language_map}")
 

@@ -1,0 +1,194 @@
+{
+  "moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1": {
+    "extends": "moe_study_final_macro3_noctua2_a100_4gpu_96_langs_34p5h_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-mtllora-lr5e5-noctua2-a100-4gpu-96langs-34p5h-v1",
+      "language_count_hint": 96
+    },
+    "study_contract": {
+      "selected_run_ids": [
+        "mtllora_lr5e5_r8_nup16"
+      ],
+      "rerun_of": "mtllora_r8_nup16",
+      "optimization_change": "learning rate only: 2e-4 -> 5e-5",
+      "rerun_reason": "Controlled stability rerun after the selected MTL-LoRA configuration diverged during both 96- and 200-language long training."
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1/runs",
+      "train": {
+        "learning_rate": "5e-5"
+      },
+      "executor": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "runs": [
+        {
+          "id": "mtllora_lr5e5_r8_nup16",
+          "kind": "mtllora",
+          "distributed": {
+            "config_file": "configs/accelerate/fsdp_4gpu_config.yaml"
+          },
+          "lora": {
+            "rank": 8,
+            "alpha": 16,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "params": {
+            "mtllora_num_up_projections": 16,
+            "mtllora_temperature": 0.1,
+            "mtllora_lambda_format": "full",
+            "mtllora_use_language_ids_as_task_ids": true
+          },
+          "train": {
+            "batch_size": 4,
+            "grad_accum": 3,
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": true
+          }
+        }
+      ]
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "mtllora_lr5e5_r8_nup16",
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"
+        ]
+      }
+    }
+  },
+  "moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1": {
+    "extends": "moe_study_final_macro3_noctua2_a100_4gpu_200_langs_72h_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-mtllora-lr5e5-noctua2-a100-4gpu-200langs-72h-v1",
+      "language_count_hint": 200
+    },
+    "study_contract": {
+      "selected_run_ids": [
+        "mtllora_lr5e5_r8_nup16"
+      ],
+      "rerun_of": "mtllora_r8_nup16",
+      "optimization_change": "learning rate only: 2e-4 -> 5e-5",
+      "rerun_reason": "Controlled stability rerun after the selected MTL-LoRA configuration diverged during both 96- and 200-language long training."
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1/runs",
+      "train": {
+        "learning_rate": "5e-5"
+      },
+      "executor": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1800",
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "runs": [
+        {
+          "id": "mtllora_lr5e5_r8_nup16",
+          "kind": "mtllora",
+          "distributed": {
+            "config_file": "configs/accelerate/fsdp_4gpu_config.yaml"
+          },
+          "lora": {
+            "rank": 8,
+            "alpha": 16,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "params": {
+            "mtllora_num_up_projections": 16,
+            "mtllora_temperature": 0.1,
+            "mtllora_lambda_format": "full",
+            "mtllora_use_language_ids_as_task_ids": true
+          },
+          "train": {
+            "batch_size": 4,
+            "grad_accum": 3,
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": true
+          }
+        }
+      ]
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "mtllora_lr5e5_r8_nup16",
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1800",
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"
+        ]
+      }
+    }
+  }
+}

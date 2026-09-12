@@ -1,0 +1,589 @@
+{
+  "aliases_used": [
+    {
+      "benchmark": "Belebele",
+      "dataset": "zho_Hans",
+      "panel": "cmn_Hani"
+    },
+    {
+      "benchmark": "SIB200",
+      "dataset": "zho_Hans",
+      "panel": "cmn_Hani"
+    },
+    {
+      "benchmark": "FLORES",
+      "dataset": "zho_Hans",
+      "panel": "cmn_Hani"
+    },
+    {
+      "benchmark": "Belebele",
+      "dataset": "est_Latn",
+      "panel": "ekk_Latn"
+    },
+    {
+      "benchmark": "SIB200",
+      "dataset": "est_Latn",
+      "panel": "ekk_Latn"
+    },
+    {
+      "benchmark": "FLORES",
+      "dataset": "est_Latn",
+      "panel": "ekk_Latn"
+    },
+    {
+      "benchmark": "Belebele",
+      "dataset": "pes_Arab",
+      "panel": "fas_Arab"
+    },
+    {
+      "benchmark": "SIB200",
+      "dataset": "pes_Arab",
+      "panel": "fas_Arab"
+    },
+    {
+      "benchmark": "FLORES",
+      "dataset": "pes_Arab",
+      "panel": "fas_Arab"
+    },
+    {
+      "benchmark": "Belebele",
+      "dataset": "grn_Latn",
+      "panel": "gug_Latn"
+    },
+    {
+      "benchmark": "SIB200",
+      "dataset": "grn_Latn",
+      "panel": "gug_Latn"
+    },
+    {
+      "benchmark": "FLORES",
+      "dataset": "grn_Latn",
+      "panel": "gug_Latn"
+    },
+    {
+      "benchmark": "Taxi1500",
+      "dataset": "pes_Arab",
+      "panel": "fas_Arab"
+    }
+  ],
+  "language_subsets": [
+    "aak_Latn",
+    "aau_Latn",
+    "abt_Latn",
+    "aby_Latn",
+    "acd_Latn",
+    "agd_Latn",
+    "als_Latn",
+    "aom_Latn",
+    "ape_Latn",
+    "arb_Arab",
+    "arb_Latn",
+    "arn_Latn",
+    "ava_Cyrl",
+    "ayr_Latn",
+    "azj_Cyrl",
+    "azj_Latn",
+    "bjv_Latn",
+    "bod_Tibt",
+    "bon_Latn",
+    "brh_Arab",
+    "bsn_Latn",
+    "bvr_Latn",
+    "cab_Latn",
+    "cak_Latn",
+    "cav_Latn",
+    "cbs_Latn",
+    "che_Cyrl",
+    "cmn_Hani",
+    "cmo_Latn",
+    "dag_Latn",
+    "deu_Latn",
+    "doi_Deva",
+    "dyu_Latn",
+    "ekk_Latn",
+    "ell_Grek",
+    "epo_Latn",
+    "eus_Latn",
+    "fas_Arab",
+    "fin_Latn",
+    "fra_Latn",
+    "gle_Latn",
+    "gug_Latn",
+    "gym_Latn",
+    "hin_Deva",
+    "hin_Latn",
+    "hmo_Latn",
+    "hun_Latn",
+    "hye_Armn",
+    "ido_Latn",
+    "ile_Latn",
+    "ind_Latn",
+    "jpn_Jpan",
+    "kac_Latn",
+    "kal_Latn",
+    "kat_Geor",
+    "kbd_Cyrl",
+    "kha_Latn",
+    "khk_Cyrl",
+    "khs_Latn",
+    "kor_Hang",
+    "ksw_Mymr",
+    "ltg_Latn",
+    "luo_Latn",
+    "lus_Latn",
+    "lvs_Latn",
+    "maq_Latn",
+    "med_Latn",
+    "mri_Latn",
+    "mww_Latn",
+    "mya_Mymr",
+    "new_Deva",
+    "nhe_Latn",
+    "nno_Latn",
+    "nob_Latn",
+    "ote_Latn",
+    "quy_Latn",
+    "rus_Cyrl",
+    "sag_Latn",
+    "sgs_Latn",
+    "som_Latn",
+    "srd_Latn",
+    "swh_Latn",
+    "tam_Latn",
+    "tam_Taml",
+    "tel_Latn",
+    "tel_Telu",
+    "tgk_Cyrl",
+    "tha_Thai",
+    "tlf_Latn",
+    "tlh_Latn",
+    "top_Latn",
+    "twi_Latn",
+    "tzm_Tfng",
+    "vie_Latn",
+    "vol_Latn",
+    "vro_Latn",
+    "wal_Latn",
+    "wol_Latn",
+    "wrk_Latn",
+    "yor_Latn",
+    "yre_Latn"
+  ],
+  "num_language_subsets": 101,
+  "num_tasks": 246,
+  "panel_size": 96,
+  "task_breakdown": {
+    "Belebele": 39,
+    "FLORES": 100,
+    "SIB200": 50,
+    "Taxi1500": 57
+  },
+  "task_file": "/scratch/hpc-prf-merlin/joel/moe-study/configs/benchmark_panels/v2/lm_eval_tasks_96_langs_v2.txt",
+  "task_sha256": "45f8ca8c965473e04defb3b61fd18178642102a8e6214ad3cbf6aecfe3c19a68",
+  "taxi1500": {
+    "corpus": "/pc2/users/j/joeldag/.cache/moe-study/taxi1500/raw/Taxi1500-c_v3.0.zip",
+    "minimum_dominant_script_fraction": 0.5,
+    "minimum_labeled_examples": 900,
+    "selections": {
+      "aak_Latn": {
+        "dataset_language": "aak_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/aak_aak.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "aau_Latn": {
+        "dataset_language": "aau_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/aau_aau.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "abt_Latn": {
+        "dataset_language": "abt_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/abt_abt-wosera.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "aby_Latn": {
+        "dataset_language": "aby_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/aby_aby.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "agd_Latn": {
+        "dataset_language": "agd_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/agd_agd.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "als_Latn": {
+        "dataset_language": "als_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/als_alsSHQ.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31102
+      },
+      "aom_Latn": {
+        "dataset_language": "aom_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/aom_aom.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "ape_Latn": {
+        "dataset_language": "ape_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/ape_apeB.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "arb_Arab": {
+        "dataset_language": "arb_Arab",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/arb-x-bible.txt",
+        "script_fraction": 0.9999775291479053,
+        "total_verses": 31173
+      },
+      "arn_Latn": {
+        "dataset_language": "arn_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/arn_arnNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "bjv_Latn": {
+        "dataset_language": "bjv_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/bjv_bjvNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7957
+      },
+      "bod_Tibt": {
+        "dataset_language": "bod_Tibt",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/bod_bodn.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 15113
+      },
+      "bon_Latn": {
+        "dataset_language": "bon_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/bon_bon.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "bsn_Latn": {
+        "dataset_language": "bsn_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/bsn_bsnNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "bvr_Latn": {
+        "dataset_language": "bvr_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/bvr_bvr.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "cab_Latn": {
+        "dataset_language": "cab_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/cab_cabNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "cak_Latn": {
+        "dataset_language": "cak_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/cak-x-bible-central2003.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31173
+      },
+      "cav_Latn": {
+        "dataset_language": "cav_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/cav_cavNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7957
+      },
+      "cbs_Latn": {
+        "dataset_language": "cbs_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/cbs_cbsNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "cmn_Hani": {
+        "dataset_language": "cmn_Hani",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/cmn_cmn-cu89t.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31092
+      },
+      "deu_Latn": {
+        "dataset_language": "deu_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/deu-x-bible-luther1545letztehand.txt",
+        "script_fraction": 1.0,
+        "total_verses": 35764
+      },
+      "epo_Latn": {
+        "dataset_language": "epo_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/epo_epo.ebible.txt",
+        "script_fraction": 0.9999928985678779,
+        "total_verses": 31102
+      },
+      "eus_Latn": {
+        "dataset_language": "eus_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/eus-x-bible-navarrolabourdin.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7958
+      },
+      "fas_Arab": {
+        "dataset_language": "pes_Arab",
+        "labeled_overlap": 1065,
+        "member_name": "Taxi1500-c_v3.0/pes_pesopcb.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 29469
+      },
+      "fin_Latn": {
+        "dataset_language": "fin_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/fin-x-bible-1766.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31173
+      },
+      "fra_Latn": {
+        "dataset_language": "fra_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/fra_francl.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 35529
+      },
+      "gym_Latn": {
+        "dataset_language": "gym_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/gym_gymNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "hin_Deva": {
+        "dataset_language": "hin_Deva",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/hin-x-bible-easy.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31173
+      },
+      "hmo_Latn": {
+        "dataset_language": "hmo_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/hmo_hmo.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31104
+      },
+      "hun_Latn": {
+        "dataset_language": "hun_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/hun-x-bible-2005.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31173
+      },
+      "ind_Latn": {
+        "dataset_language": "ind_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/ind_ind.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 11225
+      },
+      "jpn_Jpan": {
+        "dataset_language": "jpn_Jpan",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/jpn_jpn1965.ebible.txt",
+        "script_fraction": 0.9995788875894563,
+        "total_verses": 7958
+      },
+      "khs_Latn": {
+        "dataset_language": "khs_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/khs_khs.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "ksw_Mymr": {
+        "dataset_language": "ksw_Mymr",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/ksw-x-bible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 30987
+      },
+      "luo_Latn": {
+        "dataset_language": "luo_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/luo_luo.ebible.txt",
+        "script_fraction": 0.99060520241292,
+        "total_verses": 31103
+      },
+      "maq_Latn": {
+        "dataset_language": "maq_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/maq_maqNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7958
+      },
+      "med_Latn": {
+        "dataset_language": "med_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/med_med.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7959
+      },
+      "mya_Mymr": {
+        "dataset_language": "mya_Mymr",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/mya_myajvb.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31102
+      },
+      "nhe_Latn": {
+        "dataset_language": "nhe_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/nhe_nheBl.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31104
+      },
+      "nno_Latn": {
+        "dataset_language": "nno_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/nno-x-bible-student.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31173
+      },
+      "nob_Latn": {
+        "dataset_language": "nob_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/nob_noblb.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7942
+      },
+      "ote_Latn": {
+        "dataset_language": "ote_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/ote_oteNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7958
+      },
+      "rus_Cyrl": {
+        "dataset_language": "rus_Cyrl",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/rus-x-bible-synodal.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31173
+      },
+      "som_Latn": {
+        "dataset_language": "som_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/som_som.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31103
+      },
+      "swh_Latn": {
+        "dataset_language": "swh_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/swh_swhulb.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31103
+      },
+      "tam_Taml": {
+        "dataset_language": "tam_Taml",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/tam-x-bible-easy.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31173
+      },
+      "tel_Telu": {
+        "dataset_language": "tel_Telu",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/tel_tel2017.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31104
+      },
+      "tgk_Cyrl": {
+        "dataset_language": "tgk_Cyrl",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/tgk-x-bible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7958
+      },
+      "tha_Thai": {
+        "dataset_language": "tha_Thai",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/tha-x-bible-kjv.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31173
+      },
+      "tlf_Latn": {
+        "dataset_language": "tlf_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/tlf_tlf.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7957
+      },
+      "top_Latn": {
+        "dataset_language": "top_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/top_topNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7958
+      },
+      "twi_Latn": {
+        "dataset_language": "twi_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/twi_twiasante.ebible.txt",
+        "script_fraction": 0.996905918800882,
+        "total_verses": 31104
+      },
+      "vie_Latn": {
+        "dataset_language": "vie_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/vie_vie1934.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31102
+      },
+      "wal_Latn": {
+        "dataset_language": "wal_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/wal-x-bible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31171
+      },
+      "wol_Latn": {
+        "dataset_language": "wol_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/wol_wol2010.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7957
+      },
+      "yor_Latn": {
+        "dataset_language": "yor_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/yor_yor.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 31087
+      },
+      "yre_Latn": {
+        "dataset_language": "yre_Latn",
+        "labeled_overlap": 1077,
+        "member_name": "Taxi1500-c_v3.0/yre_yreNT.ebible.txt",
+        "script_fraction": 1.0,
+        "total_verses": 7958
+      }
+    }
+  }
+}

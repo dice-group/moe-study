@@ -28,11 +28,14 @@ The important files per adapter are:
 
 - `routing_matrix.npz`: canonical numeric routing data.
 - `metadata.json`: adapter config, language list, captured modules, and batch settings.
+- `run_summary.json`: atomic per-adapter completion record.
+- `partials/`: resumable per-routing-id token statistics for input-dependent routers.
 - `figures/`: quick default heatmaps and entropy plots.
 
 The run-level file is:
 
-- `summary.json`: list of completed adapter analyses and output paths.
+- `summary.json`: list of completed adapter analyses and output paths. It is
+  created only after every configured adapter has a complete per-run summary.
 
 ## NPZ Data Format
 
@@ -53,6 +56,17 @@ modules = data["layer_labels"].tolist()
 experts = data["choice_labels"].tolist()
 axis_name = str(data["axis_name"])
 ```
+
+Schema version 2 also provides:
+
+- `routing_probability`: canonical normalized routing probabilities.
+- `selection_rate`: top-k or argmax choice rates.
+- `routing_basis`: `token_conditioned` or `static_language_conditioned`.
+
+Static MoE-LoRA and MTL-LoRA matrices have zero token counts by design. Their
+metadata marks them as sample-independent and records separate forward
+validation. When the MoLA null router is disabled, null usage is reported as
+not applicable instead of an observed zero.
 
 Expected shapes for this run:
 

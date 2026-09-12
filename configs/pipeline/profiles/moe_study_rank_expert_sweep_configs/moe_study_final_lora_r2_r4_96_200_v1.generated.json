@@ -1,0 +1,278 @@
+{
+  "moe_study_final_lora_r2_r4_noctua2_a100_4gpu_96_langs_34p5h_v1": {
+    "extends": "moe_study_final_macro3_noctua2_a100_4gpu_96_langs_34p5h_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_96_langs_34p5h_v1",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_96_langs_34p5h_v1/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-lora-r2-r4-noctua2-a100-4gpu-96langs-34p5h-v1",
+      "language_count_hint": 96
+    },
+    "study_contract": {
+      "selected_run_ids": [
+        "lora_r2",
+        "lora_r4"
+      ],
+      "selection_reason": {
+        "lora_r2": "configured-rank-2 control",
+        "lora_r4": "best standalone LoRA under the sweep macro-rank analysis"
+      },
+      "expected_trainable_params": {
+        "lora_r2": 5242880,
+        "lora_r4": 10485760
+      },
+      "global_batch_size": 48,
+      "comparison_budget": "fixed active trainer wall time on one node with four A100 GPUs",
+      "benchmark_panel_version": "v2-full-language-intersection-plus-english",
+      "benchmark_task_panel_sha256": "bc6fddb4999dae0ce3e555878b33cc337dbe452938066bcc7011ab03c95e1f62"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_96_langs_34p5h_v1/runs",
+      "executor": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "lora": {
+        "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj",
+        "dropout": 0.05
+      },
+      "train": {
+        "learning_rate": "2e-4",
+        "max_steps": null,
+        "num_train_epochs": 1.0
+      },
+      "runs": [
+        {
+          "id": "lora_r2",
+          "kind": "lora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "dropout": 0.05,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "train": {
+            "batch_size": 4,
+            "grad_accum": 3,
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "lora_r4",
+          "kind": "lora",
+          "lora": {
+            "rank": 4,
+            "alpha": 8,
+            "dropout": 0.05,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "train": {
+            "batch_size": 4,
+            "grad_accum": 3,
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        }
+      ]
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_96_langs_34p5h_v1/acceptance",
+      "target_runtime_seconds": 122400
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_96_langs_34p5h_v1/final_eval_loss"
+    },
+    "benchmark": {
+      "tasks_file": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_shared/panels/lm_eval_tasks_96_langs_v2_plus_english.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_96_langs_34p5h_v1/benchmarks",
+      "expected_task_count": 249,
+      "expected_task_breakdown": {
+        "Belebele": 40,
+        "FLORES": 100,
+        "SIB200": 51,
+        "Taxi1500": 58
+      }
+    },
+    "summary": {
+      "baseline_id": "lora_r4",
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_96_langs_34p5h_v1/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_96_langs_34p5h_v1/gate.json"
+    },
+    "report": {
+      "baseline_cache_root": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_shared/baseline_cache_96",
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_96_langs_34p5h_v1/moe_study_final_lora_96_languages.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--ntasks=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+          "--oversubscribe"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228"
+        ]
+      }
+    },
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled",
+      "project": "moe-study-final-lora"
+    },
+    "wandb_mode": "disabled"
+  },
+  "moe_study_final_lora_r2_r4_noctua2_a100_4gpu_200_langs_72h_v1": {
+    "extends": "moe_study_final_macro3_noctua2_a100_4gpu_200_langs_72h_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_200_langs_72h_v1",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_200_langs_72h_v1/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-lora-r2-r4-noctua2-a100-4gpu-200langs-72h-v1",
+      "language_count_hint": 200
+    },
+    "study_contract": {
+      "selected_run_ids": [
+        "lora_r2",
+        "lora_r4"
+      ],
+      "selection_reason": {
+        "lora_r2": "configured-rank-2 control",
+        "lora_r4": "best standalone LoRA under the sweep macro-rank analysis"
+      },
+      "expected_trainable_params": {
+        "lora_r2": 5242880,
+        "lora_r4": 10485760
+      },
+      "global_batch_size": 48,
+      "comparison_budget": "fixed active trainer wall time on one node with four A100 GPUs",
+      "benchmark_panel_version": "v2-full-language-intersection-plus-english",
+      "benchmark_task_panel_sha256": "aab7529237893d14adcac1f28d3355f332090a6e9b2273fad0e86a2637fb48a1"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_200_langs_72h_v1/runs",
+      "executor": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1800",
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "lora": {
+        "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj",
+        "dropout": 0.05
+      },
+      "train": {
+        "learning_rate": "2e-4",
+        "max_steps": null,
+        "num_train_epochs": 1.0
+      },
+      "runs": [
+        {
+          "id": "lora_r2",
+          "kind": "lora",
+          "lora": {
+            "rank": 2,
+            "alpha": 4,
+            "dropout": 0.05,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "train": {
+            "batch_size": 4,
+            "grad_accum": 3,
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        },
+        {
+          "id": "lora_r4",
+          "kind": "lora",
+          "lora": {
+            "rank": 4,
+            "alpha": 8,
+            "dropout": 0.05,
+            "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+          },
+          "train": {
+            "batch_size": 4,
+            "grad_accum": 3,
+            "disable_gradient_checkpointing": false,
+            "use_reentrant_gc": false
+          }
+        }
+      ]
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_200_langs_72h_v1/acceptance",
+      "target_runtime_seconds": 259200
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_200_langs_72h_v1/final_eval_loss"
+    },
+    "benchmark": {
+      "tasks_file": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_shared/panels/lm_eval_tasks_200_langs_v2_plus_english.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_200_langs_72h_v1/benchmarks",
+      "expected_task_count": 408,
+      "expected_task_breakdown": {
+        "Belebele": 65,
+        "FLORES": 166,
+        "SIB200": 84,
+        "Taxi1500": 93
+      }
+    },
+    "summary": {
+      "baseline_id": "lora_r4",
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_200_langs_72h_v1/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_200_langs_72h_v1/gate.json"
+    },
+    "report": {
+      "baseline_cache_root": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_shared/baseline_cache_200",
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_noctua2_a100_4gpu_200_langs_72h_v1/moe_study_final_lora_200_languages.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1800",
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--ntasks=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228",
+          "--oversubscribe"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1228"
+        ]
+      }
+    },
+    "wandb": {
+      "enabled": false,
+      "mode": "disabled",
+      "project": "moe-study-final-lora"
+    },
+    "wandb_mode": "disabled"
+  }
+}

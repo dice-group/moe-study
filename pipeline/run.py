@@ -32,6 +32,7 @@ STAGES = [
     "tokenize",
     "audit",
     "train",
+    "train_acceptance",
     "final_eval_loss",
     "embedding_verify",
     "benchmark",
@@ -64,6 +65,7 @@ def _stage_profile_cfg(profile: dict[str, Any], stage: str) -> dict[str, Any]:
         "tokenize": "tokenization",
         "audit": "audit",
         "train": "training",
+        "train_acceptance": "train_acceptance",
         "final_eval_loss": "final_eval_loss",
         "embedding_verify": "embedding_training",
         "benchmark": "benchmark",
@@ -88,6 +90,26 @@ def _resolve_stage_cfg(profile: dict[str, Any], stage: str) -> dict[str, Any]:
             merged["executor"] = exec_override
             return merged
     return cfg
+
+
+def _apply_executor_cli_overrides(
+    stage_cfg: dict[str, Any],
+    *,
+    executor_type: str = "",
+    cuda_visible_devices: str = "",
+) -> dict[str, Any]:
+    """Apply explicit CLI overrides after resolving stage-specific executors."""
+    if not executor_type and not str(cuda_visible_devices).strip():
+        return stage_cfg
+    resolved = dict(stage_cfg)
+    executor_cfg_raw = resolved.get("executor", {})
+    executor_cfg = dict(executor_cfg_raw) if isinstance(executor_cfg_raw, dict) else {}
+    if executor_type:
+        executor_cfg["type"] = executor_type
+    if str(cuda_visible_devices).strip():
+        executor_cfg["cuda_visible_devices"] = str(cuda_visible_devices).strip()
+    resolved["executor"] = executor_cfg
+    return resolved
 
 
 def _build_language_map_from_csv(
@@ -141,8 +163,14 @@ def _build_language_map_from_csv(
             "languages": sorted(grouped[family]),
         }
 
+    # Per-run Slurm jobs may resolve this shared map concurrently.
+    temporary = output_path.with_name(f".{output_path.name}.tmp.{os.getpid()}.{time.time_ns()}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    try:
+        temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        os.replace(temporary, output_path)
+    finally:
+        temporary.unlink(missing_ok=True)
     return output_path
 
 
@@ -289,13 +317,19 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     embedding_init_cfg = profile.get("embedding_init", {})
     embedding_training_cfg = profile.get("embedding_training", {})
     summary_cfg = profile.get("summary", {})
+    train_acceptance_cfg = profile.get("train_acceptance", {})
     final_eval_loss_cfg = profile.get("final_eval_loss", {})
     benchmark_cfg = profile.get("benchmark", {})
     baseline_eval_cfg = profile.get("baseline_eval", {})
     report_cfg = profile.get("report", {})
     wandb_cfg = profile.get("wandb", {})
     run_naming_cfg = profile.get("run_naming", {})
-    run_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp_base = (
+        str(os.environ.get("PROOF_PIPELINE_RUN_TIMESTAMP", "")).strip()
+        or dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
+    invocation_id = str(os.environ.get("SLURM_JOB_ID", "")).strip() or f"pid{os.getpid()}"
+    run_timestamp = f"{timestamp_base}_{invocation_id}"
 
     env = os.environ.copy()
     # Preserve virtualenv interpreter paths; resolving symlinks here can strip
@@ -336,6 +370,14 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
     train_root = _abs(repo_root, train_cfg.get("output_dir", str(output_root / "runs")))
     summary_path = _abs(repo_root, summary_cfg.get("summary_csv", str(output_root / "summary.csv")))
     gate_path = _abs(repo_root, summary_cfg.get("gate_json", str(output_root / "gate.json")))
+    train_acceptance_output_dir = ""
+    if isinstance(train_acceptance_cfg, dict):
+        train_acceptance_output_dir = str(train_acceptance_cfg.get("output_dir", "")).strip()
+    train_acceptance_root = (
+        _abs(repo_root, train_acceptance_output_dir)
+        if train_acceptance_output_dir
+        else (output_root / "train_acceptance")
+    )
     final_eval_loss_output_dir = ""
     if isinstance(final_eval_loss_cfg, dict):
         final_eval_loss_output_dir = str(final_eval_loss_cfg.get("output_dir", "")).strip()
@@ -402,6 +444,7 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
         embedding_init_cfg=embedding_init_cfg,
         embedding_training_cfg=embedding_training_cfg,
         summary_cfg=summary_cfg,
+        train_acceptance_cfg=train_acceptance_cfg if isinstance(train_acceptance_cfg, dict) else {},
         final_eval_loss_cfg=final_eval_loss_cfg if isinstance(final_eval_loss_cfg, dict) else {},
         benchmark_cfg=benchmark_cfg,
         baseline_eval_cfg=baseline_eval_cfg,
@@ -417,6 +460,7 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
         train_root=train_root,
         summary_path=summary_path,
         gate_path=gate_path,
+        train_acceptance_root=train_acceptance_root,
         final_eval_loss_root=final_eval_loss_root,
         benchmark_root=benchmark_root,
         baseline_cache_root=baseline_cache_root,
@@ -506,6 +550,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
         "summary": "sum",
         "report": "rpt",
         "train": "train",
+        "train_acceptance": "tacc",
         "final_eval_loss": "fevl",
         "benchmark": "bench",
         "baseline_eval": "beval",
@@ -533,20 +578,76 @@ def _submit_chain(args: argparse.Namespace) -> int:
             chain_env["WANDB_ENTITY"] = str(wandb_cfg["entity"]).strip()
     dependency_ids: list[str] = []
     submitted: list[str] = []
-    last_stage_job_ids_by_run: dict[str, str] = {}
+    job_graph: list[dict[str, Any]] = []
     stage_job_ids_by_stage: dict[str, list[str]] = {}
+    stage_job_ids_by_run: dict[str, dict[str, str]] = {}
+    train_log_paths_by_run: dict[str, Path] = {}
+
+    training_cfg = profile.get("training", {}) if isinstance(profile.get("training", {}), dict) else {}
+    configured_run_ids = [
+        str(run.get("id", "")).strip()
+        for run in training_cfg.get("runs", [])
+        if isinstance(run, dict) and str(run.get("id", "")).strip()
+    ]
+    chain_run_ids = run_ids or configured_run_ids
+
+    def chain_script_path(*, stage: str, run_id: str) -> Path:
+        return chain_sbatch_root / f"chain_{stage}.{run_id}.{chain_timestamp}.sbatch.sh"
+
+    def record_job(
+        *,
+        stage: str,
+        run_id: str,
+        job_id: str | None,
+        dependency: str | None,
+        script_path: Path,
+        log_path: Path,
+        slurm_output: Path,
+    ) -> str | None:
+        if job_id:
+            submitted.append(job_id)
+            graph_job_id = job_id
+        elif args.dry_run:
+            graph_job_id = f"dry_{stage}_{run_id}"
+        else:
+            return None
+        if args.dry_run:
+            print(
+                f"[DRY_RUN CHAIN] stage={stage} run_id={run_id} "
+                f"job={graph_job_id} dependency={dependency or 'none'}"
+            )
+        job_graph.append(
+            {
+                "stage": stage,
+                "run_id": run_id,
+                "job_id": graph_job_id,
+                "dependency": dependency,
+                "script_path": str(script_path.resolve()),
+                "log_path": str(log_path.resolve()),
+                "slurm_output": str(slurm_output.resolve()),
+            }
+        )
+        return graph_job_id
 
     for stage in active_stages:
         stage_cfg = _resolve_stage_cfg(profile, stage)
         if isinstance(stage_cfg, dict) and stage_cfg.get("enabled") is False:
+            continue
+        # This safety gate is opt-in so existing profiles retain their old graph.
+        if stage == "train_acceptance" and not bool(stage_cfg.get("enabled", False)):
             continue
         executor = build_executor(profile, stage_cfg)
         if not isinstance(executor, SlurmExecutor):
             raise SystemExit(f"submit-chain requires Slurm executor for stage '{stage}'")
         stage_tag = stage_short.get(stage, stage)
         dependency_source_ids = dependency_ids
-        if stage in {"final_eval_loss", "benchmark"}:
+        if stage == "train_acceptance":
             dependency_source_ids = stage_job_ids_by_stage.get("train", dependency_ids)
+        elif stage in {"final_eval_loss", "benchmark"}:
+            if stage_job_ids_by_stage.get("train_acceptance"):
+                dependency_source_ids = stage_job_ids_by_stage["train_acceptance"]
+            else:
+                dependency_source_ids = stage_job_ids_by_stage.get("train", dependency_ids)
         elif stage == "summary":
             combined: list[str] = []
             for dep_stage in ("final_eval_loss", "benchmark"):
@@ -554,7 +655,10 @@ def _submit_chain(args: argparse.Namespace) -> int:
             if combined:
                 dependency_source_ids = combined
         dependency_mode = "afterok"
-        if stage in {"final_eval_loss", "benchmark"}:
+        if stage == "train_acceptance":
+            dependency_mode = "afterany"
+        elif stage in {"final_eval_loss", "benchmark"} and not stage_job_ids_by_stage.get("train_acceptance"):
+            # Backwards compatibility for profiles that do not enable the gate.
             dependency_mode = "afterany"
         dependency = f"{dependency_mode}:{':'.join(dependency_source_ids)}" if dependency_source_ids else None
         stage_job_ids: list[str] = []
@@ -584,6 +688,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
                     embedding_training_cfg=train_ctx.embedding_training_cfg,
                     run_name=run_name_label,
                 )
+                script_path = chain_script_path(stage=stage, run_id=run_id)
                 job_id = executor.submit(
                     cmd,
                     run_env,
@@ -591,20 +696,29 @@ def _submit_chain(args: argparse.Namespace) -> int:
                     log_path,
                     dependency=dependency,
                     job_name=f"{stage_tag}{lang_tag}_{run_id}",
-                    script_dir=chain_sbatch_root,
+                    script_path=script_path,
                     slurm_output=slurm_output,
                 )
-                if job_id:
-                    stage_job_ids.append(job_id)
-                    submitted.append(job_id)
-                    last_stage_job_ids_by_run[run_id] = job_id
+                graph_job_id = record_job(
+                    stage=stage,
+                    run_id=run_id,
+                    job_id=job_id,
+                    dependency=dependency,
+                    script_path=script_path,
+                    log_path=log_path,
+                    slurm_output=slurm_output,
+                )
+                if graph_job_id:
+                    stage_job_ids.append(graph_job_id)
+                    stage_job_ids_by_run.setdefault(stage, {})[run_id] = graph_job_id
+                    train_log_paths_by_run[run_id] = slurm_output
             dependency_ids = stage_job_ids if stage_job_ids else dependency_ids
             if stage_job_ids:
                 stage_job_ids_by_stage[stage] = list(stage_job_ids)
             continue
 
-        if stage in {"train", "benchmark", "final_eval_loss"} and len(run_ids) > 1:
-            for run_id in run_ids:
+        if stage in {"train_acceptance", "benchmark", "final_eval_loss"} and chain_run_ids:
+            for run_id in chain_run_ids:
                 cmd = [
                     sys.executable,
                     "-m",
@@ -630,24 +744,45 @@ def _submit_chain(args: argparse.Namespace) -> int:
                 slurm_output = chain_slurm_root / f"chain_{stage}.{run_id}.{chain_timestamp}.slurm.log"
                 job_name = f"{stage_tag}{lang_tag}_{run_id}"
                 job_dependency = dependency
-                if stage in {"final_eval_loss", "benchmark"}:
-                    prior_job = last_stage_job_ids_by_run.get(run_id)
-                    if prior_job:
-                        job_dependency = f"afterany:{prior_job}" # use afterany dependency to allow benchmark to run even after training is aborted due to time limit
+                run_env = dict(chain_env)
+                if stage == "train_acceptance":
+                    train_job = stage_job_ids_by_run.get("train", {}).get(run_id)
+                    if train_job:
+                        job_dependency = f"afterany:{train_job}"
+                        run_env["PROOF_PIPELINE_TRAIN_JOB_ID"] = train_job
+                    train_log = train_log_paths_by_run.get(run_id)
+                    if train_log is not None:
+                        run_env["PROOF_PIPELINE_TRAIN_LOG_PATH"] = str(train_log)
+                elif stage in {"final_eval_loss", "benchmark"}:
+                    acceptance_job = stage_job_ids_by_run.get("train_acceptance", {}).get(run_id)
+                    train_job = stage_job_ids_by_run.get("train", {}).get(run_id)
+                    if acceptance_job:
+                        job_dependency = f"afterok:{acceptance_job}"
+                    elif train_job:
+                        job_dependency = f"afterany:{train_job}"
+                script_path = chain_script_path(stage=stage, run_id=run_id)
                 job_id = executor.submit(
                     cmd,
-                    chain_env,
+                    run_env,
                     args.dry_run,
                     log_path,
                     dependency=job_dependency,
                     job_name=job_name,
-                    script_dir=chain_sbatch_root,
+                    script_path=script_path,
                     slurm_output=slurm_output,
                 )
-                if job_id:
-                    stage_job_ids.append(job_id)
-                    submitted.append(job_id)
-                    last_stage_job_ids_by_run[run_id] = job_id
+                graph_job_id = record_job(
+                    stage=stage,
+                    run_id=run_id,
+                    job_id=job_id,
+                    dependency=job_dependency,
+                    script_path=script_path,
+                    log_path=log_path,
+                    slurm_output=slurm_output,
+                )
+                if graph_job_id:
+                    stage_job_ids.append(graph_job_id)
+                    stage_job_ids_by_run.setdefault(stage, {})[run_id] = graph_job_id
         else:
             cmd = [
                 sys.executable,
@@ -682,6 +817,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
             else:
                 approach = "all"
             job_name = f"{stage_tag}{lang_tag}_{approach}"
+            script_path = chain_script_path(stage=stage, run_id=approach)
             job_id = executor.submit(
                 cmd,
                 chain_env,
@@ -689,16 +825,39 @@ def _submit_chain(args: argparse.Namespace) -> int:
                 log_path,
                 dependency=dependency,
                 job_name=job_name,
-                script_dir=chain_sbatch_root,
+                script_path=script_path,
                 slurm_output=slurm_output,
             )
-            if job_id:
-                stage_job_ids.append(job_id)
-                submitted.append(job_id)
+            graph_job_id = record_job(
+                stage=stage,
+                run_id=approach,
+                job_id=job_id,
+                dependency=dependency,
+                script_path=script_path,
+                log_path=log_path,
+                slurm_output=slurm_output,
+            )
+            if graph_job_id:
+                stage_job_ids.append(graph_job_id)
 
         dependency_ids = stage_job_ids if stage_job_ids else dependency_ids
         if stage_job_ids:
             stage_job_ids_by_stage[stage] = list(stage_job_ids)
+
+    graph_path = chain_root / f"job_graph_{chain_timestamp}.json"
+    graph_payload = {
+        "schema_version": 1,
+        "created_utc": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "profile": args.profile,
+        "output_root": str(output_root.resolve()),
+        "code_signature": chain_env["PROOF_PIPELINE_CODE_SIG"],
+        "dry_run": bool(args.dry_run),
+        "jobs": job_graph,
+    }
+    temporary_graph_path = graph_path.with_name(f".{graph_path.name}.tmp.{os.getpid()}")
+    temporary_graph_path.write_text(json.dumps(graph_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(temporary_graph_path, graph_path)
+    print(f"Job graph manifest: {graph_path}")
 
     if submitted:
         print(f"Submitted {len(submitted)} job(s): {' -> '.join(submitted)}")
@@ -756,7 +915,11 @@ def main() -> int:
         handler = stage_handlers.get(stage)
         if handler is None:
             raise SystemExit(f"No stage handler configured for: {stage}")
-        stage_cfg = _resolve_stage_cfg(ctx.profile, stage)
+        stage_cfg = _apply_executor_cli_overrides(
+            _resolve_stage_cfg(ctx.profile, stage),
+            executor_type=ctx.args.executor_type,
+            cuda_visible_devices=ctx.args.cuda_visible_devices,
+        )
         ctx.executor = build_executor(ctx.profile, stage_cfg)
         stage_started_perf = time.perf_counter()
         ctx.logger.info("[STAGE_START] %s", stage)

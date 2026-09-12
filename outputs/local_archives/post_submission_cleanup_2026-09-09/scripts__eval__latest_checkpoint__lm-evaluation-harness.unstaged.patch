@@ -1,0 +1,167 @@
+diff --git a/lm_eval/tasks/sib200/generate_configs.py b/lm_eval/tasks/sib200/generate_configs.py
+index 4773bb800..b902f6de8 100644
+--- a/lm_eval/tasks/sib200/generate_configs.py
++++ b/lm_eval/tasks/sib200/generate_configs.py
+@@ -1,6 +1,3 @@
+-#!/usr/bin/env python3
+-from __future__ import annotations
+-
+ from pathlib import Path
+ 
+ from datasets import get_dataset_config_names
+@@ -16,8 +13,6 @@ def main() -> None:
+         raise SystemExit(f"Missing common config: {common}")
+ 
+     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+-    for stale in CONFIG_DIR.glob("sib200_*.yaml"):
+-        stale.unlink()
+ 
+     for lang_script in sorted(get_dataset_config_names("Davlan/sib200")):
+         task_name = f"sib200_{lang_script}"
+diff --git a/lm_eval/tasks/taxi1500/generate_configs.py b/lm_eval/tasks/taxi1500/generate_configs.py
+index b84a8cd0d..7318f14d9 100644
+--- a/lm_eval/tasks/taxi1500/generate_configs.py
++++ b/lm_eval/tasks/taxi1500/generate_configs.py
+@@ -40,8 +40,6 @@ def main() -> None:
+         raise SystemExit(f"Missing common config: {common}")
+ 
+     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+-    for stale in CONFIG_DIR.glob("taxi1500_*.yaml"):
+-        stale.unlink()
+ 
+     for lang_script in _candidate_lang_scripts():
+         task_name = f"taxi1500_{lang_script}"
+diff --git a/lm_eval/tasks/taxi1500/taxi1500_common b/lm_eval/tasks/taxi1500/taxi1500_common
+index 11ecd71c1..8f321c2cd 100644
+--- a/lm_eval/tasks/taxi1500/taxi1500_common
++++ b/lm_eval/tasks/taxi1500/taxi1500_common
+@@ -35,3 +35,4 @@ dataset_kwargs:
+   lang_script: null
+   corpus_version: v3.0
+   min_labeled_examples: 900
++  member_name: null
+diff --git a/lm_eval/tasks/taxi1500/utils.py b/lm_eval/tasks/taxi1500/utils.py
+index f8be3520f..53b5757f8 100644
+--- a/lm_eval/tasks/taxi1500/utils.py
++++ b/lm_eval/tasks/taxi1500/utils.py
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
+ import csv
++import hashlib
+ import json
+ import os
+ import urllib.request
+@@ -98,6 +99,7 @@ def _select_member(
+     zf: zipfile.ZipFile,
+     lang_script: str,
+     union_ids: set[str],
++    member_name: str | None = None,
+ ) -> tuple[str, dict[str, str], dict[str, object]]:
+     iso = lang_script.split("_", 1)[0]
+     candidates = _candidate_members(zf, iso)
+@@ -106,6 +108,20 @@ def _select_member(
+             f"No released Taxi1500 corpus file found for {lang_script} (ISO {iso}) in Taxi1500-c."
+         )
+ 
++    if member_name is not None:
++        if member_name not in candidates:
++            raise ValueError(
++                f"Pinned Taxi1500 member {member_name!r} is not available for "
++                f"{lang_script} (ISO {iso})."
++            )
++        rows = _read_member_rows(zf, member_name)
++        return member_name, rows, {
++            "member_name": member_name,
++            "labeled_overlap": len(union_ids & set(rows)),
++            "total_verses": len(rows),
++            "pinned": True,
++        }
++
+     best_name: str | None = None
+     best_rows: dict[str, str] | None = None
+     best_score: tuple[int, int, str] | None = None
+@@ -127,8 +143,16 @@ def _select_member(
+     }
+ 
+ 
+-def _built_dataset_dir(cache_root: Path, corpus_version: str, lang_script: str) -> Path:
+-    return cache_root / "built" / corpus_version / lang_script
++def _built_dataset_dir(
++    cache_root: Path,
++    corpus_version: str,
++    lang_script: str,
++    member_name: str | None = None,
++) -> Path:
++    if member_name is None:
++        return cache_root / "built" / corpus_version / lang_script
++    member_digest = hashlib.sha256(member_name.encode("utf-8")).hexdigest()[:12]
++    return cache_root / "built_pinned" / corpus_version / f"{lang_script}--{member_digest}"
+ 
+ 
+ def _build_dataset(
+@@ -136,12 +160,18 @@ def _build_dataset(
+     lang_script: str,
+     corpus_version: str,
+     min_labeled_examples: int,
++    member_name: str | None = None,
+ ) -> DatasetDict:
+     english_splits = _load_english_splits(cache_root)
+     union_ids = {row["id"] for rows in english_splits.values() for row in rows}
+     corpus_zip = _download_corpus(cache_root, corpus_version)
+     with zipfile.ZipFile(corpus_zip) as zf:
+-        member_name, verse_by_id, selection = _select_member(zf, lang_script, union_ids)
++        selected_member, verse_by_id, selection = _select_member(
++            zf,
++            lang_script,
++            union_ids,
++            member_name=member_name,
++        )
+ 
+     if int(selection["labeled_overlap"]) < int(min_labeled_examples):
+         raise ValueError(
+@@ -162,13 +192,18 @@ def _build_dataset(
+                     "label": row["label"],
+                     "verse": verse,
+                     "lang_script": lang_script,
+-                    "source_member": str(selection["member_name"]),
++                    "source_member": selected_member,
+                 }
+             )
+         split_datasets[split_name] = Dataset.from_list(split_rows)
+ 
+     dataset = DatasetDict(split_datasets)
+-    built_dir = _built_dataset_dir(cache_root, corpus_version, lang_script)
++    built_dir = _built_dataset_dir(
++        cache_root,
++        corpus_version,
++        lang_script,
++        member_name=member_name,
++    )
+     built_dir.parent.mkdir(parents=True, exist_ok=True)
+     dataset.save_to_disk(str(built_dir))
+     (built_dir / "build_manifest.json").write_text(
+@@ -193,10 +228,16 @@ def load_taxi1500_dataset(
+     corpus_version: str = "v3.0",
+     min_labeled_examples: int = 900,
+     cache_root: str | None = None,
++    member_name: str | None = None,
+     **_: object,
+ ) -> DatasetDict:
+     root = Path(cache_root).expanduser() if cache_root else _default_cache_root()
+-    built_dir = _built_dataset_dir(root, corpus_version, lang_script)
++    built_dir = _built_dataset_dir(
++        root,
++        corpus_version,
++        lang_script,
++        member_name=member_name,
++    )
+     if built_dir.exists():
+         return load_from_disk(str(built_dir))
+     return _build_dataset(
+@@ -204,4 +245,5 @@ def load_taxi1500_dataset(
+         lang_script=lang_script,
+         corpus_version=corpus_version,
+         min_labeled_examples=int(min_labeled_examples),
++        member_name=member_name,
+     )

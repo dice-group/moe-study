@@ -1,0 +1,78 @@
+{
+  "moe_study_final_macro3_200_final_eval_recovery_20260724": {
+    "extends": "moe_study_final_macro3_noctua2_a100_4gpu_200_langs_72h_v1",
+    "final_eval_loss": {"output_subdir": "final_eval_loss_recovery_20260724"},
+    "stage_executors": {
+      "final_eval_loss": {
+        "time": "24:00:00",
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--ntasks=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1222,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"
+        ]
+      }
+    }
+  },
+  "moe_study_final_macro45_200_recovery_20260724": {
+    "extends": "moe_study_final_macro45_noctua2_a100_4gpu_200_langs_72h_v1",
+    "final_eval_loss": {"output_subdir": "final_eval_loss_recovery_20260724"},
+    "stage_executors": {"final_eval_loss": {"time": "24:00:00"}}
+  },
+  "moe_study_final_mtllora_lr5e5_200_recovery_20260724": {
+    "extends": "moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1",
+    "final_eval_loss": {"output_subdir": "final_eval_loss_recovery_20260724"},
+    "stage_executors": {"final_eval_loss": {"time": "24:00:00"}}
+  },
+  "moe_study_final_macro45_96_report_recovery_20260724": {
+    "extends": "moe_study_final_macro45_noctua2_a100_4gpu_96_langs_34p5h_v1",
+    "stage_executors": {"report": {"time": "04:00:00"}}
+  },
+  "moe_study_final_macro3_96_langs_benchmark_v2_recovery_20260724": {
+    "extends": "moe_study_final_macro3_96_langs_benchmark_v2",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_96",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_96/logs",
+    "benchmark": {"output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_96/benchmarks"},
+    "summary": {"summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_96/summary.csv", "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_96/gate.json"},
+    "report": {"output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_96/report.xlsx"}
+  },
+  "moe_study_final_macro3_200_langs_benchmark_v2_recovery_20260724": {
+    "extends": "moe_study_final_macro3_200_langs_benchmark_v2",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_200",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_200/logs",
+    "benchmark": {"output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_200/benchmarks"},
+    "summary": {"summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_200/summary.csv", "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_200/gate.json"},
+    "report": {"output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro3_200/report.xlsx"}
+  },
+  "moe_study_final_macro45_96_langs_benchmark_v2_recovery_20260724": {
+    "extends": "moe_study_final_macro45_96_langs_benchmark_v2",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_96",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_96/logs",
+    "benchmark": {"output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_96/benchmarks"},
+    "summary": {"summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_96/summary.csv", "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_96/gate.json"},
+    "report": {"output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_96/report.xlsx"}
+  },
+  "moe_study_final_macro45_200_langs_benchmark_v2_recovery_20260724": {
+    "extends": "moe_study_final_macro45_200_langs_benchmark_v2",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_200",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_200/logs",
+    "benchmark": {"output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_200/benchmarks"},
+    "summary": {"summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_200/summary.csv", "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_200/gate.json"},
+    "report": {"output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/macro45_200/report.xlsx"}
+  },
+  "moe_study_final_mtllora_lr5e5_96_langs_benchmark_v2_recovery_20260724": {
+    "extends": "moe_study_final_mtllora_lr5e5_96_langs_benchmark_v2",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_96",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_96/logs",
+    "benchmark": {"output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_96/benchmarks"},
+    "summary": {"summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_96/summary.csv", "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_96/gate.json"},
+    "report": {"output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_96/report.xlsx"}
+  },
+  "moe_study_final_mtllora_lr5e5_200_langs_benchmark_v2_recovery_20260724": {
+    "extends": "moe_study_final_mtllora_lr5e5_200_langs_benchmark_v2",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_200",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_200/logs",
+    "benchmark": {"output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_200/benchmarks"},
+    "summary": {"summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_200/summary.csv", "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_200/gate.json"},
+    "report": {"output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2_recovery_20260724/mtllora5e5_200/report.xlsx"}
+  }
+}

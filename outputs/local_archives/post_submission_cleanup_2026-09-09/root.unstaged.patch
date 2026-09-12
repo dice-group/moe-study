@@ -1,0 +1,2836 @@
+diff --git a/docs/routing_analysis_outputs.md b/docs/routing_analysis_outputs.md
+index e6f6f6a..d89d4a2 100644
+--- a/docs/routing_analysis_outputs.md
++++ b/docs/routing_analysis_outputs.md
+@@ -28,11 +28,14 @@ The important files per adapter are:
+ 
+ - `routing_matrix.npz`: canonical numeric routing data.
+ - `metadata.json`: adapter config, language list, captured modules, and batch settings.
++- `run_summary.json`: atomic per-adapter completion record.
++- `partials/`: resumable per-routing-id token statistics for input-dependent routers.
+ - `figures/`: quick default heatmaps and entropy plots.
+ 
+ The run-level file is:
+ 
+-- `summary.json`: list of completed adapter analyses and output paths.
++- `summary.json`: list of completed adapter analyses and output paths. It is
++  created only after every configured adapter has a complete per-run summary.
+ 
+ ## NPZ Data Format
+ 
+@@ -54,6 +57,17 @@ experts = data["choice_labels"].tolist()
+ axis_name = str(data["axis_name"])
+ ```
+ 
++Schema version 2 also provides:
++
++- `routing_probability`: canonical normalized routing probabilities.
++- `selection_rate`: top-k or argmax choice rates.
++- `routing_basis`: `token_conditioned` or `static_language_conditioned`.
++
++Static MoE-LoRA and MTL-LoRA matrices have zero token counts by design. Their
++metadata marks them as sample-independent and records separate forward
++validation. When the MoLA null router is disabled, null usage is reported as
++not applicable instead of an observed zero.
++
+ Expected shapes for this run:
+ 
+ - MoLA: `(102, 128, 32)`, axis `true_expert`
+diff --git a/pipeline/checks.py b/pipeline/checks.py
+index 584cfa5..50e4742 100644
+--- a/pipeline/checks.py
++++ b/pipeline/checks.py
+@@ -908,7 +908,14 @@ def check_train(train_root: Path, runs: list[dict[str, Any]], *, dry_run: bool):
+ # benchmark
+ # ---------------------------------------------------------------------------
+ 
+-def check_benchmark(benchmark_root: Path, summary_path: Path, *, dry_run: bool):
++def check_benchmark(
++    benchmark_root: Path,
++    summary_path: Path,
++    *,
++    dry_run: bool,
++    check_path: Path | None = None,
++    run_ids: set[str] | None = None,
++):
+     """Verify benchmark: all runs have expected task count."""
+ 
+     if dry_run:
+@@ -922,17 +929,45 @@ def check_benchmark(benchmark_root: Path, summary_path: Path, *, dry_run: bool):
+     out: dict[str, Any] = {"stage": "benchmark", "pass": True, "runs": {}}
+     for run_info in summary.get("runs", []):
+         run_id = run_info.get("run_id", "?")
++        if run_ids is not None and str(run_id) not in run_ids:
++            continue
+         expected = run_info.get("num_tasks_expected", 0)
+         seen = run_info.get("num_tasks_seen", 0)
+         missing = run_info.get("missing_tasks", [])
+-        entry = {"expected": expected, "seen": seen, "missing_count": len(missing)}
+-        if expected > 0 and seen == 0:
++        strict = bool(run_info.get("strict_completeness", summary.get("strict_completeness", False)))
++        expected_breakdown = run_info.get("expected_task_breakdown", summary.get("expected_task_breakdown", {}))
++        seen_breakdown = run_info.get("seen_task_breakdown", {})
++        entry = {
++            "expected": expected,
++            "seen": seen,
++            "missing_count": len(missing),
++            "strict_completeness": strict,
++            "expected_task_breakdown": expected_breakdown,
++            "seen_task_breakdown": seen_breakdown,
++        }
++        if strict:
++            passed = (
++                expected > 0
++                and seen == expected
++                and len(missing) == 0
++                and (not expected_breakdown or seen_breakdown == expected_breakdown)
++            )
++        else:
++            passed = not (expected > 0 and seen == 0)
++        if not passed:
+             entry["pass"] = False
+             out["pass"] = False
+         else:
+             entry["pass"] = True
+         out["runs"][run_id] = entry
+-    _write_check(benchmark_root / "_check.json", out)
++    if run_ids is not None:
++        missing_summary_rows = sorted(run_ids - {str(run_id) for run_id in out["runs"]})
++        if missing_summary_rows:
++            out["pass"] = False
++            out["missing_summary_rows"] = missing_summary_rows
++    resolved_check_path = check_path or (benchmark_root / "_check.json")
++    _write_check(resolved_check_path, out)
+     if not out["pass"]:
+         failed = [rid for rid, v in out["runs"].items() if not v.get("pass")]
+-        raise SystemExit(f"[CHECK FAIL] benchmark: runs with 0 tasks evaluated: {failed}")
++        failed.extend(out.get("missing_summary_rows", []))
++        raise SystemExit(f"[CHECK FAIL] benchmark: incomplete task results: {failed}")
+diff --git a/pipeline/context.py b/pipeline/context.py
+index 7e379ed..4da0d8a 100644
+--- a/pipeline/context.py
++++ b/pipeline/context.py
+@@ -33,6 +33,7 @@ class PipelineContext:
+     embedding_init_cfg: dict[str, Any]
+     embedding_training_cfg: dict[str, Any]
+     summary_cfg: dict[str, Any]
++    train_acceptance_cfg: dict[str, Any]
+     final_eval_loss_cfg: dict[str, Any]
+     benchmark_cfg: dict[str, Any]
+     baseline_eval_cfg: dict[str, Any]
+@@ -51,6 +52,7 @@ class PipelineContext:
+     train_root: Path
+     summary_path: Path
+     gate_path: Path
++    train_acceptance_root: Path
+     final_eval_loss_root: Path
+     benchmark_root: Path
+     baseline_cache_root: Path
+diff --git a/pipeline/executor.py b/pipeline/executor.py
+index c0b3358..80c3d66 100644
+--- a/pipeline/executor.py
++++ b/pipeline/executor.py
+@@ -15,6 +15,7 @@ import os
+ import re
+ import signal
+ import subprocess
++import sys
+ import textwrap
+ import time
+ 
+@@ -24,6 +25,196 @@ from typing import Any, Protocol, Sequence
+ 
+ LOGGER = logging.getLogger("proof_pipeline")
+ 
++_SLURM_JOB_ID_TOKEN = "__PROOF_PIPELINE_SLURM_JOB_ID__"
++
++
++def _as_bool(value: Any, *, default: bool = False) -> bool:
++    if isinstance(value, bool):
++        return value
++    if value is None:
++        return default
++    text = str(value).strip().lower()
++    if text in {"1", "true", "yes", "on"}:
++        return True
++    if text in {"0", "false", "no", "off"}:
++        return False
++    return default
++
++
++def _normalize_preflight_config(raw: object) -> dict[str, Any]:
++    cfg = dict(raw) if isinstance(raw, dict) else {}
++    enabled = _as_bool(cfg.get("enabled", False))
++    try:
++        required_gpu_count = int(cfg.get("required_gpu_count", 1))
++        timeout_seconds = int(cfg.get("timeout_seconds", 300))
++    except (TypeError, ValueError) as exc:
++        raise ValueError("preflight.required_gpu_count and preflight.timeout_seconds must be integers") from exc
++    if enabled and required_gpu_count <= 0:
++        raise ValueError("preflight.required_gpu_count must be positive")
++    if enabled and timeout_seconds <= 0:
++        raise ValueError("preflight.timeout_seconds must be positive")
++    return {
++        "enabled": enabled,
++        "required_gpu_count": required_gpu_count,
++        "required_gpu_name": str(cfg.get("required_gpu_name", "")).strip(),
++        "check_ecc": _as_bool(cfg.get("check_ecc", False)),
++        "check_nvlink": _as_bool(cfg.get("check_nvlink", False)),
++        "check_torch_distributed": _as_bool(cfg.get("check_torch_distributed", False)),
++        "timeout_seconds": timeout_seconds,
++    }
++
++
++def _preflight_args(cfg: dict[str, Any], *, python_executable: str) -> list[str]:
++    args = [
++        python_executable,
++        "-m",
++        "pipeline.gpu_preflight",
++        "--required-gpu-count",
++        str(cfg["required_gpu_count"]),
++        "--required-gpu-name",
++        str(cfg["required_gpu_name"]),
++        "--timeout-seconds",
++        str(cfg["timeout_seconds"]),
++    ]
++    for key, flag in (
++        ("check_ecc", "--check-ecc"),
++        ("check_nvlink", "--check-nvlink"),
++        ("check_torch_distributed", "--check-torch-distributed"),
++    ):
++        if cfg[key]:
++            args.append(flag)
++    return args
++
++
++def _replace_job_id_token(value: str, job_id: str) -> str:
++    return value.replace(_SLURM_JOB_ID_TOKEN, job_id)
++
++
++def _shell_quote_runtime_arg(value: str) -> str:
++    """Quote an argument while leaving the Slurm job-id placeholder expandable."""
++    if _SLURM_JOB_ID_TOKEN not in value:
++        return _shell_quote(value)
++    parts = value.split(_SLURM_JOB_ID_TOKEN)
++    quoted: list[str] = []
++    for index, part in enumerate(parts):
++        quoted.append(_shell_quote(part))
++        if index < len(parts) - 1:
++            quoted.append('"${SLURM_JOB_ID:?SLURM_JOB_ID is required for job-scoped paths}"')
++    return "".join(quoted)
++
++
++def _tokenized_copy_shell_lines(*, cleanup_trap: bool) -> list[str]:
++    lines = [
++        'if [[ "${PROOF_PIPELINE_TOKENIZED_LOCAL_COPY:-0}" == "1" ]]; then',
++        '  TOKENIZED_SRC="${PROOF_PIPELINE_TOKENIZED_SRC:?PROOF_PIPELINE_TOKENIZED_SRC is required}"',
++        '  TOKENIZED_DST_RAW="${PROOF_PIPELINE_TOKENIZED_DST:?PROOF_PIPELINE_TOKENIZED_DST is required}"',
++        f'  TOKENIZED_DST="${{TOKENIZED_DST_RAW//{_SLURM_JOB_ID_TOKEN}/${{SLURM_JOB_ID:-local-$$}}}}"',
++    ]
++    if cleanup_trap:
++        # Install cleanup before copying so timeouts and verification failures
++        # cannot strand a multi-gigabyte job-scoped dataset in /dev/shm.
++        lines.extend(
++            [
++                '  cleanup_tokenized_copy() {',
++                '    if [[ "${PROOF_PIPELINE_TOKENIZED_CLEANUP:-0}" == "1" && -n "${TOKENIZED_DST:-}" && "${TOKENIZED_DST}" != "/" && "${TOKENIZED_DST}" != "${TOKENIZED_SRC:-}" ]]; then',
++                '      echo "[TOKENIZED_COPY] cleaning job-scoped copy ${TOKENIZED_DST:-}"',
++                '      rm -rf "${TOKENIZED_DST:-}" "${TOKENIZED_TMP:-}" "${TOKENIZED_LOCK:-}"',
++                '    fi',
++                '  }',
++                '  trap cleanup_tokenized_copy EXIT',
++            ]
++        )
++    lines.extend(
++        [
++        '  TOKENIZED_COPY_TIMEOUT="${PROOF_PIPELINE_TOKENIZED_COPY_TIMEOUT_SECONDS:-900}"',
++        '  TOKENIZED_VERIFY_FILES="${PROOF_PIPELINE_TOKENIZED_VERIFY_FILES:-}"',
++        '  if [[ ! "${TOKENIZED_COPY_TIMEOUT}" =~ ^[1-9][0-9]*$ ]]; then',
++        '    echo "[TOKENIZED_COPY_ERROR] timeout must be a positive integer: ${TOKENIZED_COPY_TIMEOUT}"',
++        '    exit 96',
++        '  fi',
++        '  if [[ -z "${TOKENIZED_DST}" || "${TOKENIZED_DST}" == "/" || "${TOKENIZED_DST}" == "${TOKENIZED_SRC}" ]]; then',
++        '    echo "[TOKENIZED_COPY_ERROR] unsafe destination: ${TOKENIZED_DST}"',
++        '    exit 96',
++        '  fi',
++        '  if [[ ! -d "${TOKENIZED_SRC}" ]]; then',
++        '    echo "[TOKENIZED_COPY_ERROR] source directory does not exist: ${TOKENIZED_SRC}"',
++        '    exit 96',
++        '  fi',
++        '  TOKENIZED_PARENT="$(dirname "${TOKENIZED_DST}")"',
++        '  mkdir -p "${TOKENIZED_PARENT}"',
++        '  TOKENIZED_LOCK="${TOKENIZED_DST}.lock"',
++        '  exec 9>"${TOKENIZED_LOCK}"',
++        '  if ! flock -w "${TOKENIZED_COPY_TIMEOUT}" 9; then',
++        '    echo "[TOKENIZED_COPY_ERROR] timed out waiting for lock: ${TOKENIZED_LOCK}"',
++        '    exit 98',
++        '  fi',
++        '  tokenized_arrow_stats() {',
++        '    find -L "$1" -type f -name "*.arrow" -printf "%s\\n" | awk \'{count += 1; bytes += $1} END {print count + 0 ":" bytes + 0}\'',
++        '  }',
++        '  verify_tokenized_copy() {',
++        '    local src_stats dst_stats relative src_hash dst_hash',
++        '    src_stats="$(tokenized_arrow_stats "${TOKENIZED_SRC}")"',
++        '    dst_stats="$(tokenized_arrow_stats "${TOKENIZED_DST}")"',
++        '    if [[ "${src_stats}" == "0:0" || "${src_stats}" != "${dst_stats}" ]]; then',
++        '      echo "[TOKENIZED_COPY_ERROR] Arrow count/bytes mismatch src=${src_stats} dst=${dst_stats}"',
++        '      return 1',
++        '    fi',
++        '    if [[ -n "${TOKENIZED_VERIFY_FILES}" ]]; then',
++        '      IFS=\',\' read -r -a required_files <<< "${TOKENIZED_VERIFY_FILES}"',
++        '      for relative in "${required_files[@]}"; do',
++        '        if [[ ! -f "${TOKENIZED_SRC}/${relative}" || ! -f "${TOKENIZED_DST}/${relative}" ]]; then',
++        '          echo "[TOKENIZED_COPY_ERROR] required file missing: ${relative}"',
++        '          return 1',
++        '        fi',
++        '        src_hash="$(sha256sum "${TOKENIZED_SRC}/${relative}" | awk \'{print $1}\')"',
++        '        dst_hash="$(sha256sum "${TOKENIZED_DST}/${relative}" | awk \'{print $1}\')"',
++        '        if [[ "${src_hash}" != "${dst_hash}" ]]; then',
++        '          echo "[TOKENIZED_COPY_ERROR] checksum mismatch: ${relative}"',
++        '          return 1',
++        '        fi',
++        '      done',
++        '    fi',
++        '  }',
++        '  if [[ -f "${TOKENIZED_DST}/.proof_local_copy_complete" ]] && verify_tokenized_copy; then',
++        '    echo "[TOKENIZED_COPY] reusing verified local copy at ${TOKENIZED_DST}"',
++        '  else',
++        '    TOKENIZED_TMP="${TOKENIZED_DST}.tmp.${SLURM_JOB_ID:-$$}"',
++        '    echo "[TOKENIZED_COPY] src=${TOKENIZED_SRC} dst=${TOKENIZED_DST} tmp=${TOKENIZED_TMP}"',
++        '    rm -rf "${TOKENIZED_TMP}"',
++        '    mkdir -p "${TOKENIZED_TMP}"',
++        '    if command -v rsync >/dev/null 2>&1; then',
++        '      if [[ "${PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE:-1}" == "1" ]]; then',
++        '        copy_cmd=(rsync -aL --delete "${TOKENIZED_SRC%/}/" "${TOKENIZED_TMP}/")',
++        '      else',
++        '        copy_cmd=(rsync -a --delete "${TOKENIZED_SRC%/}/" "${TOKENIZED_TMP}/")',
++        '      fi',
++        '    elif [[ "${PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE:-1}" == "1" ]]; then',
++        '      copy_cmd=(cp -aL "${TOKENIZED_SRC%/}/." "${TOKENIZED_TMP}/")',
++        '    else',
++        '      copy_cmd=(cp -a "${TOKENIZED_SRC%/}/." "${TOKENIZED_TMP}/")',
++        '    fi',
++        '    timeout --signal=TERM --kill-after=30 "${TOKENIZED_COPY_TIMEOUT}s" "${copy_cmd[@]}"',
++        '    rc=$?',
++        '    if [[ "${rc}" -ne 0 ]]; then',
++        '      echo "[TOKENIZED_COPY_ERROR] bounded copy failed rc=${rc}"',
++        '      rm -rf "${TOKENIZED_TMP}"',
++        '      exit 98',
++        '    fi',
++        '    rm -rf "${TOKENIZED_DST}"',
++        '    mv "${TOKENIZED_TMP}" "${TOKENIZED_DST}"',
++        '    if ! verify_tokenized_copy; then',
++        '      rm -rf "${TOKENIZED_DST}"',
++        '      exit 97',
++        '    fi',
++        '    touch "${TOKENIZED_DST}/.proof_local_copy_complete"',
++        '  fi',
++        '  flock -u 9',
++        '  exec 9>&-',
++        'fi',
++        ]
++    )
++    return lines
++
+ 
+ def _is_llamafactory_train_cmd(cmd: Sequence[str]) -> bool:
+     return len(cmd) >= 4 and cmd[1:4] == ["-m", "llamafactory.cli", "train"]
+@@ -68,6 +259,8 @@ class Executor(Protocol):
+ class LocalExecutor:
+     """Run commands as local subprocesses — the default."""
+ 
++    preflight: dict[str, Any] = field(default_factory=lambda: _normalize_preflight_config({}))
++
+     def run(
+         self,
+         cmd: list[str],
+@@ -75,6 +268,9 @@ class LocalExecutor:
+         dry_run: bool,
+         log_path: Path,
+     ) -> None:
++        local_job_id = str(env.get("SLURM_JOB_ID") or f"local-{os.getpid()}")
++        cmd = [_replace_job_id_token(str(arg), local_job_id) for arg in cmd]
++        env = {key: _replace_job_id_token(str(value), local_job_id) for key, value in env.items()}
+         started_at = _utc_stamp()
+         started_perf = time.perf_counter()
+         LOGGER.info("[CMD] %s", " ".join(cmd))
+@@ -122,6 +318,34 @@ class LocalExecutor:
+         with log_path.open("a", encoding="utf-8") as fh:
+             fh.write(f"\n[START_UTC] {started_at}\n")
+             fh.write(f"\n[CMD] {' '.join(cmd)}\n")
++            if self.preflight.get("enabled") and env.get("PROOF_PIPELINE_PREFLIGHT_COMPLETE") != "1":
++                preflight_cmd = _preflight_args(self.preflight, python_executable=sys.executable)
++                fh.write(f"[PREFLIGHT_CMD] {' '.join(preflight_cmd)}\n")
++                result = subprocess.run(
++                    preflight_cmd,
++                    env=env,
++                    stdout=subprocess.PIPE,
++                    stderr=subprocess.STDOUT,
++                    text=True,
++                    timeout=int(self.preflight["timeout_seconds"]) + 30,
++                )
++                fh.write(result.stdout or "")
++                if result.returncode != 0:
++                    raise subprocess.CalledProcessError(result.returncode, preflight_cmd)
++                env["PROOF_PIPELINE_PREFLIGHT_COMPLETE"] = "1"
++            if env.get("PROOF_PIPELINE_TOKENIZED_LOCAL_COPY") == "1":
++                copy_script = "\n".join(_tokenized_copy_shell_lines(cleanup_trap=False))
++                fh.write("[TOKENIZED_COPY] staging through LocalExecutor\n")
++                result = subprocess.run(
++                    ["bash", "-c", copy_script],
++                    env=env,
++                    stdout=subprocess.PIPE,
++                    stderr=subprocess.STDOUT,
++                    text=True,
++                )
++                fh.write(result.stdout or "")
++                if result.returncode != 0:
++                    raise subprocess.CalledProcessError(result.returncode, ["bash", "-c", "tokenized-local-copy"])
+             signal.signal(signal.SIGTERM, _forward_signal)
+             signal.signal(signal.SIGUSR1, _forward_signal)
+             try:
+@@ -152,6 +376,13 @@ class LocalExecutor:
+             finally:
+                 signal.signal(signal.SIGTERM, previous_sigterm_handler)
+                 signal.signal(signal.SIGUSR1, previous_sigusr1_handler)
++                if (
++                    env.get("PROOF_PIPELINE_TOKENIZED_LOCAL_COPY") == "1"
++                    and env.get("PROOF_PIPELINE_TOKENIZED_CLEANUP") == "1"
++                ):
++                    destination = env.get("PROOF_PIPELINE_TOKENIZED_DST", "")
++                    if destination and destination != "/":
++                        subprocess.run(["rm", "-rf", destination, f"{destination}.lock"], check=False)
+             duration = time.perf_counter() - started_perf
+             fh.write(f"[END] dry_run=false exit_code={code} duration_seconds={duration:.3f}\n")
+             if code != 0:
+@@ -207,6 +438,7 @@ class SlurmExecutor:
+     conda_env: str = _SLURM_DEFAULTS["conda_env"]
+     poll_interval: int = _SLURM_DEFAULTS["poll_interval_seconds"]
+     extra_sbatch_flags: list[str] = field(default_factory=list)
++    preflight: dict[str, Any] = field(default_factory=lambda: _normalize_preflight_config({}))
+ 
+     # ------------------------------------------------------------------
+     # public interface
+@@ -260,6 +492,7 @@ class SlurmExecutor:
+         dependency: str | None = None,
+         job_name: str | None = None,
+         script_dir: Path | None = None,
++        script_path: Path | None = None,
+         slurm_output: str | Path | None = None,
+     ) -> str | None:
+         """Submit a single job, optionally with a dependency (e.g. afterok:<jobid>)."""
+@@ -271,6 +504,7 @@ class SlurmExecutor:
+             dependency=dependency,
+             job_name=job_name,
+             script_dir=script_dir,
++            script_path=script_path,
+             slurm_output=slurm_output,
+         )
+ 
+@@ -315,6 +549,7 @@ class SlurmExecutor:
+         slurm_output: str | Path | None = None,
+         job_name: str | None = None,
+         script_dir: Path | None = None,
++        script_path: Path | None = None,
+     ) -> str | None:
+         """Write a job script and submit it.  Returns the Slurm job ID."""
+         log_path.parent.mkdir(parents=True, exist_ok=True)
+@@ -336,9 +571,10 @@ class SlurmExecutor:
+         script = self._build_job_script(cmd, env, job_name, slurm_log)
+ 
+         # Write the job script to a temp file next to the log.
+-        script_root = script_dir if script_dir is not None else log_path.parent
+-        script_root.mkdir(parents=True, exist_ok=True)
+-        script_path = script_root / log_path.with_suffix(".sbatch.sh").name
++        if script_path is None:
++            script_root = script_dir if script_dir is not None else log_path.parent
++            script_path = script_root / log_path.with_suffix(".sbatch.sh").name
++        script_path.parent.mkdir(parents=True, exist_ok=True)
+         script_path.write_text(script, encoding="utf-8")
+ 
+         LOGGER.info("[SBATCH] Submitting %s", script_path)
+@@ -430,9 +666,9 @@ class SlurmExecutor:
+         for key in sorted(env):
+             # Only export vars the pipeline explicitly sets.
+             if key.startswith(("PYTHONPATH", "PROOF_PIPELINE_", "WANDB_", "CUDA_", "HF_", "PYTORCH_")):
+-                env_exports.append(f'export {key}="{env[key]}"')
++                env_exports.append(f"export {key}={_shell_quote(str(env[key]))}")
+ 
+-        cmd_str = " ".join(_shell_quote(c) for c in cmd)
++        cmd_str = " ".join(_shell_quote_runtime_arg(c) for c in cmd)
+         # Wrap in a new session so signal forwarding can target the whole subtree reliably.
+         cmd_str_for_bash = cmd_str.replace("'", "'\"'\"'")
+         script_lines: list[str] = ["#!/bin/bash", *sbatch_lines, "", "set -uo pipefail", ""]
+@@ -474,43 +710,30 @@ class SlurmExecutor:
+                 "export PYTHONUNBUFFERED=1",
+                 "",
+                 'echo "[SLURM_START] $(date -u +%Y-%m-%dT%H:%M:%SZ) job=$SLURM_JOB_ID"',
+-                'if [[ "${PROOF_PIPELINE_TOKENIZED_LOCAL_COPY:-0}" == "1" ]]; then',
+-                '  TOKENIZED_SRC="${PROOF_PIPELINE_TOKENIZED_SRC:?PROOF_PIPELINE_TOKENIZED_SRC is required}"',
+-                '  TOKENIZED_DST="${PROOF_PIPELINE_TOKENIZED_DST:?PROOF_PIPELINE_TOKENIZED_DST is required}"',
+-                '  TOKENIZED_PARENT="$(dirname "${TOKENIZED_DST}")"',
+-                '  mkdir -p "${TOKENIZED_PARENT}"',
+-                '  TOKENIZED_LOCK="${TOKENIZED_DST}.lock"',
+-                '  exec 9>"${TOKENIZED_LOCK}"',
+-                '  flock 9',
+-                '  if [[ ! -f "${TOKENIZED_DST}/.proof_local_copy_complete" ]]; then',
+-                '    TOKENIZED_TMP="${TOKENIZED_DST}.tmp.${SLURM_JOB_ID:-$$}"',
+-                '    echo "[TOKENIZED_COPY] src=${TOKENIZED_SRC} dst=${TOKENIZED_DST} tmp=${TOKENIZED_TMP}"',
+-                '    rm -rf "${TOKENIZED_TMP}"',
+-                '    mkdir -p "${TOKENIZED_TMP}"',
+-                '    if command -v rsync >/dev/null 2>&1; then',
+-                '      if [[ "${PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE:-1}" == "1" ]]; then',
+-                '        rsync -aL --delete "${TOKENIZED_SRC%/}/" "${TOKENIZED_TMP}/"',
+-                '      else',
+-                '        rsync -a --delete "${TOKENIZED_SRC%/}/" "${TOKENIZED_TMP}/"',
+-                '      fi',
+-                '    else',
+-                '      if [[ "${PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE:-1}" == "1" ]]; then',
+-                '        cp -aL "${TOKENIZED_SRC%/}/." "${TOKENIZED_TMP}/"',
+-                '      else',
+-                '        cp -a "${TOKENIZED_SRC%/}/." "${TOKENIZED_TMP}/"',
+-                '      fi',
+-                '    fi',
+-                '    if ! find "${TOKENIZED_TMP}" -name "*.arrow" -print -quit | grep -q .; then',
+-                '      echo "[TOKENIZED_COPY_ERROR] local copy has no Arrow shards: ${TOKENIZED_TMP}"',
+-                '      exit 97',
+-                '    fi',
+-                '    rm -rf "${TOKENIZED_DST}"',
+-                '    mv "${TOKENIZED_TMP}" "${TOKENIZED_DST}"',
+-                '    touch "${TOKENIZED_DST}/.proof_local_copy_complete"',
+-                '  else',
+-                '    echo "[TOKENIZED_COPY] reusing existing local copy at ${TOKENIZED_DST}"',
+-                '  fi',
+-                'fi',
++            ]
++        )
++        if self.preflight.get("enabled"):
++            preflight_args = _preflight_args(self.preflight, python_executable="python3")
++            preflight_command = " ".join(_shell_quote(arg) for arg in preflight_args)
++            timeout_seconds = int(self.preflight["timeout_seconds"])
++            script_lines.extend(
++                [
++                    f'echo "[GPU_PREFLIGHT] timeout_seconds={timeout_seconds}"',
++                    (
++                        f"timeout --signal=TERM --kill-after=30 {timeout_seconds + 30}s "
++                        f"{preflight_command}"
++                    ),
++                    "PREFLIGHT_RC=$?",
++                    'if [[ "${PREFLIGHT_RC}" -ne 0 ]]; then',
++                    '  echo "[GPU_PREFLIGHT_ERROR] exit_code=${PREFLIGHT_RC}"',
++                    '  exit "${PREFLIGHT_RC}"',
++                    "fi",
++                    "export PROOF_PIPELINE_PREFLIGHT_COMPLETE=1",
++                ]
++            )
++        script_lines.extend(_tokenized_copy_shell_lines(cleanup_trap=True))
++        script_lines.extend(
++            [
+                 "EXIT_CODE=0",
+                 "CHILD_PID=",
+                 "CHILD_PGID=",
+@@ -719,9 +942,16 @@ def build_executor(
+             base_cfg.update(stage_exec)
+ 
+     exec_type = base_cfg.pop("type", "local")
++    preflight_cfg: dict[str, Any] = {}
++    profile_preflight = profile.get("preflight", {})
++    if isinstance(profile_preflight, dict):
++        preflight_cfg.update(profile_preflight)
++    if stage_cfg and isinstance(stage_cfg.get("preflight"), dict):
++        preflight_cfg.update(stage_cfg["preflight"])
++    preflight = _normalize_preflight_config(preflight_cfg)
+ 
+     if exec_type == "local":
+-        return LocalExecutor()
++        return LocalExecutor(preflight=preflight)
+ 
+     if exec_type != "slurm":
+         raise ValueError(f"Unknown executor type: {exec_type!r}  (expected 'local' or 'slurm')")
+@@ -737,6 +967,7 @@ def build_executor(
+         conda_env=str(base_cfg.get("conda_env", _SLURM_DEFAULTS["conda_env"])),
+         poll_interval=int(base_cfg.get("poll_interval_seconds", _SLURM_DEFAULTS["poll_interval_seconds"])),
+         extra_sbatch_flags=list(base_cfg.get("extra_sbatch_flags", [])),
++        preflight=preflight,
+     )
+ 
+ 
+diff --git a/pipeline/model_eval_stages.py b/pipeline/model_eval_stages.py
+index b4d8b72..24412af 100644
+--- a/pipeline/model_eval_stages.py
++++ b/pipeline/model_eval_stages.py
+@@ -10,10 +10,12 @@ from .stages.final_eval_loss import stage_final_eval_loss
+ from .stages.report import stage_report
+ from .stages.summary import stage_summary
+ from .stages.train import stage_train
++from .stages.train_acceptance import stage_train_acceptance
+ 
+ 
+ MODEL_STAGE_HANDLERS = {
+     "train": stage_train,
++    "train_acceptance": stage_train_acceptance,
+     "final_eval_loss": stage_final_eval_loss,
+     "embedding_verify": stage_embedding_verify,
+     "benchmark": stage_benchmark,
+diff --git a/pipeline/run.py b/pipeline/run.py
+index b806bbe..8637289 100644
+--- a/pipeline/run.py
++++ b/pipeline/run.py
+@@ -32,6 +32,7 @@ STAGES = [
+     "tokenize",
+     "audit",
+     "train",
++    "train_acceptance",
+     "final_eval_loss",
+     "embedding_verify",
+     "benchmark",
+@@ -64,6 +65,7 @@ def _stage_profile_cfg(profile: dict[str, Any], stage: str) -> dict[str, Any]:
+         "tokenize": "tokenization",
+         "audit": "audit",
+         "train": "training",
++        "train_acceptance": "train_acceptance",
+         "final_eval_loss": "final_eval_loss",
+         "embedding_verify": "embedding_training",
+         "benchmark": "benchmark",
+@@ -90,6 +92,26 @@ def _resolve_stage_cfg(profile: dict[str, Any], stage: str) -> dict[str, Any]:
+     return cfg
+ 
+ 
++def _apply_executor_cli_overrides(
++    stage_cfg: dict[str, Any],
++    *,
++    executor_type: str = "",
++    cuda_visible_devices: str = "",
++) -> dict[str, Any]:
++    """Apply explicit CLI overrides after resolving stage-specific executors."""
++    if not executor_type and not str(cuda_visible_devices).strip():
++        return stage_cfg
++    resolved = dict(stage_cfg)
++    executor_cfg_raw = resolved.get("executor", {})
++    executor_cfg = dict(executor_cfg_raw) if isinstance(executor_cfg_raw, dict) else {}
++    if executor_type:
++        executor_cfg["type"] = executor_type
++    if str(cuda_visible_devices).strip():
++        executor_cfg["cuda_visible_devices"] = str(cuda_visible_devices).strip()
++    resolved["executor"] = executor_cfg
++    return resolved
++
++
+ def _build_language_map_from_csv(
+     *,
+     csv_path: Path,
+@@ -141,8 +163,14 @@ def _build_language_map_from_csv(
+             "languages": sorted(grouped[family]),
+         }
+ 
++    # Per-run Slurm jobs may resolve this shared map concurrently.
++    temporary = output_path.with_name(f".{output_path.name}.tmp.{os.getpid()}.{time.time_ns()}")
+     output_path.parent.mkdir(parents=True, exist_ok=True)
+-    output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
++    try:
++        temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
++        os.replace(temporary, output_path)
++    finally:
++        temporary.unlink(missing_ok=True)
+     return output_path
+ 
+ 
+@@ -289,13 +317,19 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
+     embedding_init_cfg = profile.get("embedding_init", {})
+     embedding_training_cfg = profile.get("embedding_training", {})
+     summary_cfg = profile.get("summary", {})
++    train_acceptance_cfg = profile.get("train_acceptance", {})
+     final_eval_loss_cfg = profile.get("final_eval_loss", {})
+     benchmark_cfg = profile.get("benchmark", {})
+     baseline_eval_cfg = profile.get("baseline_eval", {})
+     report_cfg = profile.get("report", {})
+     wandb_cfg = profile.get("wandb", {})
+     run_naming_cfg = profile.get("run_naming", {})
+-    run_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
++    timestamp_base = (
++        str(os.environ.get("PROOF_PIPELINE_RUN_TIMESTAMP", "")).strip()
++        or dt.datetime.now().strftime("%Y%m%d_%H%M%S")
++    )
++    invocation_id = str(os.environ.get("SLURM_JOB_ID", "")).strip() or f"pid{os.getpid()}"
++    run_timestamp = f"{timestamp_base}_{invocation_id}"
+ 
+     env = os.environ.copy()
+     # Preserve virtualenv interpreter paths; resolving symlinks here can strip
+@@ -336,6 +370,14 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
+     train_root = _abs(repo_root, train_cfg.get("output_dir", str(output_root / "runs")))
+     summary_path = _abs(repo_root, summary_cfg.get("summary_csv", str(output_root / "summary.csv")))
+     gate_path = _abs(repo_root, summary_cfg.get("gate_json", str(output_root / "gate.json")))
++    train_acceptance_output_dir = ""
++    if isinstance(train_acceptance_cfg, dict):
++        train_acceptance_output_dir = str(train_acceptance_cfg.get("output_dir", "")).strip()
++    train_acceptance_root = (
++        _abs(repo_root, train_acceptance_output_dir)
++        if train_acceptance_output_dir
++        else (output_root / "train_acceptance")
++    )
+     final_eval_loss_output_dir = ""
+     if isinstance(final_eval_loss_cfg, dict):
+         final_eval_loss_output_dir = str(final_eval_loss_cfg.get("output_dir", "")).strip()
+@@ -402,6 +444,7 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
+         embedding_init_cfg=embedding_init_cfg,
+         embedding_training_cfg=embedding_training_cfg,
+         summary_cfg=summary_cfg,
++        train_acceptance_cfg=train_acceptance_cfg if isinstance(train_acceptance_cfg, dict) else {},
+         final_eval_loss_cfg=final_eval_loss_cfg if isinstance(final_eval_loss_cfg, dict) else {},
+         benchmark_cfg=benchmark_cfg,
+         baseline_eval_cfg=baseline_eval_cfg,
+@@ -417,6 +460,7 @@ def _build_context(args: argparse.Namespace) -> PipelineContext:
+         train_root=train_root,
+         summary_path=summary_path,
+         gate_path=gate_path,
++        train_acceptance_root=train_acceptance_root,
+         final_eval_loss_root=final_eval_loss_root,
+         benchmark_root=benchmark_root,
+         baseline_cache_root=baseline_cache_root,
+@@ -506,6 +550,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
+         "summary": "sum",
+         "report": "rpt",
+         "train": "train",
++        "train_acceptance": "tacc",
+         "final_eval_loss": "fevl",
+         "benchmark": "bench",
+         "baseline_eval": "beval",
+@@ -533,20 +578,76 @@ def _submit_chain(args: argparse.Namespace) -> int:
+             chain_env["WANDB_ENTITY"] = str(wandb_cfg["entity"]).strip()
+     dependency_ids: list[str] = []
+     submitted: list[str] = []
+-    last_stage_job_ids_by_run: dict[str, str] = {}
++    job_graph: list[dict[str, Any]] = []
+     stage_job_ids_by_stage: dict[str, list[str]] = {}
++    stage_job_ids_by_run: dict[str, dict[str, str]] = {}
++    train_log_paths_by_run: dict[str, Path] = {}
++
++    training_cfg = profile.get("training", {}) if isinstance(profile.get("training", {}), dict) else {}
++    configured_run_ids = [
++        str(run.get("id", "")).strip()
++        for run in training_cfg.get("runs", [])
++        if isinstance(run, dict) and str(run.get("id", "")).strip()
++    ]
++    chain_run_ids = run_ids or configured_run_ids
++
++    def chain_script_path(*, stage: str, run_id: str) -> Path:
++        return chain_sbatch_root / f"chain_{stage}.{run_id}.{chain_timestamp}.sbatch.sh"
++
++    def record_job(
++        *,
++        stage: str,
++        run_id: str,
++        job_id: str | None,
++        dependency: str | None,
++        script_path: Path,
++        log_path: Path,
++        slurm_output: Path,
++    ) -> str | None:
++        if job_id:
++            submitted.append(job_id)
++            graph_job_id = job_id
++        elif args.dry_run:
++            graph_job_id = f"dry_{stage}_{run_id}"
++        else:
++            return None
++        if args.dry_run:
++            print(
++                f"[DRY_RUN CHAIN] stage={stage} run_id={run_id} "
++                f"job={graph_job_id} dependency={dependency or 'none'}"
++            )
++        job_graph.append(
++            {
++                "stage": stage,
++                "run_id": run_id,
++                "job_id": graph_job_id,
++                "dependency": dependency,
++                "script_path": str(script_path.resolve()),
++                "log_path": str(log_path.resolve()),
++                "slurm_output": str(slurm_output.resolve()),
++            }
++        )
++        return graph_job_id
+ 
+     for stage in active_stages:
+         stage_cfg = _resolve_stage_cfg(profile, stage)
+         if isinstance(stage_cfg, dict) and stage_cfg.get("enabled") is False:
+             continue
++        # This safety gate is opt-in so existing profiles retain their old graph.
++        if stage == "train_acceptance" and not bool(stage_cfg.get("enabled", False)):
++            continue
+         executor = build_executor(profile, stage_cfg)
+         if not isinstance(executor, SlurmExecutor):
+             raise SystemExit(f"submit-chain requires Slurm executor for stage '{stage}'")
+         stage_tag = stage_short.get(stage, stage)
+         dependency_source_ids = dependency_ids
+-        if stage in {"final_eval_loss", "benchmark"}:
++        if stage == "train_acceptance":
+             dependency_source_ids = stage_job_ids_by_stage.get("train", dependency_ids)
++        elif stage in {"final_eval_loss", "benchmark"}:
++            if stage_job_ids_by_stage.get("train_acceptance"):
++                dependency_source_ids = stage_job_ids_by_stage["train_acceptance"]
++            else:
++                dependency_source_ids = stage_job_ids_by_stage.get("train", dependency_ids)
+         elif stage == "summary":
+             combined: list[str] = []
+             for dep_stage in ("final_eval_loss", "benchmark"):
+@@ -554,7 +655,10 @@ def _submit_chain(args: argparse.Namespace) -> int:
+             if combined:
+                 dependency_source_ids = combined
+         dependency_mode = "afterok"
+-        if stage in {"final_eval_loss", "benchmark"}:
++        if stage == "train_acceptance":
++            dependency_mode = "afterany"
++        elif stage in {"final_eval_loss", "benchmark"} and not stage_job_ids_by_stage.get("train_acceptance"):
++            # Backwards compatibility for profiles that do not enable the gate.
+             dependency_mode = "afterany"
+         dependency = f"{dependency_mode}:{':'.join(dependency_source_ids)}" if dependency_source_ids else None
+         stage_job_ids: list[str] = []
+@@ -584,6 +688,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
+                     embedding_training_cfg=train_ctx.embedding_training_cfg,
+                     run_name=run_name_label,
+                 )
++                script_path = chain_script_path(stage=stage, run_id=run_id)
+                 job_id = executor.submit(
+                     cmd,
+                     run_env,
+@@ -591,20 +696,29 @@ def _submit_chain(args: argparse.Namespace) -> int:
+                     log_path,
+                     dependency=dependency,
+                     job_name=f"{stage_tag}{lang_tag}_{run_id}",
+-                    script_dir=chain_sbatch_root,
++                    script_path=script_path,
+                     slurm_output=slurm_output,
+                 )
+-                if job_id:
+-                    stage_job_ids.append(job_id)
+-                    submitted.append(job_id)
+-                    last_stage_job_ids_by_run[run_id] = job_id
++                graph_job_id = record_job(
++                    stage=stage,
++                    run_id=run_id,
++                    job_id=job_id,
++                    dependency=dependency,
++                    script_path=script_path,
++                    log_path=log_path,
++                    slurm_output=slurm_output,
++                )
++                if graph_job_id:
++                    stage_job_ids.append(graph_job_id)
++                    stage_job_ids_by_run.setdefault(stage, {})[run_id] = graph_job_id
++                    train_log_paths_by_run[run_id] = slurm_output
+             dependency_ids = stage_job_ids if stage_job_ids else dependency_ids
+             if stage_job_ids:
+                 stage_job_ids_by_stage[stage] = list(stage_job_ids)
+             continue
+ 
+-        if stage in {"train", "benchmark", "final_eval_loss"} and len(run_ids) > 1:
+-            for run_id in run_ids:
++        if stage in {"train_acceptance", "benchmark", "final_eval_loss"} and chain_run_ids:
++            for run_id in chain_run_ids:
+                 cmd = [
+                     sys.executable,
+                     "-m",
+@@ -630,24 +744,45 @@ def _submit_chain(args: argparse.Namespace) -> int:
+                 slurm_output = chain_slurm_root / f"chain_{stage}.{run_id}.{chain_timestamp}.slurm.log"
+                 job_name = f"{stage_tag}{lang_tag}_{run_id}"
+                 job_dependency = dependency
+-                if stage in {"final_eval_loss", "benchmark"}:
+-                    prior_job = last_stage_job_ids_by_run.get(run_id)
+-                    if prior_job:
+-                        job_dependency = f"afterany:{prior_job}" # use afterany dependency to allow benchmark to run even after training is aborted due to time limit
++                run_env = dict(chain_env)
++                if stage == "train_acceptance":
++                    train_job = stage_job_ids_by_run.get("train", {}).get(run_id)
++                    if train_job:
++                        job_dependency = f"afterany:{train_job}"
++                        run_env["PROOF_PIPELINE_TRAIN_JOB_ID"] = train_job
++                    train_log = train_log_paths_by_run.get(run_id)
++                    if train_log is not None:
++                        run_env["PROOF_PIPELINE_TRAIN_LOG_PATH"] = str(train_log)
++                elif stage in {"final_eval_loss", "benchmark"}:
++                    acceptance_job = stage_job_ids_by_run.get("train_acceptance", {}).get(run_id)
++                    train_job = stage_job_ids_by_run.get("train", {}).get(run_id)
++                    if acceptance_job:
++                        job_dependency = f"afterok:{acceptance_job}"
++                    elif train_job:
++                        job_dependency = f"afterany:{train_job}"
++                script_path = chain_script_path(stage=stage, run_id=run_id)
+                 job_id = executor.submit(
+                     cmd,
+-                    chain_env,
++                    run_env,
+                     args.dry_run,
+                     log_path,
+                     dependency=job_dependency,
+                     job_name=job_name,
+-                    script_dir=chain_sbatch_root,
++                    script_path=script_path,
+                     slurm_output=slurm_output,
+                 )
+-                if job_id:
+-                    stage_job_ids.append(job_id)
+-                    submitted.append(job_id)
+-                    last_stage_job_ids_by_run[run_id] = job_id
++                graph_job_id = record_job(
++                    stage=stage,
++                    run_id=run_id,
++                    job_id=job_id,
++                    dependency=job_dependency,
++                    script_path=script_path,
++                    log_path=log_path,
++                    slurm_output=slurm_output,
++                )
++                if graph_job_id:
++                    stage_job_ids.append(graph_job_id)
++                    stage_job_ids_by_run.setdefault(stage, {})[run_id] = graph_job_id
+         else:
+             cmd = [
+                 sys.executable,
+@@ -682,6 +817,7 @@ def _submit_chain(args: argparse.Namespace) -> int:
+             else:
+                 approach = "all"
+             job_name = f"{stage_tag}{lang_tag}_{approach}"
++            script_path = chain_script_path(stage=stage, run_id=approach)
+             job_id = executor.submit(
+                 cmd,
+                 chain_env,
+@@ -689,17 +825,40 @@ def _submit_chain(args: argparse.Namespace) -> int:
+                 log_path,
+                 dependency=dependency,
+                 job_name=job_name,
+-                script_dir=chain_sbatch_root,
++                script_path=script_path,
+                 slurm_output=slurm_output,
+             )
+-            if job_id:
+-                stage_job_ids.append(job_id)
+-                submitted.append(job_id)
++            graph_job_id = record_job(
++                stage=stage,
++                run_id=approach,
++                job_id=job_id,
++                dependency=dependency,
++                script_path=script_path,
++                log_path=log_path,
++                slurm_output=slurm_output,
++            )
++            if graph_job_id:
++                stage_job_ids.append(graph_job_id)
+ 
+         dependency_ids = stage_job_ids if stage_job_ids else dependency_ids
+         if stage_job_ids:
+             stage_job_ids_by_stage[stage] = list(stage_job_ids)
+ 
++    graph_path = chain_root / f"job_graph_{chain_timestamp}.json"
++    graph_payload = {
++        "schema_version": 1,
++        "created_utc": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
++        "profile": args.profile,
++        "output_root": str(output_root.resolve()),
++        "code_signature": chain_env["PROOF_PIPELINE_CODE_SIG"],
++        "dry_run": bool(args.dry_run),
++        "jobs": job_graph,
++    }
++    temporary_graph_path = graph_path.with_name(f".{graph_path.name}.tmp.{os.getpid()}")
++    temporary_graph_path.write_text(json.dumps(graph_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
++    os.replace(temporary_graph_path, graph_path)
++    print(f"Job graph manifest: {graph_path}")
++
+     if submitted:
+         print(f"Submitted {len(submitted)} job(s): {' -> '.join(submitted)}")
+     else:
+@@ -756,7 +915,11 @@ def main() -> int:
+         handler = stage_handlers.get(stage)
+         if handler is None:
+             raise SystemExit(f"No stage handler configured for: {stage}")
+-        stage_cfg = _resolve_stage_cfg(ctx.profile, stage)
++        stage_cfg = _apply_executor_cli_overrides(
++            _resolve_stage_cfg(ctx.profile, stage),
++            executor_type=ctx.args.executor_type,
++            cuda_visible_devices=ctx.args.cuda_visible_devices,
++        )
+         ctx.executor = build_executor(ctx.profile, stage_cfg)
+         stage_started_perf = time.perf_counter()
+         ctx.logger.info("[STAGE_START] %s", stage)
+diff --git a/pipeline/runtime.py b/pipeline/runtime.py
+index 766fd1f..fc712ab 100644
+--- a/pipeline/runtime.py
++++ b/pipeline/runtime.py
+@@ -9,6 +9,7 @@ from __future__ import annotations
+ 
+ import csv
+ import datetime as dt
++import fcntl
+ import hashlib
+ import importlib.util
+ import json
+@@ -37,7 +38,12 @@ def _load_json(path: Path) -> dict[str, Any]:
+ 
+ def _dump_json(path: Path, payload: dict[str, Any]) -> None:
+     path.parent.mkdir(parents=True, exist_ok=True)
+-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
++    temporary = path.with_name(f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}")
++    try:
++        temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
++        os.replace(temporary, path)
++    finally:
++        temporary.unlink(missing_ok=True)
+ 
+ 
+ def _deep_merge(base: Any, override: Any) -> Any:
+@@ -273,15 +279,20 @@ def _save_stage_state(
+     signature: str,
+     artifacts: list[str],
+ ) -> None:
+-    state = _load_state(state_path)
+-    stages = state.setdefault("stages", {})
+-    stages[stage] = {
+-        "signature": signature,
+-        "status": "completed",
+-        "artifacts": artifacts,
+-        "updated_at_utc": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+-    }
+-    _dump_json(state_path, state)
++    state_path.parent.mkdir(parents=True, exist_ok=True)
++    lock_path = state_path.with_name(f".{state_path.name}.lock")
++    with lock_path.open("a", encoding="utf-8") as lock_handle:
++        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
++        state = _load_state(state_path)
++        stages = state.setdefault("stages", {})
++        stages[stage] = {
++            "signature": signature,
++            "status": "completed",
++            "artifacts": artifacts,
++            "updated_at_utc": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
++        }
++        _dump_json(state_path, state)
++        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+ 
+ 
+ def _stage_signature(payload: dict[str, Any]) -> str:
+@@ -394,7 +405,8 @@ def _select_tasks_for_languages(
+                 continue
+ 
+         if include_taxi1500 and task.startswith("taxi1500_"):
+-            lang = task.replace("taxi1500_", "", 1)
++            prefix = "taxi1500_v2_" if task.startswith("taxi1500_v2_") else "taxi1500_"
++            lang = task.replace(prefix, "", 1)
+             if lang in lang_set:
+                 selected.append(task)
+                 continue
+diff --git a/pipeline/stages/benchmark.py b/pipeline/stages/benchmark.py
+index 4abfa51..20fd70b 100644
+--- a/pipeline/stages/benchmark.py
++++ b/pipeline/stages/benchmark.py
+@@ -12,7 +12,6 @@ from .common import ensure_lm_eval_layout
+ from .runtime import (
+     _abs,
+     _build_run_label,
+-    _dump_json,
+     _load_json,
+     _resolve_profile_languages,
+     _run_stage_cmd,
+@@ -25,6 +24,7 @@ from ..checks import check_benchmark
+ from ..context import PipelineContext
+ from ..runtime import _deep_merge
+ from ..training import adapter_checkpoint_provenance, resolve_adapter_eval_path
++from .per_run_summary import write_per_run_summary
+ 
+ 
+ def _read_selected_tasks_file(path) -> list[str]:
+@@ -88,6 +88,63 @@ def _collect_tasks_from_output_dir(path: Path) -> tuple[list[Path], set[str]]:
+     return files, task_seen
+ 
+ 
++def _task_family(task: str) -> str:
++    if task.startswith("belebele_"):
++        return "Belebele"
++    if task.startswith("flores_en_perplexity_"):
++        return "FLORES"
++    if task.startswith("sib200_"):
++        return "SIB200"
++    if task.startswith("taxi1500_"):
++        return "Taxi1500"
++    return "Other"
++
++
++def _task_family_counts(tasks: list[str] | set[str]) -> dict[str, int]:
++    counts = {"Belebele": 0, "FLORES": 0, "SIB200": 0, "Taxi1500": 0}
++    for task in tasks:
++        family = _task_family(task)
++        if family in counts:
++            counts[family] += 1
++    return counts
++
++
++def _validate_strict_task_selection(selected_tasks: list[str], cfg: dict[str, object]) -> dict[str, int]:
++    """Validate the selected task panel before spending GPU time on evaluation."""
++    counts = _task_family_counts(selected_tasks)
++    if len(selected_tasks) != len(set(selected_tasks)):
++        raise SystemExit("Benchmark strict completeness: selected task list contains duplicates")
++    expected_count_raw = cfg.get("expected_task_count")
++    if expected_count_raw is not None:
++        try:
++            expected_count = int(expected_count_raw)
++        except (TypeError, ValueError) as exc:
++            raise SystemExit("benchmark.expected_task_count must be an integer") from exc
++        if len(selected_tasks) != expected_count:
++            raise SystemExit(
++                f"Benchmark strict completeness: selected {len(selected_tasks)} tasks, expected {expected_count}"
++            )
++
++    expected_breakdown_raw = cfg.get("expected_task_breakdown")
++    if expected_breakdown_raw is not None:
++        if not isinstance(expected_breakdown_raw, dict):
++            raise SystemExit("benchmark.expected_task_breakdown must be an object")
++        try:
++            expected_breakdown = {
++                family: int(expected_breakdown_raw.get(family, 0))
++                for family in counts
++            }
++        except (TypeError, ValueError) as exc:
++            raise SystemExit("benchmark.expected_task_breakdown values must be integers") from exc
++        if counts != expected_breakdown:
++            raise SystemExit(
++                f"Benchmark strict completeness: selected task breakdown {counts}, expected {expected_breakdown}"
++            )
++    if not selected_tasks:
++        raise SystemExit("Benchmark strict completeness: selected task list is empty")
++    return counts
++
++
+ def _resolve_eval_script(ctx: PipelineContext) -> str:
+     raw = str(ctx.benchmark_cfg.get("eval_script", "")).strip()
+     if raw:
+@@ -300,20 +357,30 @@ def stage_benchmark(ctx: PipelineContext) -> None:
+             selected_tasks_file = ctx.benchmark_root / f"selected_tasks.{run_id}.txt"
+             selected_tasks_summary = ctx.benchmark_root / f"selected_tasks_summary.{run_id}.json"
+         benchmark_summary_path = ctx.benchmark_root / "benchmark_summary.json"
++        per_run_summary_root = ctx.benchmark_root / "run_summaries"
+         all_runs = ctx.train_cfg.get("runs", [])
+         if ctx.args.run_id:
+             run_id_set = {str(rid) for rid in ctx.args.run_id}
+             runs = [run for run in all_runs if str(run.get("id")) in run_id_set]
+         else:
+             runs = all_runs
++        state_stage = (
++            f"benchmark:{runs[0]['id']}"
++            if len(runs) == 1 and ctx.args.run_id
++            else "benchmark"
++        )
++        force_stages = set(ctx.force_stages)
++        if "benchmark" in force_stages:
++            force_stages.add(state_stage)
+         expected = [selected_tasks_file, selected_tasks_summary, benchmark_summary_path]
++        expected.extend(per_run_summary_root / f"{run['id']}.json" for run in runs)
+         expected.extend([ctx.benchmark_root / str(run["id"]) for run in runs])
+         if _should_skip_stage(
+             state_path=ctx.state_path,
+-            stage="benchmark",
++            stage=state_stage,
+             signature=signature,
+             expected_artifacts=expected,
+-            force_stages=ctx.force_stages,
++            force_stages=force_stages,
+             dry_run=ctx.args.dry_run,
+         ):
+             ctx.logger.info("[SKIP] benchmark stage (cache hit)")
+@@ -352,7 +419,11 @@ def stage_benchmark(ctx: PipelineContext) -> None:
+                 dry_run=ctx.args.dry_run,
+                 logs_root=ctx.logs_root,
+                 stage="benchmark",
+-                suffix="task_select",
++                suffix=(
++                    f"task_select_{ctx.args.run_id[0]}"
++                    if len(ctx.args.run_id) == 1
++                    else "task_select"
++                ),
+                 executor=ctx.executor,
+             )
+             if ctx.args.dry_run:
+@@ -367,6 +438,14 @@ def stage_benchmark(ctx: PipelineContext) -> None:
+                 )
+             else:
+                 selected_tasks = _read_selected_tasks_file(selected_tasks_file)
++            strict_completeness = bool(ctx.benchmark_cfg.get("strict_completeness", False))
++            if strict_completeness and bool(ctx.benchmark_cfg.get("allow_missing_lm_eval", False)):
++                raise SystemExit("Benchmark strict completeness requires allow_missing_lm_eval=false")
++            expected_task_breakdown = (
++                _validate_strict_task_selection(selected_tasks, ctx.benchmark_cfg)
++                if strict_completeness
++                else _task_family_counts(selected_tasks)
++            )
+             if not ctx.args.dry_run and (not selected_tasks) and bool(ctx.benchmark_cfg.get("fail_if_no_tasks", True)):
+                 raise SystemExit("Benchmark stage selected zero tasks.")
+             tasks_csv = ",".join(selected_tasks) if selected_tasks else "belebele_eng_Latn"
+@@ -414,7 +493,6 @@ def stage_benchmark(ctx: PipelineContext) -> None:
+                     str(ctx.wandb_cfg.get("mode", "disabled")) if bool(ctx.wandb_cfg.get("enabled", False)) else "disabled",
+                 )
+             )
+-            benchmark_rows: list[dict[str, object]] = []
+             run_name_by_id: dict[str, str] = {
+                 str(run["id"]): _build_run_label(
+                     base_run_label=ctx.base_run_label,
+@@ -488,38 +566,53 @@ def stage_benchmark(ctx: PipelineContext) -> None:
+                 )
+                 if not ctx.args.dry_run:
+                     files, task_seen = _collect_tasks_from_output_dir(out_dir)
+-                    benchmark_rows.append(
+-                        {
+-                            "run_id": run_id,
+-                            "evaluated_checkpoint": str(adapter_dir.resolve()),
+-                            "adapter_provenance": adapter_checkpoint_provenance(
+-                                adapter_dir,
+-                                expected_step=expected_step,
+-                                require_direct_save_marker=bool(require_direct_save_marker),
++                    selected_task_set = set(selected_tasks)
++                    matched_tasks = selected_task_set & task_seen
++                    benchmark_row = {
++                        "run_id": run_id,
++                        "evaluated_checkpoint": str(adapter_dir.resolve()),
++                        "adapter_provenance": adapter_checkpoint_provenance(
++                            adapter_dir,
++                            expected_step=expected_step,
++                            require_direct_save_marker=bool(require_direct_save_marker),
++                        ),
++                        "evaluated_tokenizer": tokenizer,
++                        "output_dir": str(out_dir.resolve()),
++                        "num_output_files": len(files),
++                        "num_tasks_expected": len(selected_tasks),
++                        "num_tasks_seen": len(matched_tasks),
++                        "expected_task_breakdown": expected_task_breakdown,
++                        "seen_task_breakdown": _task_family_counts(matched_tasks),
++                        "missing_tasks": sorted(selected_task_set - task_seen),
++                        "extra_tasks_seen": sorted(task_seen - selected_task_set),
++                        "strict_completeness": strict_completeness,
++                    }
++                    write_per_run_summary(
++                        per_run_path=per_run_summary_root / f"{run_id}.json",
++                        aggregate_path=benchmark_summary_path,
++                        metadata={
++                            "tasks_file": str(tasks_file.resolve()),
++                            "selected_tasks_file": str(selected_tasks_file.resolve()),
++                            "selected_tasks_summary": str(selected_tasks_summary.resolve()),
++                            "resolved_eval_tokenizer": tokenizer,
++                            "lm_eval_limit": str(ctx.env.get("LM_EVAL_LIMIT", "")).strip(),
++                            "embedding_init_manifest": (
++                                str(ctx.embedding_init_manifest_path.resolve())
++                                if ctx.embedding_init_manifest_path.exists()
++                                else ""
+                             ),
+-                            "evaluated_tokenizer": tokenizer,
+-                            "output_dir": str(out_dir.resolve()),
+-                            "num_output_files": len(files),
+-                            "num_tasks_expected": len(selected_tasks),
+-                            "num_tasks_seen": len(task_seen),
+-                            "missing_tasks": sorted(set(selected_tasks) - task_seen),
+-                        }
++                            "num_selected_tasks": len(selected_tasks),
++                            "expected_task_breakdown": expected_task_breakdown,
++                            "strict_completeness": strict_completeness,
++                        },
++                        run=benchmark_row,
+                     )
+             if not ctx.args.dry_run:
+-                _dump_json(
++                check_benchmark(
++                    ctx.benchmark_root,
+                     benchmark_summary_path,
+-                    {
+-                        "tasks_file": str(tasks_file.resolve()),
+-                        "selected_tasks_file": str(selected_tasks_file.resolve()),
+-                        "selected_tasks_summary": str(selected_tasks_summary.resolve()),
+-                        "resolved_eval_tokenizer": tokenizer,
+-                        "lm_eval_limit": str(ctx.env.get("LM_EVAL_LIMIT", "")).strip(),
+-                        "embedding_init_manifest": (
+-                            str(ctx.embedding_init_manifest_path.resolve()) if ctx.embedding_init_manifest_path.exists() else ""
+-                        ),
+-                        "num_selected_tasks": len(selected_tasks),
+-                        "runs": benchmark_rows,
+-                    },
++                    dry_run=ctx.args.dry_run,
++                    check_path=(ctx.benchmark_root / f"_check.{runs[0]['id']}.json") if len(runs) == 1 else None,
++                    run_ids={str(run["id"]) for run in runs},
+                 )
+-                _save_stage_state(ctx.state_path, "benchmark", signature, [str(path) for path in expected])
+-                check_benchmark(ctx.benchmark_root, benchmark_summary_path, dry_run=ctx.args.dry_run)
++                _save_stage_state(ctx.state_path, state_stage, signature, [str(path) for path in expected])
+diff --git a/pipeline/stages/final_eval_loss.py b/pipeline/stages/final_eval_loss.py
+index c1cb1fe..faf0279 100644
+--- a/pipeline/stages/final_eval_loss.py
++++ b/pipeline/stages/final_eval_loss.py
+@@ -1,12 +1,11 @@
+ import json
++import math
+ from pathlib import Path
+ from typing import Any
+ 
+ from .runtime import (
+     _build_run_label,
+-    _dump_json,
+     _load_json,
+-    _missing_modules,
+     _run_stage_cmd,
+     _save_stage_state,
+     _should_skip_stage,
+@@ -15,6 +14,7 @@ from .runtime import (
+ from ..runtime import _deep_merge
+ from ..context import PipelineContext
+ from ..training import adapter_checkpoint_provenance, build_final_eval_cmd, resolve_adapter_eval_path
++from .per_run_summary import write_per_run_summary
+ 
+ 
+ def _resolve_eval_batch_size(ctx: PipelineContext, run: dict[str, Any]) -> int:
+@@ -97,21 +97,32 @@ def stage_final_eval_loss(ctx: PipelineContext) -> None:
+             "output_subdir": output_subdir,
+         }
+     )
++    per_run_summary_root = ctx.final_eval_loss_root / "run_summaries"
+     expected = [ctx.train_root / str(run["id"]) / output_subdir / "eval_results.json" for run in runs]
++    expected.extend(per_run_summary_root / f"{run['id']}.json" for run in runs)
++    stage_summary = ctx.final_eval_loss_root / "summary.json"
++    expected.append(stage_summary)
++    state_stage = (
++        f"final_eval_loss:{runs[0]['id']}"
++        if len(runs) == 1 and ctx.args.run_id
++        else "final_eval_loss"
++    )
++    force_stages = set(ctx.force_stages)
++    if "final_eval_loss" in force_stages:
++        force_stages.add(state_stage)
+ 
+     if _should_skip_stage(
+         state_path=ctx.state_path,
+-        stage="final_eval_loss",
++        stage=state_stage,
+         signature=signature,
+         expected_artifacts=expected,
+-        force_stages=ctx.force_stages,
++        force_stages=force_stages,
+         dry_run=ctx.args.dry_run,
+     ):
+         ctx.logger.info("[SKIP] final_eval_loss stage (cache hit)")
+         return
+ 
+     ctx.final_eval_loss_root.mkdir(parents=True, exist_ok=True)
+-    eval_rows: list[dict[str, Any]] = []
+     for run in runs:
+         run_id = str(run["id"])
+         run_name_label = _build_run_label(
+@@ -151,66 +162,68 @@ def stage_final_eval_loss(ctx: PipelineContext) -> None:
+         out_dir = run_dir / output_subdir
+         out_dir.mkdir(parents=True, exist_ok=True)
+         eval_results_path = out_dir / "eval_results.json"
+-        if (
++        already_complete = (
+             "final_eval_loss" not in ctx.force_stages
+             and (not ctx.args.dry_run)
+             and eval_results_path.exists()
+-        ):
+-            ctx.logger.info("[SKIP] final_eval_loss run %s (already complete)", run_id)
+-            continue
+-
+-        cmd, run_env = build_final_eval_cmd(
+-            repo_root=ctx.repo_root,
+-            env=ctx.env,
+-            output_dir=out_dir,
+-            run_cfg=run,
+-            common=ctx.train_cfg,
+-            language_map_path=ctx.language_map_path,
+-            tokenized_path=ctx.tokenized_dir,
+-            embedding_training_cfg=ctx.embedding_training_cfg,
+-            run_name=run_name_label,
+-            model_name_or_path=model_name_or_path,
+-            adapter_name_or_path=str(adapter_path),
+-            per_device_eval_batch_size=_resolve_eval_batch_size(ctx, run),
+-            max_samples=int(ctx.final_eval_loss_cfg["limit"]) if ctx.final_eval_loss_cfg.get("limit") is not None else None,
+-            verify_adapter=not ctx.args.dry_run,
+-        )
+-        _run_stage_cmd(
+-            cmd=cmd,
+-            env=run_env,
+-            dry_run=ctx.args.dry_run,
+-            logs_root=ctx.logs_root,
+-            stage="final_eval_loss",
+-            suffix=run_name_label,
+-            executor=ctx.executor,
+         )
++        if already_complete:
++            ctx.logger.info("[SKIP] final_eval_loss run %s (already complete)", run_id)
++        else:
++            cmd, run_env = build_final_eval_cmd(
++                repo_root=ctx.repo_root,
++                env=ctx.env,
++                output_dir=out_dir,
++                run_cfg=run,
++                common=ctx.train_cfg,
++                language_map_path=ctx.language_map_path,
++                tokenized_path=ctx.tokenized_dir,
++                embedding_training_cfg=ctx.embedding_training_cfg,
++                run_name=run_name_label,
++                model_name_or_path=model_name_or_path,
++                adapter_name_or_path=str(adapter_path),
++                per_device_eval_batch_size=_resolve_eval_batch_size(ctx, run),
++                max_samples=int(ctx.final_eval_loss_cfg["limit"]) if ctx.final_eval_loss_cfg.get("limit") is not None else None,
++                verify_adapter=not ctx.args.dry_run,
++            )
++            _run_stage_cmd(
++                cmd=cmd,
++                env=run_env,
++                dry_run=ctx.args.dry_run,
++                logs_root=ctx.logs_root,
++                stage="final_eval_loss",
++                suffix=run_name_label,
++                executor=ctx.executor,
++            )
+ 
+         if not ctx.args.dry_run:
+             if not eval_results_path.exists():
+                 raise SystemExit(f"final_eval_loss: missing eval_results.json for run {run_id}: {eval_results_path}")
+             payload = json.loads(eval_results_path.read_text(encoding="utf-8"))
+             eval_loss = payload.get("eval_loss")
+-            if not isinstance(eval_loss, (int, float)):
++            if not isinstance(eval_loss, (int, float)) or not math.isfinite(float(eval_loss)):
+                 raise SystemExit(
+-                    f"final_eval_loss: eval_loss missing/non-numeric for run {run_id} in {eval_results_path}"
++                    f"final_eval_loss: eval_loss missing/non-finite for run {run_id} in {eval_results_path}"
+                 )
+-            eval_rows.append(
+-                {
+-                    "run_id": run_id,
+-                    "eval_loss": float(eval_loss),
+-                    "adapter_name_or_path": str(adapter_path),
+-                    "adapter_provenance": adapter_checkpoint_provenance(
+-                        adapter_path,
+-                        expected_step=expected_step,
+-                        require_direct_save_marker=bool(require_direct_save_marker),
+-                    ),
+-                    "model_name_or_path": model_name_or_path,
+-                    "eval_results": str(eval_results_path),
+-                }
++            eval_row = {
++                "run_id": run_id,
++                "eval_loss": float(eval_loss),
++                "adapter_name_or_path": str(adapter_path),
++                "adapter_provenance": adapter_checkpoint_provenance(
++                    adapter_path,
++                    expected_step=expected_step,
++                    require_direct_save_marker=bool(require_direct_save_marker),
++                ),
++                "model_name_or_path": model_name_or_path,
++                "eval_results": str(eval_results_path),
++            }
++            write_per_run_summary(
++                per_run_path=per_run_summary_root / f"{run_id}.json",
++                aggregate_path=stage_summary,
++                metadata={},
++                run=eval_row,
+             )
+ 
+     if not ctx.args.dry_run:
+-        stage_summary = ctx.final_eval_loss_root / "summary.json"
+-        _dump_json(stage_summary, {"runs": eval_rows})
+-        _save_stage_state(ctx.state_path, "final_eval_loss", signature, [str(path) for path in expected])
++        _save_stage_state(ctx.state_path, state_stage, signature, [str(path) for path in expected])
+         ctx.logger.info("[OK] final_eval_loss_summary=%s", stage_summary)
+diff --git a/pipeline/training.py b/pipeline/training.py
+index 23ff198..8a2e52d 100644
+--- a/pipeline/training.py
++++ b/pipeline/training.py
+@@ -149,14 +149,49 @@ def _maybe_stage_tokenized_path(
+     local_name = str(local_copy_cfg.get("name", f"{tokenized_path.name}-{source_hash}")).strip()
+     if not local_name:
+         local_name = f"{tokenized_path.name}-{source_hash}"
++    job_scoped = _parse_bool(local_copy_cfg.get("job_scoped", False), default=False)
++    cleanup = _parse_bool(local_copy_cfg.get("cleanup", False), default=False)
++    if cleanup and not job_scoped:
++        raise SystemExit("training.tokenized_local_copy.cleanup requires job_scoped=true")
++    if job_scoped:
++        # The executor replaces this token only after Slurm has assigned the job id.
++        local_name = f"{local_name}-__PROOF_PIPELINE_SLURM_JOB_ID__"
+     staged_path = expanded_root / local_name
+ 
++    try:
++        timeout_seconds = int(local_copy_cfg.get("timeout_seconds", 900))
++    except (TypeError, ValueError) as exc:
++        raise SystemExit("training.tokenized_local_copy.timeout_seconds must be a positive integer") from exc
++    if timeout_seconds <= 0:
++        raise SystemExit("training.tokenized_local_copy.timeout_seconds must be a positive integer")
++
++    verify_files_raw = local_copy_cfg.get("verify_files", [])
++    if verify_files_raw is None:
++        verify_files_raw = []
++    if not isinstance(verify_files_raw, list) or not all(isinstance(item, str) for item in verify_files_raw):
++        raise SystemExit("training.tokenized_local_copy.verify_files must be a list of relative file paths")
++    verify_files: list[str] = []
++    for raw_path in verify_files_raw:
++        relative = raw_path.strip()
++        if not relative:
++            continue
++        candidate = Path(relative)
++        if candidate.is_absolute() or ".." in candidate.parts or "," in relative:
++            raise SystemExit(
++                "training.tokenized_local_copy.verify_files entries must be safe relative paths without commas"
++            )
++        verify_files.append(relative)
++
+     env["PROOF_PIPELINE_TOKENIZED_LOCAL_COPY"] = "1"
+     env["PROOF_PIPELINE_TOKENIZED_SRC"] = str(source)
+     env["PROOF_PIPELINE_TOKENIZED_DST"] = str(staged_path)
+     env["PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE"] = (
+         "1" if _parse_bool(local_copy_cfg.get("dereference_symlinks", True), default=True) else "0"
+     )
++    env["PROOF_PIPELINE_TOKENIZED_COPY_TIMEOUT_SECONDS"] = str(timeout_seconds)
++    env["PROOF_PIPELINE_TOKENIZED_VERIFY_FILES"] = ",".join(verify_files)
++    env["PROOF_PIPELINE_TOKENIZED_JOB_SCOPED"] = "1" if job_scoped else "0"
++    env["PROOF_PIPELINE_TOKENIZED_CLEANUP"] = "1" if cleanup else "0"
+     return staged_path
+ 
+ 
+diff --git a/pipeline_tools/reporting/compact.py b/pipeline_tools/reporting/compact.py
+index b1dc2d7..32d13bc 100644
+--- a/pipeline_tools/reporting/compact.py
++++ b/pipeline_tools/reporting/compact.py
+@@ -53,6 +53,8 @@ def parse_task_identity(task: str, metric: str) -> tuple[str, str, str]:
+         return "Belebele", task.replace("belebele_", ""), metric_base or "acc_norm"
+     if task.startswith("sib200_"):
+         return "SIB200", task.replace("sib200_", ""), metric_base or "acc"
++    if task.startswith("taxi1500_v2_"):
++        return "Taxi1500", task.replace("taxi1500_v2_", ""), metric_base or "acc"
+     if task.startswith("taxi1500_"):
+         return "Taxi1500", task.replace("taxi1500_", ""), metric_base or "acc"
+     if task.startswith("flores_en_perplexity_"):
+diff --git a/pipeline_tools/reporting/sources.py b/pipeline_tools/reporting/sources.py
+index b3ec152..a369b8e 100644
+--- a/pipeline_tools/reporting/sources.py
++++ b/pipeline_tools/reporting/sources.py
+@@ -20,6 +20,15 @@ def _skip_metric(task: str, metric: str) -> bool:
+     return False
+ 
+ 
++def _rglob_following_run_symlinks(root: Path, pattern: str) -> list[Path]:
++    """Find artifacts, including those below top-level consolidated run symlinks."""
++    paths = set(root.rglob(pattern))
++    for child in root.iterdir():
++        if child.is_symlink() and child.is_dir():
++            paths.update(child.rglob(pattern))
++    return sorted(paths)
++
++
+ def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
+     rows: list[dict[str, Any]] = []
+     if not benchmark_dir.exists():
+@@ -103,7 +112,7 @@ def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
+                     if task.startswith("belebele_"):
+                         break
+ 
+-    for path in sorted(benchmark_dir.rglob("*_lm_eval.jsonl")):
++    for path in _rglob_following_run_symlinks(benchmark_dir, "*_lm_eval.jsonl"):
+         run_id = path.parent.name
+         if path.is_file():
+             for line in path.read_text(encoding="utf-8").splitlines():
+@@ -124,7 +133,9 @@ def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
+                     continue
+                 ingest_payload(payload, run_id=run_id)
+ 
+-    for json_file in sorted(benchmark_dir.rglob("with_language_ids_*.json")) + sorted(benchmark_dir.rglob("no_language_ids.json")):
++    for json_file in _rglob_following_run_symlinks(
++        benchmark_dir, "with_language_ids_*.json"
++    ) + _rglob_following_run_symlinks(benchmark_dir, "no_language_ids.json"):
+         if not json_file.is_file():
+             continue
+         try:
+diff --git a/pipeline_tools/routing_analysis/README.md b/pipeline_tools/routing_analysis/README.md
+index 25c8e88..66791d7 100644
+--- a/pipeline_tools/routing_analysis/README.md
++++ b/pipeline_tools/routing_analysis/README.md
+@@ -28,8 +28,70 @@ The configured final-winner checkpoints are read-only inputs. Outputs are writte
+ `outputs/routing_analysis/moe_study_final_winners_96_langs/` as compressed routing
+ matrices, per-run `metadata.json`, optional figures, and a top-level `summary.json`.
+ 
+-Supported capture modes:
++Supported routing modes:
+ 
+ - `MOLA`: token-level true-expert routing plus null/bypass usage.
+ - `MOELORA`: shared language/task-id expert routing.
+ - `HYDRALORA`: head routing when `use_hydralora_experts=false`; expert routing otherwise.
++- `MTLLORA`: language-conditioned softmax mixtures over shared up-projections.
++
++`MOLA` and `HYDRALORA` are input-dependent and are measured from forward
++passes. Padding positions are excluded with the tokenizer attention mask.
++`MOELORA` and `MTLLORA` are input-independent for a fixed language id, so their
++routing distributions are extracted directly from the checkpoint and can be
++verified with `--validate-static`.
++
++## Final Top-5 Analysis
++
++```bash
++python -m pipeline_tools.routing_analysis \
++  --config configs/routing_analysis/final_top5_200_langs/initial_1000seq.json \
++  --prepare-sample-manifest
++
++python -m pipeline_tools.routing_analysis \
++  --config configs/routing_analysis/final_top5_96_langs/initial_1000seq.json \
++  --dry-run
++
++python scripts/slurm/routing_analysis/submit_final_top5.py --dry-run
++python scripts/slurm/routing_analysis/submit_final_top5.py
++```
++
++The shared manifest freezes the deterministic first 1,000 valid documents in
++sorted-file/source-record order for all 215 routing ids. Token runs write
++atomic per-language partials and resume automatically. Concurrent jobs write
++only their own `run_summary.json`; the dependent post-processing job creates
++the panel summaries, grouped views, aligned comparison, and notebook.
++
++## Layerwise LoLA/t-SNE Atlas
++
++The standard LoLA export embeds a whole normalized routing vector after
++flattening its captured modules. The optional layerwise atlas instead writes a
++routing heatmap and an independently fitted cosine t-SNE for each real
++base-model layer at language and family granularity:
++
++```bash
++scripts/slurm/routing_analysis/run_layerwise_atlas.sh
++```
++
++The direct command for one panel is:
++
++```bash
++python -m pipeline_tools.routing_analysis.layerwise_lola \
++  --routing-root outputs/routing_analysis/moe_study_final_top5_200_langs_initial_1000seq \
++  --languages-csv result_analysis/l2v_nested_samples/200.csv \
++  --granularity language \
++  --granularity family
++```
++
++Outputs live below each run's
++`lola_style/<run_id>/layerwise_atlas/` directory and include an HTML index,
++per-view t-SNE coordinates, and `atlas_manifest.json`. The panel-level
++`lola_style/layerwise_atlas_index.html` links all five approaches.
++
++Hydra-LoRA, MOLA, and MTL-LoRA routing modules are averaged within real
++base-model layers. MoE-LoRA exposes one shared language-conditioned router, so
++the atlas labels it `global_shared` and renders it once rather than duplicating
++the same distribution across artificial layers. Choice axes retain their
++method-specific meanings (expert, head, true expert, or up-projection).
++Individual t-SNE fits support within-view neighborhood interpretation only;
++their absolute coordinates are not comparable across layers or approaches.
+diff --git a/pipeline_tools/routing_analysis/cli.py b/pipeline_tools/routing_analysis/cli.py
+index 6f1faca..d1cf93a 100644
+--- a/pipeline_tools/routing_analysis/cli.py
++++ b/pipeline_tools/routing_analysis/cli.py
+@@ -1,29 +1,39 @@
+ from __future__ import annotations
+ 
+ import argparse
++import gc
+ import json
+ import logging
+ import sys
++from dataclasses import replace
+ from pathlib import Path
+ from typing import Any
+ 
+ import numpy as np
+ 
+-from .collectors import RoutingCollector, build_matrices
++from .collectors import RoutingCollector, build_matrices, module_layer_label
+ from .config import (
+     AnalysisConfig,
+     detect_method,
+     flatten_language_map,
+-    language_ids_from_map,
+     load_config,
+     read_adapter_config,
+     validate_config,
+ )
+-from .data import iter_language_jsonl_files, load_language_texts
++from .data import (
++    iter_language_jsonl_files,
++    load_language_texts_with_provenance,
++    load_sample_manifest,
++    validate_language_sample,
++)
++from .io import atomic_save_npz, atomic_write_json, sha256_file
+ from .plotting import aggregate_by_group, create_entropy_plot, create_heatmap, create_mola_null_plot
++from .samples import build_sample_manifest
++from .static import extract_static_routing, is_static_method, language_id_map as adapter_language_id_map
+ 
+ 
+ LOGGER = logging.getLogger("routing_analysis")
++CANARY_LANGUAGES = ["english", "arb_Arab", "jpn_Jpan"]
+ 
+ 
+ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+@@ -32,6 +42,27 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+     parser.add_argument("--dry-run", action="store_true", help="Validate config and planned inputs without loading models.")
+     parser.add_argument("--run-id", action="append", default=[], help="Limit to one or more configured run ids.")
+     parser.add_argument("--skip-figures", action="store_true", help="Write NPZ/metadata only.")
++    parser.add_argument("--force", action="store_true", help="Discard completion markers and recompute selected runs.")
++    parser.add_argument(
++        "--aggregate-only",
++        action="store_true",
++        help="Build the panel summary after every configured run has completed.",
++    )
++    parser.add_argument(
++        "--prepare-sample-manifest",
++        action="store_true",
++        help="Freeze the configured deterministic input prefix into sample_manifest and exit.",
++    )
++    parser.add_argument(
++        "--validate-static",
++        action="store_true",
++        help="For static routers, load the model and validate extraction against the runtime routing path.",
++    )
++    parser.add_argument(
++        "--canary",
++        action="store_true",
++        help="Analyze 8 documents at length 128 for English, Arabic, and Japanese under a separate output root.",
++    )
+     parser.add_argument("--log-level", default="INFO")
+     return parser.parse_args(argv)
+ 
+@@ -61,10 +92,14 @@ def torch_dtype(name: str):
+ 
+ 
+ def load_model(config: AnalysisConfig, adapter_checkpoint: Path):
++    from huggingface_hub import snapshot_download
+     from peft import PeftModel
+     from transformers import AutoModelForCausalLM, AutoTokenizer
+ 
+-    tokenizer = AutoTokenizer.from_pretrained(config.base_model)
++    model_source = Path(config.base_model)
++    if not model_source.exists():
++        model_source = Path(snapshot_download(config.base_model, local_files_only=True))
++    tokenizer = AutoTokenizer.from_pretrained(model_source, local_files_only=True)
+     if tokenizer.pad_token is None:
+         tokenizer.pad_token = tokenizer.eos_token
+     device_map: str | dict[str, str] = config.device
+@@ -72,9 +107,10 @@ def load_model(config: AnalysisConfig, adapter_checkpoint: Path):
+         device = 0 if config.device == "cuda" else config.device
+         device_map = {"": device}
+     model = AutoModelForCausalLM.from_pretrained(
+-        config.base_model,
++        model_source,
+         torch_dtype=torch_dtype(config.torch_dtype),
+         device_map=device_map,
++        local_files_only=True,
+     )
+     model = PeftModel.from_pretrained(model, str(adapter_checkpoint))
+     model.eval()
+@@ -96,36 +132,43 @@ def selected_adapters(config: AnalysisConfig, run_ids: list[str]):
+     return selected
+ 
+ 
++def _axis_for(method: str, adapter_config: dict[str, Any]) -> str:
++    if method == "MTLLORA":
++        return "up_projection"
++    return RoutingCollector(method, adapter_config).axis_name
++
++
+ def dry_run(config: AnalysisConfig, run_ids: list[str]) -> int:
+     summaries = validate_config(config)
+     selected = {item.run_id for item in selected_adapters(config, run_ids)}
+-    language_dirs = {lang: bool(iter_language_jsonl_files(config.sample_root, lang)) for lang in config.languages}
+-    missing_languages = [lang for lang, present in language_dirs.items() if not present]
+-    print(f"[OK] config valid: {len(config.languages)} languages, {len(summaries)} adapters")
++    missing_languages = [
++        language for language in config.languages if not iter_language_jsonl_files(config.sample_root, language)
++    ]
++    print(
++        f"[OK] config valid: {len(config.languages)} routing ids "
++        f"({len(config.analysis_languages)} active), {len(summaries)} adapters"
++    )
+     print(f"[INFO] output_root={config.output_root}")
++    print(f"[INFO] sample_manifest={config.sample_manifest}")
+     if missing_languages:
+         preview = ", ".join(missing_languages[:20])
+-        print(f"[WARN] {len(missing_languages)} languages have no sample files under {config.sample_root}: {preview}")
++        print(f"[WARN] {len(missing_languages)} routing ids lack samples: {preview}")
+     for summary in summaries:
+         if summary["run_id"] not in selected:
+             continue
+         adapter_cfg = read_adapter_config(Path(summary["checkpoint"]))
+         method = detect_method(adapter_cfg)
+-        axis = RoutingCollector(method, adapter_cfg).axis_name
+-        print(f"[PLAN] {summary['run_id']}: peft_type={method} axis={axis} checkpoint={summary['checkpoint']}")
++        adapter_language_id_map(adapter_cfg, config.languages)
++        print(
++            f"[PLAN] {summary['run_id']}: peft_type={method} axis={_axis_for(method, adapter_cfg)} "
++            f"basis={'static' if is_static_method(method) else 'token'} checkpoint={summary['checkpoint']}"
++        )
+     return 0
+ 
+ 
+-def language_id_map(config: AnalysisConfig) -> dict[str, int]:
+-    language_map = flatten_language_map(config.language_map)
+-    if language_map:
+-        return language_ids_from_map(language_map)
+-    return {language: idx for idx, language in enumerate(sorted(config.languages))}
+-
+-
+ def batched(items: list[str], size: int):
+-    for idx in range(0, len(items), size):
+-        yield items[idx : idx + size]
++    for index in range(0, len(items), size):
++        yield items[index : index + size]
+ 
+ 
+ def is_cuda_oom(exc: BaseException) -> bool:
+@@ -137,6 +180,7 @@ def run_language_batches(
+     *,
+     model: Any,
+     tokenizer: Any,
++    collector: RoutingCollector,
+     texts: list[str],
+     config: AnalysisConfig,
+     batch_size: int,
+@@ -169,6 +213,7 @@ def run_language_batches(
+                     dtype=torch.long,
+                     device=device,
+                 )
++            collector.set_token_mask(encoded.get("attention_mask"))
+             with torch.no_grad():
+                 _ = model(**encoded)
+             index += len(batch_texts)
+@@ -185,57 +230,441 @@ def run_language_batches(
+             )
+             effective_batch_size = new_batch_size
+             torch.cuda.empty_cache()
++        finally:
++            collector.clear_token_mask()
+     return effective_batch_size
+ 
+ 
+-def save_npz(output_path: Path, payload: dict[str, Any], *, languages: list[str], run_id: str, peft_type: str) -> None:
+-    output_path.parent.mkdir(parents=True, exist_ok=True)
++def save_npz(
++    output_path: Path,
++    payload: dict[str, Any],
++    *,
++    languages: list[str],
++    run_id: str,
++    peft_type: str,
++) -> None:
+     save_payload = dict(payload)
+     save_payload["languages"] = np.array(languages, dtype=object)
+     save_payload["run_id"] = run_id
+     save_payload["peft_type"] = peft_type
+-    np.savez_compressed(output_path, **save_payload)
++    atomic_save_npz(output_path, save_payload)
+ 
+ 
+-def write_summary(output_root: Path, summaries: list[dict[str, Any]]) -> None:
+-    output_root.mkdir(parents=True, exist_ok=True)
+-    (output_root / "summary.json").write_text(json.dumps({"runs": summaries}, indent=2, sort_keys=True), encoding="utf-8")
++def _load_partial(path: Path) -> dict[str, Any]:
++    with np.load(path, allow_pickle=True) as source:
++        return {key: source[key] for key in source.files}
+ 
+ 
+-def analyze_adapter(
++def combine_partials(partial_paths: list[Path], languages: list[str]) -> dict[str, Any]:
++    if len(partial_paths) != len(languages):
++        raise ValueError(f"Expected {len(languages)} partials, got {len(partial_paths)}")
++    partials = [_load_partial(path) for path in partial_paths]
++    reference = partials[0]
++    fixed_keys = {"layer_labels", "choice_labels", "axis_name", "routing_basis", "run_id", "peft_type"}
++    for partial in partials[1:]:
++        for key in ("layer_labels", "choice_labels", "axis_name", "routing_basis"):
++            if not np.array_equal(partial[key], reference[key]):
++                raise ValueError(f"Partial routing artifact mismatch for {key}")
++
++    combined: dict[str, Any] = {}
++    for key, value in reference.items():
++        if key == "languages":
++            continue
++        if key in fixed_keys:
++            combined[key] = value
++        elif isinstance(value, np.ndarray) and value.ndim >= 1 and value.shape[0] == 1:
++            combined[key] = np.concatenate([partial[key] for partial in partials], axis=0)
++        else:
++            combined[key] = value
++    return combined
++
++
++def _checkpoint_provenance(config: AnalysisConfig, checkpoint: Path) -> dict[str, Any]:
++    config_path = checkpoint / "adapter_config.json"
++    weights_path = checkpoint / "adapter_model.safetensors"
++    payload = {
++        "adapter_config": {
++            "path": str(config_path),
++            "bytes": config_path.stat().st_size,
++            "sha256": sha256_file(config_path),
++        },
++        "adapter_weights": {
++            "path": str(weights_path),
++            "bytes": weights_path.stat().st_size,
++        },
++    }
++    if config.checkpoint_hashes:
++        payload["adapter_weights"]["sha256"] = sha256_file(weights_path)
++    return payload
++
++
++def _create_figures(
++    *,
+     config: AnalysisConfig,
++    spec,
++    method: str,
++    payload: dict[str, Any],
++    output_dir: Path,
++) -> list[str]:
++    figures_dir = output_dir / "figures"
++    matrix = payload.get("routing_probability", payload["routing_weight_normalized"])
++    create_heatmap(
++        matrix,
++        config.analysis_languages,
++        f"{spec.run_id} routing probability",
++        figures_dir / "routing_probability_heatmap.png",
++        axis_name=str(payload["axis_name"]),
++    )
++    figures = ["figures/routing_probability_heatmap.png"]
++    language_groups = flatten_language_map(config.language_map)
++    if language_groups:
++        grouped, group_labels = aggregate_by_group(matrix, config.analysis_languages, language_groups)
++        create_heatmap(
++            grouped,
++            group_labels,
++            f"{spec.run_id} grouped routing probability",
++            figures_dir / "grouped_routing_probability_heatmap.png",
++            axis_name=str(payload["axis_name"]),
++        )
++        figures.append("figures/grouped_routing_probability_heatmap.png")
++    create_entropy_plot(payload["layer_entropy"], figures_dir / "routing_entropy.png")
++    figures.append("figures/routing_entropy.png")
++    if method == "MOLA" and bool(read_adapter_config(spec.checkpoint).get("mola_use_null_expert", False)):
++        create_mola_null_plot(payload, figures_dir / "mola_null_usage.png")
++        figures.append("figures/mola_null_usage.png")
++    return figures
++
++
++def _write_run_outputs(
+     *,
++    config: AnalysisConfig,
+     spec,
++    method: str,
++    payload: dict[str, Any],
++    output_dir: Path,
++    adapter_config: dict[str, Any],
++    input_provenance: dict[str, Any],
++    effective_batch_sizes: dict[str, int],
++    static_validation: dict[str, Any] | None,
+     create_figures: bool,
++) -> dict[str, Any]:
++    npz_path = output_dir / "routing_matrix.npz"
++    save_npz(npz_path, payload, languages=config.analysis_languages, run_id=spec.run_id, peft_type=method)
++    figures = (
++        _create_figures(config=config, spec=spec, method=method, payload=payload, output_dir=output_dir)
++        if create_figures
++        else []
++    )
++    checkpoint_provenance = _checkpoint_provenance(config, spec.checkpoint)
++    routing_basis = str(payload.get("routing_basis", "token_conditioned"))
++    metadata = {
++        "schema_version": 2,
++        "run_id": spec.run_id,
++        "label": spec.label,
++        "checkpoint": str(spec.checkpoint),
++        "checkpoint_provenance": checkpoint_provenance,
++        "peft_type": method,
++        "axis_name": str(payload["axis_name"]),
++        "routing_basis": routing_basis,
++        "sample_dependent": routing_basis == "token_conditioned",
++        "languages": config.analysis_languages,
++        "captured_modules": len(payload["layer_labels"]),
++        "captured_tokens": int(payload["tokens"].sum()),
++        "configured_batch_size": int(spec.batch_size or config.batch_size),
++        "effective_batch_sizes": effective_batch_sizes,
++        "auto_find_batch_size": config.auto_find_batch_size,
++        "length_sort_batches": config.length_sort_batches,
++        "padding_tokens_excluded": routing_basis == "token_conditioned",
++        "input_provenance": input_provenance,
++        "static_validation": static_validation,
++        "routing_matrix": str(npz_path),
++        "adapter_config": adapter_config,
++        "mola_null_router_enabled": (
++            bool(adapter_config.get("mola_use_null_expert", False)) if method == "MOLA" else None
++        ),
++    }
++    atomic_write_json(output_dir / "metadata.json", metadata)
++    summary = {
++        "run_id": spec.run_id,
++        "peft_type": method,
++        "axis_name": str(payload["axis_name"]),
++        "routing_basis": routing_basis,
++        "status": "complete",
++        "captured_modules": len(payload["layer_labels"]),
++        "captured_tokens": int(payload["tokens"].sum()),
++        "routing_ids": len(config.analysis_languages),
++        "configured_batch_size": int(spec.batch_size or config.batch_size),
++        "min_effective_batch_size": (
++            int(min(effective_batch_sizes.values()))
++            if effective_batch_sizes
++            else int(spec.batch_size or config.batch_size)
++        ),
++        "output_dir": str(output_dir),
++        "routing_matrix": str(npz_path),
++        "metadata": str(output_dir / "metadata.json"),
++        "figures": figures,
++    }
++    atomic_write_json(output_dir / "run_summary.json", summary)
++    return summary
++
++
++def _find_moelora_parent(model: Any):
++    for module in model.modules():
++        if (
++            callable(getattr(type(module), "get_routing_weights", None))
++            and getattr(module, "lora_task_embedding", None) is not None
++            and getattr(module, "lora_gate", None) is not None
++        ):
++            return module
++    raise RuntimeError("Could not find loaded MoE-LoRA shared routing module")
++
++
++def validate_static_forward(
++    *,
++    config: AnalysisConfig,
++    spec,
++    method: str,
++    adapter_config: dict[str, Any],
++    payload: dict[str, Any],
+ ) -> dict[str, Any]:
+     import torch
+ 
+-    adapter_cfg = read_adapter_config(spec.checkpoint)
+-    method = detect_method(adapter_cfg)
++    model, tokenizer = load_model(config, spec.checkpoint)
++    lang_to_id = adapter_language_id_map(adapter_config, config.languages)
++    selected = [
++        language for language in config.static_validation_languages if language in config.analysis_languages
++    ]
++    if not selected:
++        raise ValueError("None of static_validation_languages are in the configured panel")
++    max_error = 0.0
++    forward_documents = 0
++    try:
++        if method == "MOELORA":
++            from safetensors import safe_open
++
++            parent = _find_moelora_parent(model)
++            adapter_name = next(iter(parent.peft_config))
++            weights_path = spec.checkpoint / "adapter_model.safetensors"
++            with safe_open(weights_path, framework="pt", device="cpu") as handle:
++                checkpoint_embedding = handle.get_tensor("base_model.lora_task_embedding.weight").float()
++                checkpoint_gate = handle.get_tensor("base_model.lora_gate.weight").float()
++            runtime_embedding = parent.lora_task_embedding[adapter_name].weight.detach().float().cpu()
++            runtime_gate = parent.lora_gate[adapter_name].weight.detach().float().cpu()
++            embedding_error = float(torch.max(torch.abs(runtime_embedding - checkpoint_embedding)))
++            gate_error = float(torch.max(torch.abs(runtime_gate - checkpoint_gate)))
++            LOGGER.info(
++                "MoE static validation tensors: embedding_dtype=%s gate_dtype=%s "
++                "embedding_max_abs_error=%g gate_max_abs_error=%g",
++                parent.lora_task_embedding[adapter_name].weight.dtype,
++                parent.lora_gate[adapter_name].weight.dtype,
++                embedding_error,
++                gate_error,
++            )
++            for language in selected:
++                language_index = config.analysis_languages.index(language)
++                routing_id = lang_to_id[language]
++                parent._cached_routing_ids = torch.tensor([routing_id], device=model_device(model))
++                parent._cached_routing_weights = {}
++                runtime = parent.get_routing_weights(
++                    adapter_name,
++                    batch_size=1,
++                    device=model_device(model),
++                    dtype=torch.float32,
++                )
++                expected = payload["routing_probability"][language_index, 0]
++                language_error = float(np.max(np.abs(runtime.detach().cpu().numpy()[0] - expected)))
++                LOGGER.info(
++                    "MoE static validation language=%s routing_id=%d max_abs_error=%g "
++                    "runtime_topk=%s expected_topk=%s",
++                    language,
++                    routing_id,
++                    language_error,
++                    torch.nonzero(runtime[0] > 0, as_tuple=False).flatten().detach().cpu().tolist(),
++                    np.flatnonzero(expected > 0).tolist(),
++                )
++                max_error = max(max_error, language_error)
++                parent._cached_routing_ids = None
++                parent._cached_routing_weights = None
++        elif method == "MTLLORA":
++            payload_layers = {
++                str(label): index for index, label in enumerate(payload["layer_labels"].tolist())
++            }
++            observed_layers = set()
++            for name, module in model.named_modules():
++                weights_by_adapter = getattr(module, "lora_B_weights", None)
++                if weights_by_adapter is None or not len(weights_by_adapter):
++                    continue
++                adapter_name = next(iter(weights_by_adapter))
++                label = module_layer_label(name)
++                if label not in payload_layers:
++                    continue
++                observed_layers.add(label)
++                temperature = float(module.temperature[adapter_name])
++                runtime = torch.softmax(
++                    weights_by_adapter[adapter_name].detach().to(torch.float32) / temperature,
++                    dim=-1,
++                )
++                expected = payload["routing_probability"][:, payload_layers[label], :]
++                rows = torch.tensor(
++                    [lang_to_id[language] for language in config.analysis_languages],
++                    dtype=torch.long,
++                    device=runtime.device,
++                )
++                observed = runtime[rows].cpu().numpy()
++                max_error = max(max_error, float(np.max(np.abs(observed - expected))))
++            missing_layers = sorted(set(payload_layers) - observed_layers)
++            if missing_layers:
++                raise ValueError(f"Loaded MTL-LoRA model is missing routing modules: {missing_layers}")
++
++        for language in selected:
++            texts, _ = load_language_texts_with_provenance(
++                config.sample_root,
++                language,
++                text_field=config.text_field,
++                limit=8,
++            )
++            if len(texts) != 8:
++                raise ValueError(f"{language}: static validation requires 8 texts, found {len(texts)}")
++            encoded = tokenizer(
++                texts,
++                truncation=True,
++                max_length=128,
++                padding=True,
++                return_tensors="pt",
++            )
++            encoded = {key: value.to(model_device(model)) for key, value in encoded.items()}
++            encoded["language_ids"] = torch.full(
++                (len(texts),),
++                lang_to_id[language],
++                dtype=torch.long,
++                device=model_device(model),
++            )
++            encoded["logits_to_keep"] = 1
++            with torch.no_grad():
++                output = model(**encoded)
++            if not torch.isfinite(output.logits).all():
++                raise ValueError(f"{language}: static validation forward produced non-finite logits")
++            forward_documents += len(texts)
++    finally:
++        del model
++        del tokenizer
++        gc.collect()
++        if torch.cuda.is_available():
++            torch.cuda.empty_cache()
++    if max_error > 1e-4:
++        raise ValueError(f"{method} static extraction mismatch: max_abs_error={max_error}")
++    return {
++        "status": "passed",
++        "languages": selected,
++        "documents": forward_documents,
++        "max_length": 128,
++        "max_probability_error": max_error,
++        "tolerance": 1e-4,
++        "finite_forward_logits": True,
++    }
++
++
++def analyze_static_adapter(
++    config: AnalysisConfig,
++    *,
++    spec,
++    adapter_config: dict[str, Any],
++    method: str,
++    create_figures: bool,
++    validate_static: bool,
++) -> dict[str, Any]:
+     output_dir = config.output_root / spec.run_id
+     output_dir.mkdir(parents=True, exist_ok=True)
++    payload = extract_static_routing(
++        method,
++        spec.checkpoint,
++        adapter_config,
++        config.analysis_languages,
++        config.languages,
++    )
++    validation = (
++        validate_static_forward(
++            config=config,
++            spec=spec,
++            method=method,
++            adapter_config=adapter_config,
++            payload=payload,
++        )
++        if validate_static
++        else {"status": "not_run", "reason": "Run with --validate-static on a GPU node"}
++    )
++    return _write_run_outputs(
++        config=config,
++        spec=spec,
++        method=method,
++        payload=payload,
++        output_dir=output_dir,
++        adapter_config=adapter_config,
++        input_provenance={
++            "sample_dependent": False,
++            "documents": 0,
++            "note": "Routing is a learned language-conditioned distribution; text inputs are not routing observations.",
++        },
++        effective_batch_sizes={},
++        static_validation=validation,
++        create_figures=create_figures,
++    )
+ 
+-    LOGGER.info("Loading %s from %s", spec.run_id, spec.checkpoint)
+-    model, tokenizer = load_model(config, spec.checkpoint)
+-    collector = RoutingCollector(method, adapter_cfg)
+-    collector.attach(model)
+-    lang_to_id = language_id_map(config)
++
++def analyze_token_adapter(
++    config: AnalysisConfig,
++    *,
++    spec,
++    adapter_config: dict[str, Any],
++    method: str,
++    create_figures: bool,
++) -> dict[str, Any]:
++    output_dir = config.output_root / spec.run_id
++    partial_dir = output_dir / "partials"
++    partial_dir.mkdir(parents=True, exist_ok=True)
++    sample_manifest = load_sample_manifest(config.sample_manifest)
++    lang_to_id = adapter_language_id_map(adapter_config, config.languages)
+     adapter_batch_size = spec.batch_size or config.batch_size
+     effective_batch_sizes: dict[str, int] = {}
++    input_provenance: dict[str, Any] = {}
+ 
++    LOGGER.info("Loading %s from %s", spec.run_id, spec.checkpoint)
++    model, tokenizer = load_model(config, spec.checkpoint)
++    collector = RoutingCollector(method, adapter_config)
++    collector.attach(model)
+     try:
+-        for language in config.languages:
+-            texts = load_language_texts(
++        for language in config.analysis_languages:
++            partial_path = partial_dir / f"{language}.npz"
++            partial_meta_path = partial_dir / f"{language}.json"
++            texts, provenance = load_language_texts_with_provenance(
+                 config.sample_root,
+                 language,
+                 text_field=config.text_field,
+                 limit=config.max_sequences,
+             )
+-            if not texts:
+-                LOGGER.warning("No texts found for language %s", language)
+-                continue
++            validate_language_sample(
++                provenance=provenance,
++                manifest=sample_manifest,
++                expected_documents=config.max_sequences,
++                strict=config.strict_samples,
++            )
++            input_provenance[language] = provenance
++            expected_partial = {
++                "language": language,
++                "documents": len(texts),
++                "text_sha256": provenance["text_sha256"],
++                "max_length": config.max_length,
++                "checkpoint": str(spec.checkpoint),
++                "method": method,
++            }
++            if partial_path.exists() and partial_meta_path.exists():
++                observed = json.loads(partial_meta_path.read_text(encoding="utf-8"))
++                if all(observed.get(key) == value for key, value in expected_partial.items()):
++                    effective_batch_sizes[language] = int(observed["effective_batch_size"])
++                    LOGGER.info("Resume hit for %s/%s", spec.run_id, language)
++                    continue
++
+             collector.set_language(language)
+-            language_id = lang_to_id.get(language, -1)
+             LOGGER.info(
+                 "Analyzing %s for %s (%d sequences, batch_size=%d)",
+                 spec.run_id,
+@@ -243,99 +672,182 @@ def analyze_adapter(
+                 len(texts),
+                 adapter_batch_size,
+             )
+-            effective_batch_sizes[language] = run_language_batches(
++            effective = run_language_batches(
+                 model=model,
+                 tokenizer=tokenizer,
++                collector=collector,
+                 texts=texts,
+                 config=config,
+                 batch_size=adapter_batch_size,
+-                language_id=language_id,
++                language_id=lang_to_id[language],
+                 run_id=spec.run_id,
+                 language=language,
+             )
++            effective_batch_sizes[language] = effective
++            partial_payload = build_matrices(collector, [language])
++            save_npz(
++                partial_path,
++                partial_payload,
++                languages=[language],
++                run_id=spec.run_id,
++                peft_type=method,
++            )
++            atomic_write_json(
++                partial_meta_path,
++                {**expected_partial, "effective_batch_size": effective, "status": "complete"},
++            )
++            collector.by_language.pop(language, None)
+     finally:
+         collector.remove()
++        del model
++        del tokenizer
++        gc.collect()
++        try:
++            import torch
+ 
+-    payload = build_matrices(collector, config.languages)
+-    npz_path = output_dir / "routing_matrix.npz"
+-    save_npz(npz_path, payload, languages=config.languages, run_id=spec.run_id, peft_type=method)
++            if torch.cuda.is_available():
++                torch.cuda.empty_cache()
++        except ImportError:
++            pass
+ 
+-    metadata = {
+-        "run_id": spec.run_id,
+-        "label": spec.label,
+-        "checkpoint": str(spec.checkpoint),
+-        "peft_type": method,
+-        "axis_name": str(payload["axis_name"]),
+-        "languages": config.languages,
+-        "captured_modules": len(payload["layer_labels"]),
+-        "captured_tokens": int(payload["tokens"].sum()),
+-        "configured_batch_size": int(adapter_batch_size),
+-        "effective_batch_sizes": effective_batch_sizes,
+-        "auto_find_batch_size": config.auto_find_batch_size,
+-        "length_sort_batches": config.length_sort_batches,
+-        "routing_matrix": str(npz_path),
+-        "adapter_config": adapter_cfg,
+-    }
+-    (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
++    partial_paths = [partial_dir / f"{language}.npz" for language in config.analysis_languages]
++    missing = [str(path) for path in partial_paths if not path.exists()]
++    if missing:
++        raise RuntimeError(f"Missing completed language partials for {spec.run_id}: {missing}")
++    payload = combine_partials(partial_paths, config.analysis_languages)
++    return _write_run_outputs(
++        config=config,
++        spec=spec,
++        method=method,
++        payload=payload,
++        output_dir=output_dir,
++        adapter_config=adapter_config,
++        input_provenance={
++            "sample_dependent": True,
++            "documents_per_routing_id": config.max_sequences,
++            "max_length": config.max_length,
++            "sample_manifest": str(config.sample_manifest) if config.sample_manifest else None,
++            "languages": input_provenance,
++        },
++        effective_batch_sizes=effective_batch_sizes,
++        static_validation=None,
++        create_figures=create_figures,
++    )
+ 
+-    figures: list[str] = []
+-    if create_figures:
+-        figures_dir = output_dir / "figures"
+-        create_heatmap(
+-            payload["routing_weight_normalized"],
+-            config.languages,
+-            f"{spec.run_id} weighted routing",
+-            figures_dir / "routing_weight_heatmap.png",
+-            axis_name=str(payload["axis_name"]),
++
++def analyze_adapter(
++    config: AnalysisConfig,
++    *,
++    spec,
++    create_figures: bool,
++    validate_static: bool,
++    force: bool,
++) -> dict[str, Any]:
++    output_dir = config.output_root / spec.run_id
++    completion = output_dir / "run_summary.json"
++    matrix = output_dir / "routing_matrix.npz"
++    if not force and completion.exists() and matrix.exists():
++        summary = json.loads(completion.read_text(encoding="utf-8"))
++        if summary.get("status") == "complete":
++            LOGGER.info("Skipping completed run %s", spec.run_id)
++            return summary
++    if force and completion.exists():
++        completion.unlink()
++
++    adapter_config = read_adapter_config(spec.checkpoint)
++    method = detect_method(adapter_config)
++    if is_static_method(method):
++        return analyze_static_adapter(
++            config,
++            spec=spec,
++            adapter_config=adapter_config,
++            method=method,
++            create_figures=create_figures,
++            validate_static=validate_static,
+         )
+-        figures.append("figures/routing_weight_heatmap.png")
+-        language_groups = flatten_language_map(config.language_map)
+-        if language_groups:
+-            grouped, group_labels = aggregate_by_group(
+-                payload["routing_weight_normalized"],
+-                config.languages,
+-                language_groups,
+-            )
+-            create_heatmap(
+-                grouped,
+-                group_labels,
+-                f"{spec.run_id} grouped weighted routing",
+-                figures_dir / "grouped_routing_weight_heatmap.png",
+-                axis_name=str(payload["axis_name"]),
+-            )
+-            figures.append("figures/grouped_routing_weight_heatmap.png")
+-        create_entropy_plot(payload["layer_entropy"], figures_dir / "routing_entropy.png")
+-        figures.append("figures/routing_entropy.png")
+-        if method == "MOLA":
+-            create_mola_null_plot(payload, figures_dir / "mola_null_usage.png")
+-            figures.append("figures/mola_null_usage.png")
++    return analyze_token_adapter(
++        config,
++        spec=spec,
++        adapter_config=adapter_config,
++        method=method,
++        create_figures=create_figures,
++    )
+ 
+-    return {
+-        "run_id": spec.run_id,
+-        "peft_type": method,
+-        "axis_name": str(payload["axis_name"]),
+-        "captured_modules": len(payload["layer_labels"]),
+-        "captured_tokens": int(payload["tokens"].sum()),
+-        "configured_batch_size": int(adapter_batch_size),
+-        "min_effective_batch_size": int(min(effective_batch_sizes.values())) if effective_batch_sizes else int(adapter_batch_size),
+-        "output_dir": str(output_dir),
+-        "routing_matrix": str(npz_path),
+-        "figures": figures,
+-    }
++
++def aggregate_summaries(config: AnalysisConfig, *, strict: bool) -> bool:
++    summaries = []
++    missing = []
++    for spec in config.adapters:
++        path = config.output_root / spec.run_id / "run_summary.json"
++        if not path.exists():
++            missing.append(spec.run_id)
++            continue
++        payload = json.loads(path.read_text(encoding="utf-8"))
++        if payload.get("status") != "complete":
++            missing.append(spec.run_id)
++            continue
++        summaries.append(payload)
++    if missing:
++        if strict:
++            raise RuntimeError(f"Cannot aggregate incomplete routing panel; missing={missing}")
++        LOGGER.info("Panel aggregation deferred; incomplete runs: %s", ", ".join(missing))
++        return False
++    atomic_write_json(config.output_root / "summary.json", {"schema_version": 2, "runs": summaries})
++    LOGGER.info("Routing panel complete: %s", config.output_root)
++    return True
++
++
++def _prepare_manifest(config: AnalysisConfig) -> int:
++    if config.sample_manifest is None:
++        raise SystemExit("Config must set sample_manifest for --prepare-sample-manifest")
++    build_sample_manifest(
++        sample_root=config.sample_root,
++        languages=config.languages,
++        text_field=config.text_field,
++        documents_per_language=config.max_sequences,
++        output_path=config.sample_manifest,
++    )
++    print(f"[OK] wrote routing sample manifest to {config.sample_manifest}")
++    return 0
+ 
+ 
+ def main(argv: list[str] | None = None) -> int:
+     args = parse_args(argv)
+-    logging.basicConfig(level=getattr(logging, str(args.log_level).upper(), logging.INFO), format="%(asctime)s %(levelname)s %(message)s")
++    logging.basicConfig(
++        level=getattr(logging, str(args.log_level).upper(), logging.INFO),
++        format="%(asctime)s %(levelname)s %(message)s",
++    )
+     config = load_config(args.config)
++    if args.prepare_sample_manifest:
++        return _prepare_manifest(config)
++    if args.canary:
++        canary_languages = [language for language in CANARY_LANGUAGES if language in config.languages]
++        config = replace(
++            config,
++            analysis_languages=canary_languages,
++            output_root=config.output_root.parent / f"{config.output_root.name}_canary",
++            max_sequences=8,
++            max_length=128,
++            strict_samples=False,
++            sample_manifest=None,
++            checkpoint_hashes=False,
++        )
+     if args.dry_run:
+         return dry_run(config, args.run_id)
+ 
+     ensure_local_imports(config.repo_root)
+     validate_config(config)
+-    summaries = []
++    if args.aggregate_only:
++        aggregate_summaries(config, strict=True)
++        return 0
++
+     for spec in selected_adapters(config, args.run_id):
+-        summaries.append(analyze_adapter(config, spec=spec, create_figures=config.create_figures and not args.skip_figures))
+-    write_summary(config.output_root, summaries)
+-    LOGGER.info("Routing analysis complete: %s", config.output_root)
++        analyze_adapter(
++            config,
++            spec=spec,
++            create_figures=config.create_figures and not args.skip_figures,
++            validate_static=args.validate_static,
++            force=args.force,
++        )
++    aggregate_summaries(config, strict=False)
+     return 0
+diff --git a/pipeline_tools/routing_analysis/collectors.py b/pipeline_tools/routing_analysis/collectors.py
+index 9aea9c4..da02547 100644
+--- a/pipeline_tools/routing_analysis/collectors.py
++++ b/pipeline_tools/routing_analysis/collectors.py
+@@ -77,6 +77,7 @@ class RoutingCollector:
+         self.by_language: dict[str, RoutingAccumulator] = {}
+         self.axis_name = "expert"
+         self.num_choices = self._num_choices()
++        self.token_mask: Any = None
+ 
+     def _num_choices(self) -> int:
+         if self.method == "MOLA":
+@@ -105,6 +106,23 @@ class RoutingCollector:
+     def set_language(self, language: str) -> None:
+         self.current_language = language
+ 
++    def set_token_mask(self, token_mask: Any) -> None:
++        self.token_mask = token_mask
++
++    def clear_token_mask(self) -> None:
++        self.token_mask = None
++
++    def _valid_rows(self, values: Any) -> Any:
++        flat = values.reshape(-1, values.shape[-1])
++        if self.token_mask is None:
++            return flat
++        mask = self.token_mask.detach().reshape(-1).to(device=flat.device, dtype=bool)
++        if mask.numel() != flat.shape[0]:
++            raise RuntimeError(
++                f"Routing logits have {flat.shape[0]} token rows but attention mask has {mask.numel()} entries"
++            )
++        return flat[mask]
++
+     def attach(self, model: Any) -> None:
+         if self.method == "MOLA":
+             self._attach_mola(model)
+@@ -137,6 +155,9 @@ class RoutingCollector:
+ 
+         with torch.no_grad():
+             probs = torch.softmax(logits.detach().to(torch.float32), dim=-1)
++            probs = self._valid_rows(probs)
++            if probs.shape[0] == 0:
++                return
+             top_k = int(getattr(parent, "top_k", 1))
+             num_true = int(getattr(parent, "num_true_experts", self.num_choices))
+             total = int(probs.shape[-1])
+@@ -199,7 +220,9 @@ class RoutingCollector:
+ 
+         with torch.no_grad():
+             probs = torch.softmax(logits.detach().to(torch.float32), dim=-1)
+-            flat = probs.reshape(-1, probs.shape[-1])
++            flat = self._valid_rows(probs)
++            if flat.shape[0] == 0:
++                return
+             if flat.shape[-1] != self.num_choices:
+                 return
+             choices = torch.argmax(flat, dim=-1)
+@@ -264,6 +287,8 @@ def build_matrices(
+         "routing_count_normalized": count_norm,
+         "routing_weight_sums": weights,
+         "routing_weight_normalized": weight_norm,
++        "routing_probability": probs,
++        "selection_rate": count_norm,
+         "tokens": tokens,
+         "assignments": assignments,
+         "null_assignments": null_assignments,
+@@ -272,4 +297,5 @@ def build_matrices(
+         "layer_labels": np.array(layer_names, dtype=object),
+         "choice_labels": np.array([f"{collector.axis_name}_{idx}" for idx in range(collector.num_choices)], dtype=object),
+         "axis_name": collector.axis_name,
++        "routing_basis": "token_conditioned",
+     }
+diff --git a/pipeline_tools/routing_analysis/config.py b/pipeline_tools/routing_analysis/config.py
+index 93742b4..7cd4433 100644
+--- a/pipeline_tools/routing_analysis/config.py
++++ b/pipeline_tools/routing_analysis/config.py
+@@ -7,7 +7,7 @@ from pathlib import Path
+ from typing import Any
+ 
+ 
+-SUPPORTED_PEFT_TYPES = {"MOLA", "MOELORA", "HYDRALORA"}
++SUPPORTED_PEFT_TYPES = {"MOLA", "MOELORA", "HYDRALORA", "MTLLORA"}
+ 
+ 
+ @dataclass(frozen=True)
+@@ -23,8 +23,10 @@ class AnalysisConfig:
+     repo_root: Path
+     base_model: str
+     sample_root: Path
++    sample_manifest: Path | None
+     language_map: Path | None
+     languages: list[str]
++    analysis_languages: list[str]
+     output_root: Path
+     adapters: list[AdapterSpec]
+     batch_size: int
+@@ -37,6 +39,9 @@ class AnalysisConfig:
+     create_figures: bool
+     auto_find_batch_size: bool
+     length_sort_batches: bool
++    strict_samples: bool
++    static_validation_languages: list[str]
++    checkpoint_hashes: bool
+ 
+ 
+ def repo_root_from_here() -> Path:
+@@ -173,8 +178,10 @@ def load_config(config_path: Path) -> AnalysisConfig:
+         repo_root=repo_root,
+         base_model=str(payload["base_model"]).strip(),
+         sample_root=abs_path(repo_root, payload.get("sample_root")) or repo_root,
++        sample_manifest=abs_path(repo_root, payload.get("sample_manifest")),
+         language_map=language_map,
+         languages=languages,
++        analysis_languages=languages,
+         output_root=abs_path(repo_root, payload.get("output_root")) or (repo_root / "outputs" / "routing_analysis"),
+         adapters=adapter_specs,
+         batch_size=int(payload.get("batch_size", 1)),
+@@ -187,6 +194,13 @@ def load_config(config_path: Path) -> AnalysisConfig:
+         create_figures=bool(payload.get("create_figures", True)),
+         auto_find_batch_size=bool(payload.get("auto_find_batch_size", False)),
+         length_sort_batches=bool(payload.get("length_sort_batches", True)),
++        strict_samples=bool(payload.get("strict_samples", True)),
++        static_validation_languages=[
++            str(item).strip()
++            for item in payload.get("static_validation_languages", ["english", "arb_Arab", "jpn_Jpan"])
++            if str(item).strip()
++        ],
++        checkpoint_hashes=bool(payload.get("checkpoint_hashes", True)),
+     )
+ 
+ 
+@@ -210,6 +224,8 @@ def validate_config(config: AnalysisConfig) -> list[dict[str, Any]]:
+             raise ValueError(f"{name} must be positive")
+     if not config.sample_root.exists():
+         raise FileNotFoundError(f"sample_root does not exist: {config.sample_root}")
++    if config.sample_manifest is not None and not config.sample_manifest.exists():
++        raise FileNotFoundError(f"sample_manifest does not exist: {config.sample_manifest}")
+     if config.language_map is not None and not config.language_map.exists():
+         raise FileNotFoundError(f"language_map does not exist: {config.language_map}")
+ 
+diff --git a/pipeline_tools/routing_analysis/data.py b/pipeline_tools/routing_analysis/data.py
+index 9ea02d0..f254868 100644
+--- a/pipeline_tools/routing_analysis/data.py
++++ b/pipeline_tools/routing_analysis/data.py
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
+ import gzip
++import hashlib
+ import json
+ from pathlib import Path
+ 
+@@ -18,13 +19,22 @@ def _open_text(path: Path):
+     return path.open("r", encoding="utf-8")
+ 
+ 
+-def load_language_texts(sample_root: Path, language: str, *, text_field: str, limit: int) -> list[str]:
++def load_language_texts_with_provenance(
++    sample_root: Path,
++    language: str,
++    *,
++    text_field: str,
++    limit: int,
++) -> tuple[list[str], dict[str, object]]:
+     texts: list[str] = []
++    files: list[dict[str, object]] = []
++    digest = hashlib.sha256()
+     for path in iter_language_jsonl_files(sample_root, language):
++        accepted = 0
+         with _open_text(path) as handle:
+             for line in handle:
+                 if len(texts) >= limit:
+-                    return texts
++                    break
+                 raw = line.strip()
+                 if not raw:
+                     continue
+@@ -35,5 +45,63 @@ def load_language_texts(sample_root: Path, language: str, *, text_field: str, li
+                 text = payload.get(text_field) or payload.get("text") or payload.get("content")
+                 if not text:
+                     continue
+-                texts.append(str(text))
++                value = str(text)
++                encoded = value.encode("utf-8")
++                digest.update(len(encoded).to_bytes(8, "big"))
++                digest.update(encoded)
++                texts.append(value)
++                accepted += 1
++        if accepted:
++            files.append({"path": str(path.resolve()), "accepted_records": accepted})
++        if len(texts) >= limit:
++            break
++    return texts, {
++        "language": language,
++        "documents": len(texts),
++        "text_sha256": digest.hexdigest(),
++        "files": files,
++    }
++
++
++def load_language_texts(sample_root: Path, language: str, *, text_field: str, limit: int) -> list[str]:
++    texts, _ = load_language_texts_with_provenance(
++        sample_root,
++        language,
++        text_field=text_field,
++        limit=limit,
++    )
+     return texts
++
++
++def load_sample_manifest(path: Path | None) -> dict[str, object]:
++    if path is None:
++        return {}
++    payload = json.loads(path.read_text(encoding="utf-8"))
++    if not isinstance(payload, dict) or not isinstance(payload.get("languages"), dict):
++        raise ValueError(f"Invalid routing sample manifest: {path}")
++    return payload
++
++
++def validate_language_sample(
++    *,
++    provenance: dict[str, object],
++    manifest: dict[str, object],
++    expected_documents: int,
++    strict: bool,
++) -> None:
++    language = str(provenance["language"])
++    documents = int(provenance["documents"])
++    if strict and documents != expected_documents:
++        raise ValueError(f"{language}: expected {expected_documents} valid documents, found {documents}")
++    if not manifest:
++        return
++    entries = manifest.get("languages", {})
++    expected = entries.get(language) if isinstance(entries, dict) else None
++    if not isinstance(expected, dict):
++        raise ValueError(f"{language}: missing from routing sample manifest")
++    for key in ("documents", "text_sha256"):
++        if provenance.get(key) != expected.get(key):
++            raise ValueError(
++                f"{language}: sample manifest mismatch for {key}: "
++                f"observed={provenance.get(key)!r}, expected={expected.get(key)!r}"
++            )
+diff --git a/pipeline_tools/routing_analysis/lola_style.py b/pipeline_tools/routing_analysis/lola_style.py
+index 8422f45..b8a989e 100644
+--- a/pipeline_tools/routing_analysis/lola_style.py
++++ b/pipeline_tools/routing_analysis/lola_style.py
+@@ -192,7 +192,8 @@ def _save_lola_heatmap(
+     image = ax.imshow(data, aspect="auto", interpolation="nearest", cmap=cmap, vmin=0, vmax=1)
+     if not paper_style:
+         ax.set_title(title)
+-    ax.set_xlabel("Experts" if paper_style else f"{axis_name}s grouped by {x_group_label}")
++    axis_title = axis_name.replace("_", " ").title()
++    ax.set_xlabel(axis_title if paper_style else f"{axis_name}s grouped by {x_group_label}")
+     ax.set_ylabel("Languages" if paper_style else "Language group")
+     if len(labels) <= 140:
+         ax.set_yticks(range(len(labels)))
+@@ -242,6 +243,14 @@ def _aggregate_to_base_layers(npz: np.lib.npyio.NpzFile, module_labels: list[str
+     if not any(layer_id is not None for layer_id in layer_ids):
+         return None
+     unique_layers = sorted({layer_id for layer_id in layer_ids if layer_id is not None})
++    if "routing_probability" in npz.files:
++        matrix = npz["routing_probability"].astype(np.float64)
++        layer_matrix = np.zeros((matrix.shape[0], len(unique_layers), matrix.shape[2]), dtype=np.float64)
++        for layer_out_idx, layer_id in enumerate(unique_layers):
++            module_indices = [idx for idx, current in enumerate(layer_ids) if current == layer_id]
++            layer_matrix[:, layer_out_idx, :] = matrix[:, module_indices, :].mean(axis=1)
++        return layer_matrix, [f"L{layer_id}" for layer_id in unique_layers]
++
+     if "routing_counts" in npz.files and "assignments" in npz.files:
+         counts = npz["routing_counts"].astype(np.float64)
+         assignments = npz["assignments"].astype(np.float64)
+@@ -403,12 +412,12 @@ def _write_top_experts(
+             [
+                 "group",
+                 "rank",
+-                "summary_expert",
++                "summary_choice",
+                 "summary_lola_normalized_score",
+                 "summary_raw_activation_mean",
+-                "module_expert",
+-                "module_expert_lola_normalized_score",
+-                "module_expert_raw_activation",
++                "module_choice",
++                "module_choice_lola_normalized_score",
++                "module_choice_raw_activation",
+             ]
+         )
+         for group_idx, label in enumerate(labels):
+@@ -504,7 +513,10 @@ def analyze_run(
+     run_id = str(npz["run_id"])
+     peft_type = str(npz["peft_type"])
+ 
+-    if "routing_count_normalized" in npz.files:
++    if "routing_probability" in npz.files:
++        matrix = npz["routing_probability"].astype(np.float64)
++        matrix_source = "routing_probability"
++    elif "routing_count_normalized" in npz.files:
+         matrix = npz["routing_count_normalized"].astype(np.float64)
+         matrix_source = "routing_count_normalized"
+     else:
+diff --git a/pipeline_tools/select_multilingual_eval_tasks.py b/pipeline_tools/select_multilingual_eval_tasks.py
+index 3c36be1..0ac095b 100644
+--- a/pipeline_tools/select_multilingual_eval_tasks.py
++++ b/pipeline_tools/select_multilingual_eval_tasks.py
+@@ -26,6 +26,8 @@ def _task_lang_from_sib200(task: str) -> str | None:
+ 
+ 
+ def _task_lang_from_taxi1500(task: str) -> str | None:
++    if task.startswith("taxi1500_v2_"):
++        return task.replace("taxi1500_v2_", "", 1)
+     if not task.startswith("taxi1500_"):
+         return None
+     return task.replace("taxi1500_", "", 1)
+diff --git a/result_analysis/notebooks/README.md b/result_analysis/notebooks/README.md
+index 1731408..5531262 100644
+--- a/result_analysis/notebooks/README.md
++++ b/result_analysis/notebooks/README.md
+@@ -1,6 +1,7 @@
+ # Result Analysis Notebooks
+ 
+ - [`moe_study_final_analysis.ipynb`](moe_study_final_analysis.ipynb) is the single source of truth for selection, mixed follow-up, final scaling, and significance conclusions.
++- [`final_winners_96_200_significance.ipynb`](final_winners_96_200_significance.ipynb) is the restored visualization supplement for the final top-five 96- and 200-language benchmark results; it uses the canonical 2026-07-25 workbooks and exports figures under `../figures/final_top5_96_200_benchmarks/`.
+ - [`validation/`](validation/) contains operational and scientific validity checks. Some require local generated pipeline outputs.
+ - [`routing_analysis/`](routing_analysis/) contains routing-specific analyses.
+ 

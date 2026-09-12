@@ -1,0 +1,699 @@
+{
+  "repos": {
+    ".": {
+      "head": "6045e1ff454feab273e8f1d986a152ef45fbe752",
+      "files": [
+        "configs/benchmark_panels/english/final_english_tasks.txt",
+        "configs/benchmark_panels/v2/lm_eval_tasks_200_langs_v2.summary.json",
+        "configs/benchmark_panels/v2/lm_eval_tasks_200_langs_v2.txt",
+        "configs/benchmark_panels/v2/lm_eval_tasks_96_langs_v2.summary.json",
+        "configs/benchmark_panels/v2/lm_eval_tasks_96_langs_v2.txt",
+        "configs/benchmark_panels/v2/manifest.json",
+        "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_cola_lr5e5_reruns_noctua2_4gpu_v1.generated.json",
+        "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_benchmark_panel_v2.generated.json",
+        "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_lora_r2_r4_96_200_v1.generated.json",
+        "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_macro3_96_200_v1.generated.json",
+        "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_macro45_96_200_v1.generated.json",
+        "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_mtllora_lr5e5_96_200_v1.generated.json",
+        "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_recovery_20260724.generated.json",
+        "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_mixed_rank_expert_followup_clean22_active7p2h.generated.json",
+        "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_mixed_rank_expert_followup_corrected12_r2_r8_e16_e32_noctua2_4gpu_7p6h.generated.json",
+        "configs/routing_analysis/final_top5_200_langs/initial_1000seq.json",
+        "configs/routing_analysis/final_top5_96_langs/initial_1000seq.json",
+        "docs/routing_analysis_outputs.md",
+        "lm_eval",
+        "pipeline/checks.py",
+        "pipeline/context.py",
+        "pipeline/executor.py",
+        "pipeline/gpu_preflight.py",
+        "pipeline/model_eval_stages.py",
+        "pipeline/run.py",
+        "pipeline/runtime.py",
+        "pipeline/stages/benchmark.py",
+        "pipeline/stages/final_eval_loss.py",
+        "pipeline/stages/per_run_summary.py",
+        "pipeline/stages/train_acceptance.py",
+        "pipeline/tests/test_eval_preflight_hardening.py",
+        "pipeline/tests/test_final_macro3_completion_audit.py",
+        "pipeline/tests/test_full_multilingual_eval_panel.py",
+        "pipeline/tests/test_reporting_sources.py",
+        "pipeline/tests/test_snapshot_slurm_job_graph.py",
+        "pipeline/tests/test_train_acceptance.py",
+        "pipeline/training.py",
+        "pipeline_tools/build_full_multilingual_eval_panel.py",
+        "pipeline_tools/reporting/compact.py",
+        "pipeline_tools/reporting/sources.py",
+        "pipeline_tools/routing_analysis/README.md",
+        "pipeline_tools/routing_analysis/cli.py",
+        "pipeline_tools/routing_analysis/collectors.py",
+        "pipeline_tools/routing_analysis/compare.py",
+        "pipeline_tools/routing_analysis/config.py",
+        "pipeline_tools/routing_analysis/data.py",
+        "pipeline_tools/routing_analysis/io.py",
+        "pipeline_tools/routing_analysis/layerwise_lola.py",
+        "pipeline_tools/routing_analysis/lola_style.py",
+        "pipeline_tools/routing_analysis/samples.py",
+        "pipeline_tools/routing_analysis/static.py",
+        "pipeline_tools/routing_analysis/target_expert_lola.py",
+        "pipeline_tools/routing_analysis/target_expert_lola.py.orig",
+        "pipeline_tools/select_multilingual_eval_tasks.py",
+        "result_analysis/figures/final_top5_96_200_benchmarks/flores_en_to_x_improvement_over_baseline.png",
+        "result_analysis/figures/final_top5_96_200_benchmarks/flores_en_to_x_improvement_over_baseline.svg",
+        "result_analysis/figures/final_top5_96_200_benchmarks/flores_x_to_en_improvement_over_baseline.png",
+        "result_analysis/figures/final_top5_96_200_benchmarks/flores_x_to_en_improvement_over_baseline.svg",
+        "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_belebele.png",
+        "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_belebele.svg",
+        "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_sib200.png",
+        "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_sib200.svg",
+        "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_taxi1500.png",
+        "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_taxi1500.svg",
+        "result_analysis/notebooks/README.md",
+        "result_analysis/notebooks/routing_analysis/final_top5_96_vs_200_routing.ipynb",
+        "scripts/analysis/audit_clean_mixed_followup_completion.py",
+        "scripts/analysis/audit_final_macro3_completion.py",
+        "scripts/analysis/audit_final_study_artifacts.py",
+        "scripts/analysis/build_final_combined_top5_report.py",
+        "scripts/analysis/build_final_v1_96_combined_report.py",
+        "scripts/analysis/build_macro3_200_raw_benchmark_report.py",
+        "scripts/analysis/consolidate_clean_mixed_followup.py",
+        "scripts/analysis/consolidate_final_benchmark_shards.py",
+        "scripts/analysis/consolidate_final_english_evaluations.py",
+        "scripts/analysis/consolidate_missing_v2_baselines.py",
+        "scripts/analysis/extract_missing_v2_baseline_tasks.py",
+        "scripts/analysis/rank_clean_mixed_followup.py",
+        "scripts/analysis/recover_final_v1_v2_study.py",
+        "scripts/analysis/repair_final_english_evaluations.py",
+        "scripts/analysis/resolve_direct_adapter_checkpoint.py",
+        "scripts/analysis/select_final_benchmark_shard.py",
+        "scripts/analysis/snapshot_slurm_job_graph.py",
+        "scripts/analysis/submit_clean_mixed_followup_evaluation_repair.py",
+        "scripts/analysis/submit_clean_mixed_followup_finalizer.py",
+        "scripts/analysis/submit_clean_mixed_followup_routed_final_eval_repair.py",
+        "scripts/analysis/submit_clean_mixed_followup_v7_repair.py",
+        "scripts/analysis/submit_final_english_evaluations.py",
+        "scripts/analysis/submit_final_lora_campaign.py",
+        "scripts/analysis/validate_and_release_routed_final_eval_canaries.py",
+        "scripts/analysis/validate_clean_mixed_followup.py",
+        "scripts/analysis/validate_final_lora_submission.py",
+        "scripts/analysis/validate_final_macro3_submission.py",
+        "scripts/analysis/validate_final_v2_benchmark_panel.py",
+        "scripts/slurm/build_and_validate_final_lora_report.sh",
+        "scripts/slurm/build_final_combined_top5_report.sh",
+        "scripts/slurm/build_final_v1_96_combined_report_20260724.sh",
+        "scripts/slurm/build_final_v1_96_combined_report_retry_20260724.sh",
+        "scripts/slurm/build_macro3_200_raw_benchmark_report_20260724.sh",
+        "scripts/slurm/clean_mixed_followup_consolidate.sh",
+        "scripts/slurm/clean_mixed_followup_gpu_compute_probe.sh",
+        "scripts/slurm/clean_mixed_followup_gpu_preflight.sh",
+        "scripts/slurm/consolidate_final_benchmark_shards.sh",
+        "scripts/slurm/consolidate_final_english_evaluations.sh",
+        "scripts/slurm/consolidate_final_lora_benchmark_shards.sh",
+        "scripts/slurm/consolidate_missing_v2_baselines.sh",
+        "scripts/slurm/probe_gpu_preflight_20260724.sh",
+        "scripts/slurm/routing_analysis/run_layerwise_atlas.sh",
+        "scripts/slurm/routing_analysis/run_one.sh",
+        "scripts/slurm/routing_analysis/run_postprocess.sh",
+        "scripts/slurm/routing_analysis/submit_final_top5.py",
+        "scripts/slurm/run_final_benchmark_shard_20260725.sh",
+        "scripts/slurm/run_final_english_checkpoint_20260725.sh",
+        "scripts/slurm/run_final_gpu_stage_retry_20260725.sh",
+        "scripts/slurm/run_final_lora_benchmark_shard.sh",
+        "scripts/slurm/run_final_postprocess_retry_20260724.sh",
+        "scripts/slurm/run_final_v2_benchmark_retry_20260724.sh",
+        "scripts/slurm/run_missing_v2_baseline_shard.sh",
+        "scripts/slurm/submit_final_v1_v2_recovery_20260724.sh",
+        "scripts/slurm/validate_final_english_workbooks.sh",
+        "scripts/slurm/validate_final_v2_panel_20260724.sh",
+        "tests/routing_analysis/test_layerwise_lola.py",
+        "tests/routing_analysis/test_routing_analysis.py",
+        "tests/routing_analysis/test_target_expert_lola.py",
+        "tmp/training_document_counts/moe_200_languages_document_counts.csv",
+        "tmp/training_document_counts/moe_96_languages_document_counts.csv",
+        "tmp/training_document_counts/moe_mixed_followup_document_counts.csv"
+      ]
+    },
+    "LLaMA-Factory": {
+      "head": "a71512ae4ba5b9c4174593f24012d3919c18d5e4",
+      "files": [
+        "src/llamafactory/model/adapter.py",
+        "tests/model/test_nonmergeable_moe_adapters.py"
+      ]
+    },
+    "scripts/eval/latest_checkpoint/lm-evaluation-harness": {
+      "head": "b4359724f0e13dd89ffb788ec2d712e7a73f3be4",
+      "files": [
+        "lm_eval/tasks/belebele/belebele_cmn_Hani.yaml",
+        "lm_eval/tasks/belebele/belebele_ekk_Latn.yaml",
+        "lm_eval/tasks/belebele/belebele_fas_Arab.yaml",
+        "lm_eval/tasks/belebele/belebele_gug_Latn.yaml",
+        "lm_eval/tasks/sib200/generate_configs.py",
+        "lm_eval/tasks/taxi1500/generate_configs.py",
+        "lm_eval/tasks/taxi1500/taxi1500_common",
+        "lm_eval/tasks/taxi1500/utils.py"
+      ]
+    }
+  },
+  "stage_root": [
+    "configs/benchmark_panels/english/final_english_tasks.txt",
+    "configs/benchmark_panels/v2/lm_eval_tasks_200_langs_v2.summary.json",
+    "configs/benchmark_panels/v2/lm_eval_tasks_200_langs_v2.txt",
+    "configs/benchmark_panels/v2/lm_eval_tasks_96_langs_v2.summary.json",
+    "configs/benchmark_panels/v2/lm_eval_tasks_96_langs_v2.txt",
+    "configs/benchmark_panels/v2/manifest.json",
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_cola_lr5e5_reruns_noctua2_4gpu_v1.generated.json",
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_benchmark_panel_v2.generated.json",
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_lora_r2_r4_96_200_v1.generated.json",
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_macro3_96_200_v1.generated.json",
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_macro45_96_200_v1.generated.json",
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_mtllora_lr5e5_96_200_v1.generated.json",
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_recovery_20260724.generated.json",
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_mixed_rank_expert_followup_clean22_active7p2h.generated.json",
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_mixed_rank_expert_followup_corrected12_r2_r8_e16_e32_noctua2_4gpu_7p6h.generated.json",
+    "configs/routing_analysis/final_top5_200_langs/initial_1000seq.json",
+    "configs/routing_analysis/final_top5_96_langs/initial_1000seq.json",
+    "docs/routing_analysis_outputs.md",
+    "lm_eval",
+    "pipeline/checks.py",
+    "pipeline/context.py",
+    "pipeline/executor.py",
+    "pipeline/gpu_preflight.py",
+    "pipeline/model_eval_stages.py",
+    "pipeline/run.py",
+    "pipeline/runtime.py",
+    "pipeline/stages/benchmark.py",
+    "pipeline/stages/final_eval_loss.py",
+    "pipeline/stages/per_run_summary.py",
+    "pipeline/stages/train_acceptance.py",
+    "pipeline/tests/test_eval_preflight_hardening.py",
+    "pipeline/tests/test_final_macro3_completion_audit.py",
+    "pipeline/tests/test_full_multilingual_eval_panel.py",
+    "pipeline/tests/test_reporting_sources.py",
+    "pipeline/tests/test_snapshot_slurm_job_graph.py",
+    "pipeline/tests/test_train_acceptance.py",
+    "pipeline/training.py",
+    "pipeline_tools/build_full_multilingual_eval_panel.py",
+    "pipeline_tools/reporting/compact.py",
+    "pipeline_tools/reporting/sources.py",
+    "pipeline_tools/routing_analysis/README.md",
+    "pipeline_tools/routing_analysis/cli.py",
+    "pipeline_tools/routing_analysis/collectors.py",
+    "pipeline_tools/routing_analysis/compare.py",
+    "pipeline_tools/routing_analysis/config.py",
+    "pipeline_tools/routing_analysis/data.py",
+    "pipeline_tools/routing_analysis/io.py",
+    "pipeline_tools/routing_analysis/layerwise_lola.py",
+    "pipeline_tools/routing_analysis/lola_style.py",
+    "pipeline_tools/routing_analysis/samples.py",
+    "pipeline_tools/routing_analysis/static.py",
+    "pipeline_tools/routing_analysis/target_expert_lola.py",
+    "pipeline_tools/select_multilingual_eval_tasks.py",
+    "result_analysis/notebooks/routing_analysis/final_top5_96_vs_200_routing.ipynb",
+    "scripts/analysis/audit_clean_mixed_followup_completion.py",
+    "scripts/analysis/audit_final_macro3_completion.py",
+    "scripts/analysis/audit_final_study_artifacts.py",
+    "scripts/analysis/build_final_combined_top5_report.py",
+    "scripts/analysis/build_final_v1_96_combined_report.py",
+    "scripts/analysis/build_macro3_200_raw_benchmark_report.py",
+    "scripts/analysis/consolidate_clean_mixed_followup.py",
+    "scripts/analysis/consolidate_final_benchmark_shards.py",
+    "scripts/analysis/consolidate_final_english_evaluations.py",
+    "scripts/analysis/consolidate_missing_v2_baselines.py",
+    "scripts/analysis/extract_missing_v2_baseline_tasks.py",
+    "scripts/analysis/rank_clean_mixed_followup.py",
+    "scripts/analysis/resolve_direct_adapter_checkpoint.py",
+    "scripts/analysis/select_final_benchmark_shard.py",
+    "scripts/analysis/snapshot_slurm_job_graph.py",
+    "scripts/analysis/submit_final_english_evaluations.py",
+    "scripts/analysis/submit_final_lora_campaign.py",
+    "scripts/analysis/validate_clean_mixed_followup.py",
+    "scripts/analysis/validate_final_lora_submission.py",
+    "scripts/analysis/validate_final_macro3_submission.py",
+    "scripts/analysis/validate_final_v2_benchmark_panel.py",
+    "scripts/slurm/build_and_validate_final_lora_report.sh",
+    "scripts/slurm/build_final_combined_top5_report.sh",
+    "scripts/slurm/clean_mixed_followup_consolidate.sh",
+    "scripts/slurm/clean_mixed_followup_gpu_preflight.sh",
+    "scripts/slurm/consolidate_final_benchmark_shards.sh",
+    "scripts/slurm/consolidate_final_english_evaluations.sh",
+    "scripts/slurm/consolidate_final_lora_benchmark_shards.sh",
+    "scripts/slurm/consolidate_missing_v2_baselines.sh",
+    "scripts/slurm/routing_analysis/run_layerwise_atlas.sh",
+    "scripts/slurm/routing_analysis/run_one.sh",
+    "scripts/slurm/routing_analysis/run_postprocess.sh",
+    "scripts/slurm/routing_analysis/submit_final_top5.py",
+    "scripts/slurm/run_final_english_checkpoint_20260725.sh",
+    "scripts/slurm/run_final_lora_benchmark_shard.sh",
+    "scripts/slurm/run_missing_v2_baseline_shard.sh",
+    "scripts/slurm/validate_final_english_workbooks.sh",
+    "tests/routing_analysis/test_layerwise_lola.py",
+    "tests/routing_analysis/test_routing_analysis.py",
+    "tests/routing_analysis/test_target_expert_lola.py"
+  ],
+  "archive_only": [
+    "pipeline_tools/routing_analysis/target_expert_lola.py.orig",
+    "result_analysis/figures/final_top5_96_200_benchmarks/flores_en_to_x_improvement_over_baseline.png",
+    "result_analysis/figures/final_top5_96_200_benchmarks/flores_en_to_x_improvement_over_baseline.svg",
+    "result_analysis/figures/final_top5_96_200_benchmarks/flores_x_to_en_improvement_over_baseline.png",
+    "result_analysis/figures/final_top5_96_200_benchmarks/flores_x_to_en_improvement_over_baseline.svg",
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_belebele.png",
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_belebele.svg",
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_sib200.png",
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_sib200.svg",
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_taxi1500.png",
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_taxi1500.svg",
+    "scripts/analysis/recover_final_v1_v2_study.py",
+    "scripts/analysis/repair_final_english_evaluations.py",
+    "scripts/analysis/submit_clean_mixed_followup_evaluation_repair.py",
+    "scripts/analysis/submit_clean_mixed_followup_finalizer.py",
+    "scripts/analysis/submit_clean_mixed_followup_routed_final_eval_repair.py",
+    "scripts/analysis/submit_clean_mixed_followup_v7_repair.py",
+    "scripts/analysis/validate_and_release_routed_final_eval_canaries.py",
+    "scripts/slurm/build_final_v1_96_combined_report_20260724.sh",
+    "scripts/slurm/build_final_v1_96_combined_report_retry_20260724.sh",
+    "scripts/slurm/build_macro3_200_raw_benchmark_report_20260724.sh",
+    "scripts/slurm/clean_mixed_followup_gpu_compute_probe.sh",
+    "scripts/slurm/probe_gpu_preflight_20260724.sh",
+    "scripts/slurm/run_final_benchmark_shard_20260725.sh",
+    "scripts/slurm/run_final_gpu_stage_retry_20260725.sh",
+    "scripts/slurm/run_final_postprocess_retry_20260724.sh",
+    "scripts/slurm/run_final_v2_benchmark_retry_20260724.sh",
+    "scripts/slurm/submit_final_v1_v2_recovery_20260724.sh",
+    "scripts/slurm/validate_final_v2_panel_20260724.sh",
+    "tmp/training_document_counts/moe_200_languages_document_counts.csv",
+    "tmp/training_document_counts/moe_96_languages_document_counts.csv",
+    "tmp/training_document_counts/moe_mixed_followup_document_counts.csv"
+  ],
+  "fingerprints": {
+    "LLaMA-Factory/src/llamafactory/model/adapter.py": {
+      "sha256": "93dac8805cb9d461bec6ba7675e7017beedca2d5a8d3bf46ab9ddcc4412a5899"
+    },
+    "LLaMA-Factory/tests/model/test_nonmergeable_moe_adapters.py": {
+      "sha256": "aa038489da7c692121ff09065e4ec0df82de668b8c28e6839efddc5357c0f4f1"
+    },
+    "configs/benchmark_panels/english/final_english_tasks.txt": {
+      "sha256": "5cd1890363f2f9e390b31276cf77a3220fad4c89b53cf4e0e4c7aba70bac618e"
+    },
+    "configs/benchmark_panels/v2/lm_eval_tasks_200_langs_v2.summary.json": {
+      "sha256": "b63b760e8ccfc15d921bf27c1a4697f5602bf5e1dc92cdf14ceec2b6188b5b12"
+    },
+    "configs/benchmark_panels/v2/lm_eval_tasks_200_langs_v2.txt": {
+      "sha256": "ce1e056942bee9e70db44fb76de188fc8428a45fcae758bd5f2a198917428e08"
+    },
+    "configs/benchmark_panels/v2/lm_eval_tasks_96_langs_v2.summary.json": {
+      "sha256": "5495f581920606de671489876a8823a2ba9900e991d28047473a95b1fc43a52f"
+    },
+    "configs/benchmark_panels/v2/lm_eval_tasks_96_langs_v2.txt": {
+      "sha256": "45f8ca8c965473e04defb3b61fd18178642102a8e6214ad3cbf6aecfe3c19a68"
+    },
+    "configs/benchmark_panels/v2/manifest.json": {
+      "sha256": "d339ddcff2dc40fe0394d605bc35049fc5267653f5e0ede016d159b77af25ca8"
+    },
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_cola_lr5e5_reruns_noctua2_4gpu_v1.generated.json": {
+      "sha256": "d9b0eef300f307b124b9a39daf0bb5f6029d65a4d31b198adec690cf305473c4"
+    },
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_benchmark_panel_v2.generated.json": {
+      "sha256": "ee6b11c850f501cf648b1cb487c29666bbaa6f4007d5a72466cc5b27dce8c8d9"
+    },
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_lora_r2_r4_96_200_v1.generated.json": {
+      "sha256": "189fe505841f2eb0f30ced4c4be29c8edd953fb7555693468badd2e3b8a03f68"
+    },
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_macro3_96_200_v1.generated.json": {
+      "sha256": "da8878cc9fe280b4a8b29b4f0514cf3a7a4c318fd1012130e8439b43a3f1608e"
+    },
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_macro45_96_200_v1.generated.json": {
+      "sha256": "c1b55f9ee5823c3095503e60fbf2489cabce21620945b2b2d747d896b7c7e747"
+    },
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_mtllora_lr5e5_96_200_v1.generated.json": {
+      "sha256": "c43f4f45e6077d674d6232df81c5d976663a0af8e46b63e8990140af92ff2770"
+    },
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_final_recovery_20260724.generated.json": {
+      "sha256": "9c4b3d5ddb5ab12578e760e37520eac7ee182d2f3bcab64c8d084e9188f3158e"
+    },
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_mixed_rank_expert_followup_clean22_active7p2h.generated.json": {
+      "sha256": "af53a9eb85ef89147f7e34a1b6fb8db8d0c8886533469c7b82caf224cbfae18e"
+    },
+    "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/moe_study_mixed_rank_expert_followup_corrected12_r2_r8_e16_e32_noctua2_4gpu_7p6h.generated.json": {
+      "sha256": "0f3b990e930a43f59c2dc84df0aeb7bf4efe6b64440c4b6791068a18604850b8"
+    },
+    "configs/routing_analysis/final_top5_200_langs/initial_1000seq.json": {
+      "sha256": "5fe80b7c343f5ef0004d5476ca4daf64c31c7ced8c78f7453940fc410db26b1f"
+    },
+    "configs/routing_analysis/final_top5_96_langs/initial_1000seq.json": {
+      "sha256": "5812430bd1ac2a056432e2393dfde4b60ee463934c4a7436b8b09c74b3b9cdc7"
+    },
+    "docs/routing_analysis_outputs.md": {
+      "sha256": "d092386ef7f1d0a90290bcda400a9f0e055659fe721dbedb4ac62ee168d102b6"
+    },
+    "lm_eval": {
+      "symlink": "scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval"
+    },
+    "pipeline/checks.py": {
+      "sha256": "21297ef5ed89906da1aa2e8315980794c998878978ff1f03f64a536481889103"
+    },
+    "pipeline/context.py": {
+      "sha256": "a95ff874b2d5377d02037274ba03c92033a786709163a291dad0abc2d63041ec"
+    },
+    "pipeline/executor.py": {
+      "sha256": "f91559d5ff8f7ce5fa69ed91a1a93bfeb46971bec469d221141d18b1a1abcf0b"
+    },
+    "pipeline/gpu_preflight.py": {
+      "sha256": "429e19a9ff1b1a5b79b7eaeadc7f7c39f5a6c9681b54c7ddb721815f98bb0f16"
+    },
+    "pipeline/model_eval_stages.py": {
+      "sha256": "31d0237fa58d3dd1d128f8953968a520cfbb124c093abbbe62b9936b7894f666"
+    },
+    "pipeline/run.py": {
+      "sha256": "f84b2f54a399ab26be3c2e99ddb1de43392655984552fe172927941024e658c1"
+    },
+    "pipeline/runtime.py": {
+      "sha256": "8aad0f626abfed34666b66b4a4c6f5111c685a274d4fb2b401387e4fea757b18"
+    },
+    "pipeline/stages/benchmark.py": {
+      "sha256": "b57aadca7224dcb720fe55ac363eed9ad096ebf6cab6500b2329a67b38845d9b"
+    },
+    "pipeline/stages/final_eval_loss.py": {
+      "sha256": "11a250756e739ce338119620a8f5a8a696ca81995356c63bba4a4c3475f8cb1a"
+    },
+    "pipeline/stages/per_run_summary.py": {
+      "sha256": "16998678c841cec853b0a484587ce487ec112c805919f643a79a61986daa7177"
+    },
+    "pipeline/stages/train_acceptance.py": {
+      "sha256": "cbc35aa63f713ec748a9a0e0c02736ca7b86930711d1a23ddf23ae7050c3c5aa"
+    },
+    "pipeline/tests/test_eval_preflight_hardening.py": {
+      "sha256": "d4cc8d4a7fb88b32e737207ac4d5072100de23f768f18fe6c00c4273d5aa4a76"
+    },
+    "pipeline/tests/test_final_macro3_completion_audit.py": {
+      "sha256": "217c6cb80ec127e4d59b877ff199f47aae32ab2298a3b805e72f0c65a2502920"
+    },
+    "pipeline/tests/test_full_multilingual_eval_panel.py": {
+      "sha256": "ba1d4e1ecb5f6cad4407abd2fa7859068c838615d36de89f8cbeb669f7d5c981"
+    },
+    "pipeline/tests/test_reporting_sources.py": {
+      "sha256": "353ca0033181531a5f8566815649596441e3c65cdc719ecc9f54c054b7988b3a"
+    },
+    "pipeline/tests/test_snapshot_slurm_job_graph.py": {
+      "sha256": "ba44e2e8e7d10bfd5f75b5d106c0c8993119f5cee45d9c3289a9569eefb8b3f1"
+    },
+    "pipeline/tests/test_train_acceptance.py": {
+      "sha256": "5927b1f72b5cea6de19dc77cd92e4bb0ff9210c8c833ea8293629055373f923d"
+    },
+    "pipeline/training.py": {
+      "sha256": "4e3d564f1cfd58ab1c2af4c2acd7760e0e5adf832414da5d786743f1620d9c00"
+    },
+    "pipeline_tools/build_full_multilingual_eval_panel.py": {
+      "sha256": "ce321640a400d3ef955003fc5070b46b421e8d5808c6b5cd6ac5faeb23f5377c"
+    },
+    "pipeline_tools/reporting/compact.py": {
+      "sha256": "eb36bdcf6da3af8e10df8dc43245a4ee7cd7ebc7229f0c7177b811902575bb4e"
+    },
+    "pipeline_tools/reporting/sources.py": {
+      "sha256": "d3215dd44f5eaeec36a9c19596b0a4a84a8b357fc794f2742bfeb7cb559a4c75"
+    },
+    "pipeline_tools/routing_analysis/README.md": {
+      "sha256": "b810345204ca1ddc64dab586a77894374c74ee4d707a816a3cc4172ad96345fc"
+    },
+    "pipeline_tools/routing_analysis/cli.py": {
+      "sha256": "49605496583fdfe91b96527de6400648cd8f4bc6693d53e1fde605e62b7e3859"
+    },
+    "pipeline_tools/routing_analysis/collectors.py": {
+      "sha256": "0834123f7cd04364268dac8f8c633ea3ed4684a0d32a8e22654040ce825133f4"
+    },
+    "pipeline_tools/routing_analysis/compare.py": {
+      "sha256": "184c4d256b903068aaa8e831c64722e8db9f7e1c43dc0897cd3f6cdfc66ecdf8"
+    },
+    "pipeline_tools/routing_analysis/config.py": {
+      "sha256": "aa03bbdc3d65ce1beabc9c1b46f96d44172e35b57056dcfc59bc1a4b65909037"
+    },
+    "pipeline_tools/routing_analysis/data.py": {
+      "sha256": "c5a87b68d7c6cceb8dd75517d082964bd2cc6d3a60fc7faba9fe74aa94b32fcf"
+    },
+    "pipeline_tools/routing_analysis/io.py": {
+      "sha256": "da187f25d7bc0d1b2ef75978a3f22259cc25bad4031ccc4d51fef5e3d7d1db19"
+    },
+    "pipeline_tools/routing_analysis/layerwise_lola.py": {
+      "sha256": "b9e3ba5ba7536d3b7676384da16c0dce5bdcbfec424c1a9c6e8f6e1670e61e8a"
+    },
+    "pipeline_tools/routing_analysis/lola_style.py": {
+      "sha256": "0b7fdf17472172dfc9a3b82b6af8933dc38c4d69003fbf8428299335489ab8e4"
+    },
+    "pipeline_tools/routing_analysis/samples.py": {
+      "sha256": "326aed135fb84c1cfa222f7e9d4c74ba5e01e7ed7fd963de9f4ad00ef45f79ed"
+    },
+    "pipeline_tools/routing_analysis/static.py": {
+      "sha256": "5c8607b8c1974849714e4791503c445a629f208d04ab8fb510f82e265c1c5857"
+    },
+    "pipeline_tools/routing_analysis/target_expert_lola.py": {
+      "sha256": "188385f1f22c19cb3952f9acf53f5024f4b4579f786a3eabe606f89fc0e0f0c9"
+    },
+    "pipeline_tools/routing_analysis/target_expert_lola.py.orig": {
+      "sha256": "8ee255adbdc38f4f65307e763dad4c06617953273f515253d6ce53d80aea2d00"
+    },
+    "pipeline_tools/select_multilingual_eval_tasks.py": {
+      "sha256": "3ec1cf6e874fe6ad772fab6d74e4d83ca5d4ef79a7d6cef34c8b00c14d95086b"
+    },
+    "result_analysis/figures/final_top5_96_200_benchmarks/flores_en_to_x_improvement_over_baseline.png": {
+      "sha256": "80f18999cc7026723b20d85ecc07533e224e60cf24ae634fef0056781a2f93d4"
+    },
+    "result_analysis/figures/final_top5_96_200_benchmarks/flores_en_to_x_improvement_over_baseline.svg": {
+      "sha256": "0651da2c7cb73767df94ab49fff1189cd9601ba82be913ac6c2f4b4c4e5a453a"
+    },
+    "result_analysis/figures/final_top5_96_200_benchmarks/flores_x_to_en_improvement_over_baseline.png": {
+      "sha256": "c32e204115a98649a7d5f2205373ebf7d0df0de77d801059104d7c22cb910c61"
+    },
+    "result_analysis/figures/final_top5_96_200_benchmarks/flores_x_to_en_improvement_over_baseline.svg": {
+      "sha256": "4f3aadb2ee6228f1c160c3538c14d853cc18f30dd9dd36df4834379f02859c66"
+    },
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_belebele.png": {
+      "sha256": "3c87b02c07aa96dbbf3868e7af3397987ef985d78a422709d8285227f5280483"
+    },
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_belebele.svg": {
+      "sha256": "6ee91ccc7e48def5963bcce3d43a8fb11ce0943b63fc6e950c957f13c83dc014"
+    },
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_sib200.png": {
+      "sha256": "40268c98a997908d456b4ee5e69cc56ed31e2ac24f3ad739b0da7799f57d6eb3"
+    },
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_sib200.svg": {
+      "sha256": "066fa0cbbb63496157f5c56b5a1daa4a123b16d0fa10cabbd85c85992dcb4a5b"
+    },
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_taxi1500.png": {
+      "sha256": "613a3ca4d5cb445ab6b88e4a5f90e3242c2c5b17db59e1642549da110932cb1a"
+    },
+    "result_analysis/figures/final_top5_96_200_benchmarks/resource_availability_taxi1500.svg": {
+      "sha256": "c06ba0e0fb5a863b8e738a7839a13a194e63769cb2d1693ceaa2c9b87485486f"
+    },
+    "result_analysis/notebooks/README.md": {
+      "sha256": "42c5464dbe327431e6fef43c03e793895c5f737822ccc850fedbfd9d0e0be8c9"
+    },
+    "result_analysis/notebooks/routing_analysis/final_top5_96_vs_200_routing.ipynb": {
+      "sha256": "b041cc8d9e7f001bdc7aeb196c67407cdd47eba0c8a8186232c8625b664a9526"
+    },
+    "scripts/analysis/audit_clean_mixed_followup_completion.py": {
+      "sha256": "442bca425d9d8a34d4ee764057fc41ecc3c4f7b6bc6047e04b8b0223c21ba130"
+    },
+    "scripts/analysis/audit_final_macro3_completion.py": {
+      "sha256": "cfb61c519a04fb2ae9122234f9717ffad2451c0bbceab116ad379fc60adeaec3"
+    },
+    "scripts/analysis/audit_final_study_artifacts.py": {
+      "sha256": "03ff43058cf3fb4ded322c3fe46134ef01ce9c846d5572449941b1fb1a6a88cc"
+    },
+    "scripts/analysis/build_final_combined_top5_report.py": {
+      "sha256": "1a4beebb90a05c626d0206b80f89d0b9ed9ba24df224b2f21aab30be352a1c1e"
+    },
+    "scripts/analysis/build_final_v1_96_combined_report.py": {
+      "sha256": "efe9de38a7111aa577bdf6b59fe822ba4d7071de5d7482cf5a13679d058eeaff"
+    },
+    "scripts/analysis/build_macro3_200_raw_benchmark_report.py": {
+      "sha256": "61c29373f4dae2e46fd22e07cc0008a0c2af8c828aa8066fbbb8b9372ffd3c9c"
+    },
+    "scripts/analysis/consolidate_clean_mixed_followup.py": {
+      "sha256": "40dadf0e755d0f791eac8b9337690ae400cc59de22e231fe569dcb92c8d3ced2"
+    },
+    "scripts/analysis/consolidate_final_benchmark_shards.py": {
+      "sha256": "bad2c3b8e0fde1115d6d0a850d9d24aa2bb3012fc166caef010aa70c3e7aae55"
+    },
+    "scripts/analysis/consolidate_final_english_evaluations.py": {
+      "sha256": "74bf0bc3c8efa8c27bcd2d79b7281baccb78c14c2bc32d0ab7d8134182a9e664"
+    },
+    "scripts/analysis/consolidate_missing_v2_baselines.py": {
+      "sha256": "568a3840d960218707d93f3d41694a71032b6cd9b760fd754ea4423c6d6480a5"
+    },
+    "scripts/analysis/extract_missing_v2_baseline_tasks.py": {
+      "sha256": "fcffb7d48c953811db799dcf1c1789b7b80b0f934a1e24e514bd52ed6f0c215f"
+    },
+    "scripts/analysis/rank_clean_mixed_followup.py": {
+      "sha256": "4aba14b28f58e78ca1fd11cc69e210384f3948a02b628d03edcb0e92df58aaa7"
+    },
+    "scripts/analysis/recover_final_v1_v2_study.py": {
+      "sha256": "0dba50b358c3b8b060e5b161a3ee7e6e5a7688c8245bd797b3d0788655a130d9"
+    },
+    "scripts/analysis/repair_final_english_evaluations.py": {
+      "sha256": "36edfc1ead460825991443a6c7271e9dc7617572f94cb632cef3e99e95c4cb23"
+    },
+    "scripts/analysis/resolve_direct_adapter_checkpoint.py": {
+      "sha256": "efd51401053316b658b071ccea9879d9f2cc93803694780dc694d72fba22c1ce"
+    },
+    "scripts/analysis/select_final_benchmark_shard.py": {
+      "sha256": "e434c6f8474210d7c06a41fbd47faf9373b7aa617de2858a9a7ab7a775684baf"
+    },
+    "scripts/analysis/snapshot_slurm_job_graph.py": {
+      "sha256": "d3b16561954a363c12fcb0e321ef3c3023581ac976ff7e2db0dab29754fda825"
+    },
+    "scripts/analysis/submit_clean_mixed_followup_evaluation_repair.py": {
+      "sha256": "3ad361df18b86b34a9d909ed9957cf2310ccbd1a5bae52ac23c63f7dd14c662b"
+    },
+    "scripts/analysis/submit_clean_mixed_followup_finalizer.py": {
+      "sha256": "c7f47127fafb618e35c8c3ecd5eee8720ab60de8c1641234c5a3613c146632a7"
+    },
+    "scripts/analysis/submit_clean_mixed_followup_routed_final_eval_repair.py": {
+      "sha256": "0432e5762c3804a9eba0620b00ee5f6f1ccee662a416c5dd30db2bd4db237dfc"
+    },
+    "scripts/analysis/submit_clean_mixed_followup_v7_repair.py": {
+      "sha256": "fb6ff56d6028acb1620aea2e7658ca8d562f419d53e2ff0a978991b505da05ba"
+    },
+    "scripts/analysis/submit_final_english_evaluations.py": {
+      "sha256": "f989d3f68b79c52b2010e08ca14bb2db8dedd57e87cd91da0c606866f88d7633"
+    },
+    "scripts/analysis/submit_final_lora_campaign.py": {
+      "sha256": "cc47a175764edeb030bfd20ce1342dce2ab812e1e38592ed48d8d545c9486c9d"
+    },
+    "scripts/analysis/validate_and_release_routed_final_eval_canaries.py": {
+      "sha256": "f324c47ea9d329b0c561589ee994a74bfaff63e13cfa3e026144f19191158af8"
+    },
+    "scripts/analysis/validate_clean_mixed_followup.py": {
+      "sha256": "e697e75ecc9525cc8acd0ba49f232a932c2cd6e5fb6249c4ee4efde8472ae251"
+    },
+    "scripts/analysis/validate_final_lora_submission.py": {
+      "sha256": "afc197dead00618f54c27a72a78b4d0e3c961e326b0df2eee6a00984e4165697"
+    },
+    "scripts/analysis/validate_final_macro3_submission.py": {
+      "sha256": "27cc376d7951881084230cb357c4cbdd08c4a47eb71e3fba5922366c4d5b7d41"
+    },
+    "scripts/analysis/validate_final_v2_benchmark_panel.py": {
+      "sha256": "304327d6faf5a8ef98bfdf7612a5a6e5e356dc6e888f6e71610116156d4a1ed3"
+    },
+    "scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks/belebele/belebele_cmn_Hani.yaml": {
+      "sha256": "03950edc2352747de899d943e3ab010601e50578f33628e94fa504f80fddf6b0"
+    },
+    "scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks/belebele/belebele_ekk_Latn.yaml": {
+      "sha256": "ff8e352a4d62880b35be85bd17b0b64f8b7121e815315a1bae05e97c3599e87c"
+    },
+    "scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks/belebele/belebele_fas_Arab.yaml": {
+      "sha256": "f04c818443800c4c22a859f49204eff76e5f01ece9dfd866d26d74641ae2a230"
+    },
+    "scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks/belebele/belebele_gug_Latn.yaml": {
+      "sha256": "f67775f8dfdd0797072d72853dfb96037eeab076dbefe883233340486360c518"
+    },
+    "scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks/sib200/generate_configs.py": {
+      "sha256": "4a7c036520acd988830c935e25b26602133ecf28b7c46533fc00a4d763d52ad1"
+    },
+    "scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks/taxi1500/generate_configs.py": {
+      "sha256": "15030ab9760ec4b0652ff35ebc503213376cd63419aa4357f5f8bd8466995846"
+    },
+    "scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks/taxi1500/taxi1500_common": {
+      "sha256": "1204e80ef20ea1f1bdf029a56c236b8491ab4b5e37d8de63fd1e0ec4063fbeca"
+    },
+    "scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval/tasks/taxi1500/utils.py": {
+      "sha256": "f2fdf995aedd0288400074d4701dd926023a96ef73d69e3dc6cd65431e444fe9"
+    },
+    "scripts/slurm/build_and_validate_final_lora_report.sh": {
+      "sha256": "0f0e086118e9d7afec1e5b2b71eb668bbe293152268a967c9ef8d96cfc57f472"
+    },
+    "scripts/slurm/build_final_combined_top5_report.sh": {
+      "sha256": "dd3ab7b424f4c0d82f189ccc7c51ebbb972cd91d95cc37b6037775252e34f708"
+    },
+    "scripts/slurm/build_final_v1_96_combined_report_20260724.sh": {
+      "sha256": "ddf7b4122eb9312ddd44d1fe5df4df49399fe57d6df5673042c6303c04ba9a24"
+    },
+    "scripts/slurm/build_final_v1_96_combined_report_retry_20260724.sh": {
+      "sha256": "e3f94b8053e6baff874400bc5f4e41684da8dd8f019409ad9d37a459042a7b74"
+    },
+    "scripts/slurm/build_macro3_200_raw_benchmark_report_20260724.sh": {
+      "sha256": "7cfb4b0bac13970c0759842a8ae7d66fcdf9ff212c93a85316ed2bc2201d4658"
+    },
+    "scripts/slurm/clean_mixed_followup_consolidate.sh": {
+      "sha256": "cc70a7e01f5befeda6b34027185b2ef8369ff70e187f775cd871900af42ef37b"
+    },
+    "scripts/slurm/clean_mixed_followup_gpu_compute_probe.sh": {
+      "sha256": "0ca1253522817ff352229516b1992b7426d03cca005ff7d2df6eb02e427ebf7b"
+    },
+    "scripts/slurm/clean_mixed_followup_gpu_preflight.sh": {
+      "sha256": "9e9a33f6ed65a129066105fe32a3ffe2554f12898f792f3391eae412cd4e907a"
+    },
+    "scripts/slurm/consolidate_final_benchmark_shards.sh": {
+      "sha256": "297a5faaeca96c37d63cf529b573613462d0dbdd851928d659d42af8f30e7c70"
+    },
+    "scripts/slurm/consolidate_final_english_evaluations.sh": {
+      "sha256": "e27e2f4b648efed70c5ff459a63054f05d708643c7d7893f88f94db5f89278f8"
+    },
+    "scripts/slurm/consolidate_final_lora_benchmark_shards.sh": {
+      "sha256": "f18daa2162c39cca1fdbbe1a7e13e8b13fb1324a647b46fc8dc168b7f9bb24ca"
+    },
+    "scripts/slurm/consolidate_missing_v2_baselines.sh": {
+      "sha256": "4dec229be801d226a0f41e9b3442682ce33d91a8a0942fa7464f9faf7bac6bd2"
+    },
+    "scripts/slurm/probe_gpu_preflight_20260724.sh": {
+      "sha256": "8560db25eb1611acf5673773ec57fd777076ec1dbf281da5a991ef14b25a1579"
+    },
+    "scripts/slurm/routing_analysis/run_layerwise_atlas.sh": {
+      "sha256": "0c500f1e13a3eaa53932f47da8de361f6bdd4afd0eaafdf179a331fbbd2fe863"
+    },
+    "scripts/slurm/routing_analysis/run_one.sh": {
+      "sha256": "56ef7d27fd3767cdfa6118a27c3cbe2751828b1c90852913647adbe4be07b662"
+    },
+    "scripts/slurm/routing_analysis/run_postprocess.sh": {
+      "sha256": "e936f9e6cdefb6139fa700a1cbb72fb004b9135827854684f6e685fa737f14ab"
+    },
+    "scripts/slurm/routing_analysis/submit_final_top5.py": {
+      "sha256": "467423cace283e2d5f9cb30c9ca02b4d35b53603b7886407d1f7cebb88597e49"
+    },
+    "scripts/slurm/run_final_benchmark_shard_20260725.sh": {
+      "sha256": "840074fe1d4c4df528f901da94a261fc0d70270204f94dbb87fa0d1f0f14ee7b"
+    },
+    "scripts/slurm/run_final_english_checkpoint_20260725.sh": {
+      "sha256": "5b4ea84b95998190598994de87c48d7c8d9272c5310c3bc9c0cdccab77d2bcd9"
+    },
+    "scripts/slurm/run_final_gpu_stage_retry_20260725.sh": {
+      "sha256": "bb05d093f930884432ea73b84a674ec219843ffc8af1d248a785e13ebb2ec2e2"
+    },
+    "scripts/slurm/run_final_lora_benchmark_shard.sh": {
+      "sha256": "f9b861a9e14e52ce871d6a03902e10ef23f509626d8e257e61a3b5422031ae56"
+    },
+    "scripts/slurm/run_final_postprocess_retry_20260724.sh": {
+      "sha256": "9d6eafa189f2dc2622444959bc81b3664031260f68f61ae77d6b6a5a982bbcaf"
+    },
+    "scripts/slurm/run_final_v2_benchmark_retry_20260724.sh": {
+      "sha256": "457f4486da7504a9068d3ee7bff47cb0cf084ef1e7af5e4b1a99fb6b81e0821c"
+    },
+    "scripts/slurm/run_missing_v2_baseline_shard.sh": {
+      "sha256": "d76c932f3648f0228fe6cf90eae07939ca22a7566e2c0c90c3a73925302f96b0"
+    },
+    "scripts/slurm/submit_final_v1_v2_recovery_20260724.sh": {
+      "sha256": "d7dde65232b73b5d3fdb4b7f1ff087fca455177825f054374161ae431e8fdb49"
+    },
+    "scripts/slurm/validate_final_english_workbooks.sh": {
+      "sha256": "42cafe51dcbd097123d6bf1235f4c390aa32eb47f0e7d486d51a4642437cf5e5"
+    },
+    "scripts/slurm/validate_final_v2_panel_20260724.sh": {
+      "sha256": "6de801781e1e1b11b46ced2c738657ef970f2668d93b1ff2336e0f1241a1e7b2"
+    },
+    "tests/routing_analysis/test_layerwise_lola.py": {
+      "sha256": "e53fcf1e35138f42d52f2246f4aceef913f12bdc568ed2ba2fb0405ecf0d9e4b"
+    },
+    "tests/routing_analysis/test_routing_analysis.py": {
+      "sha256": "5cf06695b75f636581bbf44c9562d57f819fa193fa1e5067605f0bc7e5bbe1ed"
+    },
+    "tests/routing_analysis/test_target_expert_lola.py": {
+      "sha256": "37eeb57bffd31256844ad531427354299e1c54ce903ffa6d775b484615f16ad7"
+    },
+    "tmp/training_document_counts/moe_200_languages_document_counts.csv": {
+      "sha256": "711d08fb962e5906e965ea117dc9a46d8db18d9c5f1550392b7fc42429c55d73"
+    },
+    "tmp/training_document_counts/moe_96_languages_document_counts.csv": {
+      "sha256": "ed7219df3c4487d2309fde96a0138dec83f52f783bd64a533b8b5a9d2a0d516c"
+    },
+    "tmp/training_document_counts/moe_mixed_followup_document_counts.csv": {
+      "sha256": "3989f6cf730e17b8ad1fe08b7cea90c9a5d8652b4a3cb29f34ab6667ddd4fe2d"
+    }
+  }
+}

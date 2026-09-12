@@ -192,7 +192,8 @@ def _save_lola_heatmap(
     image = ax.imshow(data, aspect="auto", interpolation="nearest", cmap=cmap, vmin=0, vmax=1)
     if not paper_style:
         ax.set_title(title)
-    ax.set_xlabel("Experts" if paper_style else f"{axis_name}s grouped by {x_group_label}")
+    axis_title = axis_name.replace("_", " ").title()
+    ax.set_xlabel(axis_title if paper_style else f"{axis_name}s grouped by {x_group_label}")
     ax.set_ylabel("Languages" if paper_style else "Language group")
     if len(labels) <= 140:
         ax.set_yticks(range(len(labels)))
@@ -242,6 +243,14 @@ def _aggregate_to_base_layers(npz: np.lib.npyio.NpzFile, module_labels: list[str
     if not any(layer_id is not None for layer_id in layer_ids):
         return None
     unique_layers = sorted({layer_id for layer_id in layer_ids if layer_id is not None})
+    if "routing_probability" in npz.files:
+        matrix = npz["routing_probability"].astype(np.float64)
+        layer_matrix = np.zeros((matrix.shape[0], len(unique_layers), matrix.shape[2]), dtype=np.float64)
+        for layer_out_idx, layer_id in enumerate(unique_layers):
+            module_indices = [idx for idx, current in enumerate(layer_ids) if current == layer_id]
+            layer_matrix[:, layer_out_idx, :] = matrix[:, module_indices, :].mean(axis=1)
+        return layer_matrix, [f"L{layer_id}" for layer_id in unique_layers]
+
     if "routing_counts" in npz.files and "assignments" in npz.files:
         counts = npz["routing_counts"].astype(np.float64)
         assignments = npz["assignments"].astype(np.float64)
@@ -403,12 +412,12 @@ def _write_top_experts(
             [
                 "group",
                 "rank",
-                "summary_expert",
+                "summary_choice",
                 "summary_lola_normalized_score",
                 "summary_raw_activation_mean",
-                "module_expert",
-                "module_expert_lola_normalized_score",
-                "module_expert_raw_activation",
+                "module_choice",
+                "module_choice_lola_normalized_score",
+                "module_choice_raw_activation",
             ]
         )
         for group_idx, label in enumerate(labels):
@@ -504,7 +513,10 @@ def analyze_run(
     run_id = str(npz["run_id"])
     peft_type = str(npz["peft_type"])
 
-    if "routing_count_normalized" in npz.files:
+    if "routing_probability" in npz.files:
+        matrix = npz["routing_probability"].astype(np.float64)
+        matrix_source = "routing_probability"
+    elif "routing_count_normalized" in npz.files:
         matrix = npz["routing_count_normalized"].astype(np.float64)
         matrix_source = "routing_count_normalized"
     else:
