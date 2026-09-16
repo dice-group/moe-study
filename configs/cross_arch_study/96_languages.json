@@ -1,0 +1,30 @@
+{
+  "campaign_id": "gemma2_falcon_96_languages_2026-09-13",
+  "archive_commit": "225ec98bd3662cb4cc0cd2a78d3fe96704e53bec",
+  "models": {
+    "gemma2_9b": {"repo_id": "google/gemma-2-9b", "revision": "33c193028431c2fde6c6e51f29e6f17b60cbfac6", "model_type": "gemma2", "attention_backend": "disabled"},
+    "falcon_7b": {"repo_id": "tiiuae/falcon-7b", "revision": "ec89142b67d748a1865ea4451372db8313ada0d8", "model_type": "falcon", "attention_backend": "sdpa"}
+  },
+  "run_ids": ["moelora_tr32_e16_k8", "moelora_tr64_e32_k8", "hydralora_r2", "mtllora_lr5e5_r8_nup16", "mola_tr16_e8_k6", "lora_r2", "lora_r4"],
+  "trainer_seconds": 122400,
+  "runtime_tolerance_seconds": 1200,
+  "slurm_time": "34:30:00",
+  "gpus": 4,
+  "nodes": 1,
+  "global_batch": 48,
+  "sequence_length": 1024,
+  "seed": 42,
+  "sampling_seed": 1234,
+  "validation_seed": 42,
+  "tokenization_ranks": 50,
+  "capacity_margin": 1.25,
+  "minimum_free_vram_fraction": 0.10,
+  "exhaustion_policy": "hold_without_repetition_or_expansion",
+  "original_data_root": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h",
+  "raw_shards": "outputs/sharded_samples",
+  "original_panel": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_shared/panels/lm_eval_tasks_96_langs_v2_plus_english.txt",
+  "panel_sha256": "bc6fddb4999dae0ce3e555878b33cc337dbe452938066bcc7011ab03c95e1f62",
+  "expected_benchmarks": {"Belebele": 40, "FLORES": 100, "SIB200": 51, "Taxi1500": 58},
+  "exclude_gpu_nodes": ["n2gpu1211"],
+  "node_exclusion_evidence": "2026-09-13 Slurm drain: NHC check_nvlink_errors_dmesg reports two NVlink errors on n2gpu1211; no historical whitelist is inherited."
+}

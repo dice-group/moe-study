@@ -513,6 +513,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True, help="Adapter checkpoint dir (or base checkpoint) ")
     parser.add_argument("--tokenizer", required=True, help="Tokenizer (base model) path")
+    parser.add_argument("--base-model-copy", help="Verified local copy of the recorded base model")
+    parser.add_argument("--base-model-origin", help="Expected recorded base path; required with --base-model-copy")
     parser.add_argument("--tasks", required=True, help="Comma list or file")
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--batch-size", default="auto")
@@ -576,10 +578,20 @@ def main() -> int:
     # recorded base model, but honor an explicit tokenizer path to avoid remote
     # metadata calls when a local cached tokenizer snapshot is provided.
     base_model = _load_base_model_name(ckpt) or args.tokenizer
-    tokenizer_name = args.tokenizer or base_model
-    if base_model and args.tokenizer and base_model != args.tokenizer:
+    recorded_base_model = base_model
+    if bool(args.base_model_copy) != bool(args.base_model_origin):
+        raise ValueError("Provide both --base-model-copy and --base-model-origin")
+    if args.base_model_copy:
+        if Path(base_model).resolve() != Path(args.base_model_origin).resolve():
+            raise ValueError("Checkpoint has an unexpected base model")
+        if not Path(args.base_model_copy).is_dir():
+            raise ValueError("Base model copy is not a directory")
+        base_model = args.base_model_copy
+        print(f"[MODEL_CACHE] canonical_base={recorded_base_model} runtime_base={base_model}", file=sys.stderr)
+    tokenizer_name = args.tokenizer or recorded_base_model
+    if recorded_base_model and args.tokenizer and recorded_base_model != args.tokenizer:
         print(
-            f"[WARN] Eval tokenizer '{args.tokenizer}' does not match adapter base model '{base_model}'. "
+            f"[WARN] Eval tokenizer '{args.tokenizer}' does not match adapter base model '{recorded_base_model}'. "
             "Using adapter base model for weights and explicit tokenizer for tokenization.",
             file=sys.stderr,
         )

@@ -1,0 +1,27 @@
+{
+  "python": "/scratch/hpc-prf-merlin/joel/conda/envs/merlin/bin/python",
+  "conda_base": "/opt/software/pc2/EB-SW/software/Miniforge3/24.1.2-0",
+  "software_root": "/opt/software/pc2/EB-SW/software",
+  "hf_home": "/scratch/hpc-prf-merlin/shared_cache/huggingface",
+  "gpu_partition": "gpu",
+  "cpu_partition": "normal",
+  "gpu_type": "a100",
+  "modules": ["toolchain/foss/2024a", "system/CUDA/12.6.0", "lib/NCCL/2.22.3-GCCcore-13.3.0-CUDA-12.6.0"],
+  "resources": {
+    "train": {"cpus_per_task": 64, "mem": "384G"},
+    "eval": {"cpus_per_task": 16, "mem": "128G"},
+    "cpu": {"cpus_per_task": 8, "mem": "32G"}
+  },
+  "exclude_gpu_nodes": ["n2gpu1211", "n2gpu1213"],
+  "node_exclusion_evidence": "2026-09-13 NHC/NVLink drain evidence; operational exclusions only.",
+  "allocator_overrides": {
+    "gemma2_9b/hydralora_r2": "expandable_segments:True",
+    "gemma2_9b/mtllora_lr5e5_r8_nup16": "expandable_segments:True"
+  },
+  "memory_fraction_by_run": {
+    "hydralora_r2": 0.8,
+    "mtllora_lr5e5_r8_nup16": 0.8,
+    "mola_tr16_e8_k6": 0.8
+  },
+  "recovery_evidence": "Allocator settings from recovery reservation 34374701; require fresh gates with this source revision."
+}
