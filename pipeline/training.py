@@ -544,6 +544,11 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
     ]
     if low_cpu_mem_usage is not None:
         train_args.extend(['--low_cpu_mem_usage', str(bool(low_cpu_mem_usage))])
+    # Explicit settings for frozen campaigns; legacy profiles retain their defaults.
+    for key in ('optim', 'lr_scheduler_type', 'warmup_ratio', 'warmup_steps',
+                'adam_beta1', 'adam_beta2', 'adam_epsilon', 'max_grad_norm'):
+        if train.get(key) is not None:
+            train_args.extend(['--' + key, str(train[key])])
     resize_vocab = common.get('resize_vocab')
     if resize_vocab is not None:
         train_args.extend(['--resize_vocab', str(bool(resize_vocab))])
@@ -605,7 +610,7 @@ def build_training_cmd(*, repo_root: Path, env: dict[str, str], output_dir: Path
             '--machine_rank', str(machine_rank),
             '--main_process_ip', main_process_ip,
             '--main_process_port', str(main_process_port),
-            '--module', 'llamafactory.launcher',
+            '--module', str(common.get('launcher_module', 'llamafactory.launcher')),
             *train_args,
         ]
     else:
