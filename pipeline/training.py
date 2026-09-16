@@ -149,7 +149,40 @@ def _maybe_stage_tokenized_path(
     local_name = str(local_copy_cfg.get("name", f"{tokenized_path.name}-{source_hash}")).strip()
     if not local_name:
         local_name = f"{tokenized_path.name}-{source_hash}"
+    if Path(local_name).name != local_name or local_name in {".", ".."}:
+        raise SystemExit("training.tokenized_local_copy.name must be a single directory name")
+    job_scoped = _parse_bool(local_copy_cfg.get("job_scoped", False), default=False)
+    cleanup = _parse_bool(local_copy_cfg.get("cleanup", False), default=False)
+    if cleanup and not job_scoped:
+        raise SystemExit("training.tokenized_local_copy.cleanup requires job_scoped=true")
+    if job_scoped:
+        # The executor replaces this token only after Slurm has assigned the job id.
+        local_name = f"{local_name}-__PROOF_PIPELINE_SLURM_JOB_ID__"
     staged_path = expanded_root / local_name
+
+    try:
+        timeout_seconds = int(local_copy_cfg.get("timeout_seconds", 900))
+    except (TypeError, ValueError) as exc:
+        raise SystemExit("training.tokenized_local_copy.timeout_seconds must be a positive integer") from exc
+    if timeout_seconds <= 0:
+        raise SystemExit("training.tokenized_local_copy.timeout_seconds must be a positive integer")
+
+    verify_files_raw = local_copy_cfg.get("verify_files", [])
+    if verify_files_raw is None:
+        verify_files_raw = []
+    if not isinstance(verify_files_raw, list) or not all(isinstance(item, str) for item in verify_files_raw):
+        raise SystemExit("training.tokenized_local_copy.verify_files must be a list of relative file paths")
+    verify_files: list[str] = []
+    for raw_path in verify_files_raw:
+        relative = raw_path.strip()
+        if not relative:
+            continue
+        candidate = Path(relative)
+        if candidate.is_absolute() or ".." in candidate.parts or "," in relative:
+            raise SystemExit(
+                "training.tokenized_local_copy.verify_files entries must be safe relative paths without commas"
+            )
+        verify_files.append(relative)
 
     env["PROOF_PIPELINE_TOKENIZED_LOCAL_COPY"] = "1"
     env["PROOF_PIPELINE_TOKENIZED_SRC"] = str(source)
@@ -157,6 +190,10 @@ def _maybe_stage_tokenized_path(
     env["PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE"] = (
         "1" if _parse_bool(local_copy_cfg.get("dereference_symlinks", True), default=True) else "0"
     )
+    env["PROOF_PIPELINE_TOKENIZED_COPY_TIMEOUT_SECONDS"] = str(timeout_seconds)
+    env["PROOF_PIPELINE_TOKENIZED_VERIFY_FILES"] = ",".join(verify_files)
+    env["PROOF_PIPELINE_TOKENIZED_JOB_SCOPED"] = "1" if job_scoped else "0"
+    env["PROOF_PIPELINE_TOKENIZED_CLEANUP"] = "1" if cleanup else "0"
     return staged_path
 
 
