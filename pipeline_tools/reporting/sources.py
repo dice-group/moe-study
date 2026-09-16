@@ -20,6 +20,15 @@ def _skip_metric(task: str, metric: str) -> bool:
     return False
 
 
+def _rglob_following_run_symlinks(root: Path, pattern: str) -> list[Path]:
+    """Find artifacts, including those below top-level consolidated run symlinks."""
+    paths = set(root.rglob(pattern))
+    for child in root.iterdir():
+        if child.is_symlink() and child.is_dir():
+            paths.update(child.rglob(pattern))
+    return sorted(paths)
+
+
 def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     if not benchmark_dir.exists():
@@ -103,7 +112,7 @@ def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
                     if task.startswith("belebele_"):
                         break
 
-    for path in sorted(benchmark_dir.rglob("*_lm_eval.jsonl")):
+    for path in _rglob_following_run_symlinks(benchmark_dir, "*_lm_eval.jsonl"):
         run_id = path.parent.name
         if path.is_file():
             for line in path.read_text(encoding="utf-8").splitlines():
@@ -124,7 +133,9 @@ def iter_eval_rows(benchmark_dir: Path) -> list[dict[str, Any]]:
                     continue
                 ingest_payload(payload, run_id=run_id)
 
-    for json_file in sorted(benchmark_dir.rglob("with_language_ids_*.json")) + sorted(benchmark_dir.rglob("no_language_ids.json")):
+    for json_file in _rglob_following_run_symlinks(
+        benchmark_dir, "with_language_ids_*.json"
+    ) + _rglob_following_run_symlinks(benchmark_dir, "no_language_ids.json"):
         if not json_file.is_file():
             continue
         try:

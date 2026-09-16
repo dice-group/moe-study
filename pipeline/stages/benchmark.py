@@ -12,7 +12,6 @@ from .common import ensure_lm_eval_layout
 from .runtime import (
     _abs,
     _build_run_label,
-    _dump_json,
     _load_json,
     _resolve_profile_languages,
     _run_stage_cmd,
@@ -25,6 +24,7 @@ from ..checks import check_benchmark
 from ..context import PipelineContext
 from ..runtime import _deep_merge
 from ..training import adapter_checkpoint_provenance, resolve_adapter_eval_path
+from .per_run_summary import write_per_run_summary
 
 
 def _read_selected_tasks_file(path) -> list[str]:
@@ -86,6 +86,63 @@ def _collect_tasks_from_output_dir(path: Path) -> tuple[list[Path], set[str]]:
             continue
         task_seen.update(_extract_tasks_from_payload(payload))
     return files, task_seen
+
+
+def _task_family(task: str) -> str:
+    if task.startswith("belebele_"):
+        return "Belebele"
+    if task.startswith("flores_en_perplexity_"):
+        return "FLORES"
+    if task.startswith("sib200_"):
+        return "SIB200"
+    if task.startswith("taxi1500_"):
+        return "Taxi1500"
+    return "Other"
+
+
+def _task_family_counts(tasks: list[str] | set[str]) -> dict[str, int]:
+    counts = {"Belebele": 0, "FLORES": 0, "SIB200": 0, "Taxi1500": 0}
+    for task in tasks:
+        family = _task_family(task)
+        if family in counts:
+            counts[family] += 1
+    return counts
+
+
+def _validate_strict_task_selection(selected_tasks: list[str], cfg: dict[str, object]) -> dict[str, int]:
+    """Validate the selected task panel before spending GPU time on evaluation."""
+    counts = _task_family_counts(selected_tasks)
+    if len(selected_tasks) != len(set(selected_tasks)):
+        raise SystemExit("Benchmark strict completeness: selected task list contains duplicates")
+    expected_count_raw = cfg.get("expected_task_count")
+    if expected_count_raw is not None:
+        try:
+            expected_count = int(expected_count_raw)
+        except (TypeError, ValueError) as exc:
+            raise SystemExit("benchmark.expected_task_count must be an integer") from exc
+        if len(selected_tasks) != expected_count:
+            raise SystemExit(
+                f"Benchmark strict completeness: selected {len(selected_tasks)} tasks, expected {expected_count}"
+            )
+
+    expected_breakdown_raw = cfg.get("expected_task_breakdown")
+    if expected_breakdown_raw is not None:
+        if not isinstance(expected_breakdown_raw, dict):
+            raise SystemExit("benchmark.expected_task_breakdown must be an object")
+        try:
+            expected_breakdown = {
+                family: int(expected_breakdown_raw.get(family, 0))
+                for family in counts
+            }
+        except (TypeError, ValueError) as exc:
+            raise SystemExit("benchmark.expected_task_breakdown values must be integers") from exc
+        if counts != expected_breakdown:
+            raise SystemExit(
+                f"Benchmark strict completeness: selected task breakdown {counts}, expected {expected_breakdown}"
+            )
+    if not selected_tasks:
+        raise SystemExit("Benchmark strict completeness: selected task list is empty")
+    return counts
 
 
 def _resolve_eval_script(ctx: PipelineContext) -> str:
@@ -300,20 +357,30 @@ def stage_benchmark(ctx: PipelineContext) -> None:
             selected_tasks_file = ctx.benchmark_root / f"selected_tasks.{run_id}.txt"
             selected_tasks_summary = ctx.benchmark_root / f"selected_tasks_summary.{run_id}.json"
         benchmark_summary_path = ctx.benchmark_root / "benchmark_summary.json"
+        per_run_summary_root = ctx.benchmark_root / "run_summaries"
         all_runs = ctx.train_cfg.get("runs", [])
         if ctx.args.run_id:
             run_id_set = {str(rid) for rid in ctx.args.run_id}
             runs = [run for run in all_runs if str(run.get("id")) in run_id_set]
         else:
             runs = all_runs
+        state_stage = (
+            f"benchmark:{runs[0]['id']}"
+            if len(runs) == 1 and ctx.args.run_id
+            else "benchmark"
+        )
+        force_stages = set(ctx.force_stages)
+        if "benchmark" in force_stages:
+            force_stages.add(state_stage)
         expected = [selected_tasks_file, selected_tasks_summary, benchmark_summary_path]
+        expected.extend(per_run_summary_root / f"{run['id']}.json" for run in runs)
         expected.extend([ctx.benchmark_root / str(run["id"]) for run in runs])
         if _should_skip_stage(
             state_path=ctx.state_path,
-            stage="benchmark",
+            stage=state_stage,
             signature=signature,
             expected_artifacts=expected,
-            force_stages=ctx.force_stages,
+            force_stages=force_stages,
             dry_run=ctx.args.dry_run,
         ):
             ctx.logger.info("[SKIP] benchmark stage (cache hit)")
@@ -352,7 +419,11 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                 dry_run=ctx.args.dry_run,
                 logs_root=ctx.logs_root,
                 stage="benchmark",
-                suffix="task_select",
+                suffix=(
+                    f"task_select_{ctx.args.run_id[0]}"
+                    if len(ctx.args.run_id) == 1
+                    else "task_select"
+                ),
                 executor=ctx.executor,
             )
             if ctx.args.dry_run:
@@ -367,6 +438,14 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                 )
             else:
                 selected_tasks = _read_selected_tasks_file(selected_tasks_file)
+            strict_completeness = bool(ctx.benchmark_cfg.get("strict_completeness", False))
+            if strict_completeness and bool(ctx.benchmark_cfg.get("allow_missing_lm_eval", False)):
+                raise SystemExit("Benchmark strict completeness requires allow_missing_lm_eval=false")
+            expected_task_breakdown = (
+                _validate_strict_task_selection(selected_tasks, ctx.benchmark_cfg)
+                if strict_completeness
+                else _task_family_counts(selected_tasks)
+            )
             if not ctx.args.dry_run and (not selected_tasks) and bool(ctx.benchmark_cfg.get("fail_if_no_tasks", True)):
                 raise SystemExit("Benchmark stage selected zero tasks.")
             tasks_csv = ",".join(selected_tasks) if selected_tasks else "belebele_eng_Latn"
@@ -414,7 +493,6 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                     str(ctx.wandb_cfg.get("mode", "disabled")) if bool(ctx.wandb_cfg.get("enabled", False)) else "disabled",
                 )
             )
-            benchmark_rows: list[dict[str, object]] = []
             run_name_by_id: dict[str, str] = {
                 str(run["id"]): _build_run_label(
                     base_run_label=ctx.base_run_label,
@@ -488,38 +566,53 @@ def stage_benchmark(ctx: PipelineContext) -> None:
                 )
                 if not ctx.args.dry_run:
                     files, task_seen = _collect_tasks_from_output_dir(out_dir)
-                    benchmark_rows.append(
-                        {
-                            "run_id": run_id,
-                            "evaluated_checkpoint": str(adapter_dir.resolve()),
-                            "adapter_provenance": adapter_checkpoint_provenance(
-                                adapter_dir,
-                                expected_step=expected_step,
-                                require_direct_save_marker=bool(require_direct_save_marker),
+                    selected_task_set = set(selected_tasks)
+                    matched_tasks = selected_task_set & task_seen
+                    benchmark_row = {
+                        "run_id": run_id,
+                        "evaluated_checkpoint": str(adapter_dir.resolve()),
+                        "adapter_provenance": adapter_checkpoint_provenance(
+                            adapter_dir,
+                            expected_step=expected_step,
+                            require_direct_save_marker=bool(require_direct_save_marker),
+                        ),
+                        "evaluated_tokenizer": tokenizer,
+                        "output_dir": str(out_dir.resolve()),
+                        "num_output_files": len(files),
+                        "num_tasks_expected": len(selected_tasks),
+                        "num_tasks_seen": len(matched_tasks),
+                        "expected_task_breakdown": expected_task_breakdown,
+                        "seen_task_breakdown": _task_family_counts(matched_tasks),
+                        "missing_tasks": sorted(selected_task_set - task_seen),
+                        "extra_tasks_seen": sorted(task_seen - selected_task_set),
+                        "strict_completeness": strict_completeness,
+                    }
+                    write_per_run_summary(
+                        per_run_path=per_run_summary_root / f"{run_id}.json",
+                        aggregate_path=benchmark_summary_path,
+                        metadata={
+                            "tasks_file": str(tasks_file.resolve()),
+                            "selected_tasks_file": str(selected_tasks_file.resolve()),
+                            "selected_tasks_summary": str(selected_tasks_summary.resolve()),
+                            "resolved_eval_tokenizer": tokenizer,
+                            "lm_eval_limit": str(ctx.env.get("LM_EVAL_LIMIT", "")).strip(),
+                            "embedding_init_manifest": (
+                                str(ctx.embedding_init_manifest_path.resolve())
+                                if ctx.embedding_init_manifest_path.exists()
+                                else ""
                             ),
-                            "evaluated_tokenizer": tokenizer,
-                            "output_dir": str(out_dir.resolve()),
-                            "num_output_files": len(files),
-                            "num_tasks_expected": len(selected_tasks),
-                            "num_tasks_seen": len(task_seen),
-                            "missing_tasks": sorted(set(selected_tasks) - task_seen),
-                        }
+                            "num_selected_tasks": len(selected_tasks),
+                            "expected_task_breakdown": expected_task_breakdown,
+                            "strict_completeness": strict_completeness,
+                        },
+                        run=benchmark_row,
                     )
             if not ctx.args.dry_run:
-                _dump_json(
+                check_benchmark(
+                    ctx.benchmark_root,
                     benchmark_summary_path,
-                    {
-                        "tasks_file": str(tasks_file.resolve()),
-                        "selected_tasks_file": str(selected_tasks_file.resolve()),
-                        "selected_tasks_summary": str(selected_tasks_summary.resolve()),
-                        "resolved_eval_tokenizer": tokenizer,
-                        "lm_eval_limit": str(ctx.env.get("LM_EVAL_LIMIT", "")).strip(),
-                        "embedding_init_manifest": (
-                            str(ctx.embedding_init_manifest_path.resolve()) if ctx.embedding_init_manifest_path.exists() else ""
-                        ),
-                        "num_selected_tasks": len(selected_tasks),
-                        "runs": benchmark_rows,
-                    },
+                    dry_run=ctx.args.dry_run,
+                    check_path=(ctx.benchmark_root / f"_check.{runs[0]['id']}.json") if len(runs) == 1 else None,
+                    run_ids={str(run["id"]) for run in runs},
                 )
-                _save_stage_state(ctx.state_path, "benchmark", signature, [str(path) for path in expected])
-                check_benchmark(ctx.benchmark_root, benchmark_summary_path, dry_run=ctx.args.dry_run)
+                _save_stage_state(ctx.state_path, state_stage, signature, [str(path) for path in expected])
