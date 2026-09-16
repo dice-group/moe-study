@@ -1,0 +1,39 @@
+{
+  "created_utc": "2026-09-15T20:52:39.237270+00:00",
+  "falcon": {
+    "acceptance": "34426145",
+    "benchmark": "34426146",
+    "collect": "34426148",
+    "final_loss": "34426147",
+    "status": "submitted",
+    "updated_utc": "2026-09-15T20:52:40.117031+00:00"
+  },
+  "gemma": {
+    "confirmation": {
+      "archived_partial": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_repairs_20260915/archive/gemma/interrupted_confirmation_34375226",
+      "batch_size": 1,
+      "global_batch_size": 48,
+      "gpus": 4,
+      "grad_accum": 12,
+      "gradient_checkpointing": true,
+      "steps": 120
+    },
+    "pilot": "34426149",
+    "promotion": "34426150",
+    "status": "submitted",
+    "updated_utc": "2026-09-15T20:52:45.930786+00:00"
+  },
+  "report": {
+    "reports": {
+      "jobs": [
+        {
+          "job_id": "34426151",
+          "model": "falcon_7b",
+          "stage": "report"
+        }
+      ]
+    },
+    "status": "submitted",
+    "updated_utc": "2026-09-15T20:53:40.460205+00:00"
+  }
+}

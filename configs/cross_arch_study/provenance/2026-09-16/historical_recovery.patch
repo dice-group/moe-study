@@ -1,0 +1,441 @@
+--- a/pipeline_tools/cross_arch_study.py
++++ b/pipeline_tools/cross_arch_study.py
+@@ -20,16 +20,30 @@
+ import sys
+ 
+ ROOT = Path(__file__).resolve().parents[1]
+-RUNTIME_PROFILE = ROOT / "configs/cross_arch_study/noctua2_runtime.json"
++PYTHON = Path("/scratch/hpc-prf-merlin/joel/conda/envs/merlin/bin/python")
++CONDA_BASE = "/opt/software/pc2/EB-SW/software/Miniforge3/24.1.2-0"
++CONTRACT = ROOT / "configs/cross_arch_study/96_languages.json"
++# Populate only from successful recovery probes before freezing calibration.
++# This module is hashed in every gate; changing an allocator invalidates old gates.
++# Measured on four A100s in reservation 34374701; scientific settings unchanged.
++# The same environment is pinned for full calibration and production.
++TRAINING_ALLOCATORS = {
++    ("gemma2_9b", "hydralora_r2"): "expandable_segments:True",
++    ("gemma2_9b", "mtllora_lr5e5_r8_nup16"): "expandable_segments:True",
++}
++TRAINING_MEMORY_FRACTIONS = {
++    (model, run_id): 0.8
++    for model in ("gemma2_9b", "falcon_7b")
++    for run_id in ("hydralora_r2", "mtllora_lr5e5_r8_nup16", "mola_tr16_e8_k6")
++}
+ 
+ 
+-def runtime_profile():
+-    return json.loads(RUNTIME_PROFILE.read_text())
++def training_runtime_environment(model, run_id):
++    default = "expandable_segments:True" if run_id.startswith(("moelora_", "mola_")) else ""
++    return {"PYTORCH_CUDA_ALLOC_CONF": TRAINING_ALLOCATORS.get((model, run_id), default),
++            "PROOF_PIPELINE_CUDA_MEMORY_FRACTION": str(TRAINING_MEMORY_FRACTIONS.get((model, run_id), ""))}
+ 
+ 
+-PYTHON = Path(runtime_profile()["python"])
+-CONDA_BASE = runtime_profile()["conda_base"]
+-CONTRACT = ROOT / "configs/cross_arch_study/96_languages.json"
+ ARCHIVE_PROFILES = [
+     "moe_study_final_macro3_96_200_v1.generated.json",
+     "moe_study_final_macro45_96_200_v1.generated.json",
+@@ -80,19 +94,6 @@
+     return read_json(CONTRACT)
+ 
+ 
+-def training_runtime_environment(model, run_id):
+-    settings = runtime_profile()
+-    default = "expandable_segments:True" if run_id.startswith(("moelora_", "mola_")) else ""
+-    return {
+-        "PYTORCH_CUDA_ALLOC_CONF": settings["allocator_overrides"].get(f"{model}/{run_id}", default),
+-        "PROOF_PIPELINE_CUDA_MEMORY_FRACTION": str(settings["memory_fraction_by_run"].get(run_id, "")),
+-    }
+-
+-
+-def attempt_logs(root):
+-    return Path(root) / "logs" / "attempts" / (dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f") + f"_{os.getpid()}")
+-
+-
+ def campaign_root():
+     return ROOT / "outputs/pipeline_runs" / contract()["campaign_id"]
+ 
+@@ -117,7 +118,8 @@
+     evidence = {}
+     for filename in ARCHIVE_PROFILES:
+         path = "configs/pipeline/profiles/moe_study_rank_expert_sweep_configs/" + filename
+-        raw = subprocess.check_output(["git", "show", f"{contract()['archive_commit']}:{path}"], cwd=ROOT)
++        raw = subprocess.check_output(["git", "show", f"{contract()['archive_commit']}:{path}"],
++                                      cwd="/scratch/hpc-prf-merlin/joel/moe-study")
+         evidence[path] = hashlib.sha256(raw).hexdigest()
+         bundle["profiles"] = deep_merge(bundle["profiles"], json.loads(raw))
+     return {key: _resolve_profile(bundle, name) for key, name in PROFILES.items()}, evidence
+@@ -226,16 +228,15 @@
+                 raise ValueError(f"Unexpected original effective batch: {run_id}")
+             runs.append(run)
+         train["runs"] = runs
+-        runtime = runtime_profile()
+-        excluded = "--exclude=" + ",".join(runtime["exclude_gpu_nodes"])
+-        train_exec = {"type": "slurm", "partition": runtime["gpu_partition"], "gres": f"gpu:{runtime['gpu_type']}:4", **runtime["resources"]["train"], "time": cfg["slurm_time"],
++        excluded = "--exclude=" + ",".join(cfg["exclude_gpu_nodes"])
++        train_exec = {"type": "slurm", "partition": "gpu", "gres": "gpu:a100:4", "cpus_per_task": 64, "mem": "384G", "time": cfg["slurm_time"],
+                       "conda_base": CONDA_BASE, "conda_env": str(PYTHON.parent.parent),
+                       "extra_sbatch_flags": ["--nodes=1", "--signal=B:USR1@1200", excluded,
+                                              "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"]}
+-        eval_exec = {"type": "slurm", "partition": runtime["gpu_partition"], "gres": f"gpu:{runtime['gpu_type']}:1", **runtime["resources"]["eval"], "time": "08:00:00", "extra_sbatch_flags": ["--nodes=1", excluded]}
++        eval_exec = {"type": "slurm", "partition": "gpu", "gres": "gpu:a100:1", "cpus_per_task": 16, "mem": "128G", "time": "08:00:00", "extra_sbatch_flags": ["--nodes=1", excluded]}
+         eval_exec.update(conda_base=CONDA_BASE, conda_env=str(PYTHON.parent.parent))
+-        cpu_exec = {"type": "slurm", "partition": runtime["cpu_partition"], "gres": "cpu", **runtime["resources"]["cpu"],
+-                    "time": "01:00:00", "conda_base": CONDA_BASE,
++        cpu_exec = {"type": "slurm", "partition": "normal", "gres": "cpu", "cpus_per_task": 8,
++                    "mem": "32G", "time": "01:00:00", "conda_base": CONDA_BASE,
+                     "conda_env": str(PYTHON.parent.parent), "extra_sbatch_flags": ["--nodes=1", "--kill-on-invalid-dep=yes"]}
+         base["executor"] = cpu_exec
+         base["stage_executors"] = {stage: copy.deepcopy(cpu_exec) for stage in ("train_acceptance", "summary", "report")}
+@@ -441,26 +442,25 @@
+     if submit: dependency = live_dependency(dependency)
+     if gpu:
+         flags.append("--exclude=" + ",".join(excluded_nodes()))
+-    runtime = runtime_profile()
+-    resources = runtime["resources"]["train" if gpu and gpu_count == 4 else "eval" if gpu else "cpu"]
+-    executor = CrossArchSlurmExecutor(partition=runtime["gpu_partition" if gpu else "cpu_partition"], gres=f"gpu:{runtime['gpu_type']}:{gpu_count}" if gpu else "",
+-                             **resources, time_limit=hours, modules=runtime["modules"],
++    executor = CrossArchSlurmExecutor(partition="gpu" if gpu else "normal", gres=f"gpu:a100:{gpu_count}" if gpu else "",
++                             cpus_per_task=(64 if gpu_count == 4 else 16) if gpu else 8,
++                             mem=("384G" if gpu_count == 4 else "128G") if gpu else "32G", time_limit=hours,
+                              conda_base=CONDA_BASE, conda_env=str(PYTHON.parent.parent),
+                              extra_sbatch_flags=flags)
+     env = dict(os.environ)
+     model = command[command.index("--model") + 1] if "--model" in command else None
+     env.update(PYTHONPATH=runtime_pythonpath(model),
+-               PROOF_PIPELINE_REPO_ROOT=str(ROOT), PROOF_PIPELINE_PRESERVE_ENV="1", WANDB_MODE="disabled", HF_HOME=runtime["hf_home"],
+-               HF_DATASETS_CACHE=str(Path(runtime["hf_home"]) / "datasets"))
++               PROOF_PIPELINE_REPO_ROOT=str(ROOT), PROOF_PIPELINE_PRESERVE_ENV="1", WANDB_MODE="disabled", HF_HOME="/scratch/hpc-prf-merlin/shared_cache/huggingface",
++               HF_DATASETS_CACHE="/scratch/hpc-prf-merlin/shared_cache/huggingface/datasets")
+     env.update(extra_env or {})
+     if model:
+         env["PROOF_PIPELINE_CROSS_ARCH_MODEL"] = model
+     # Preserve the exact interpreter in the receipt environment as well.
+     env["PROOF_PIPELINE_PYTHON"] = str(PYTHON)
+-    log = attempt_logs(root) / f"{label}.log"
++    log = root / "logs" / f"{label}.log"
+     if array:
+         return executor.submit_array(command, env, not submit, log, array=array, dependency=dependency, job_name=label,
+-                                     slurm_output=str(log.parent / (label + ".%A_%a.log")))
++                                     slurm_output=str(root / "logs" / (label + ".%A_%a.log")))
+     return executor.submit(command, env, not submit, log, dependency=dependency, job_name=label)
+ 
+ 
+--- a/pipeline_tools/cross_arch_pilot.py
++++ b/pipeline_tools/cross_arch_pilot.py
+@@ -42,8 +42,7 @@
+     paths.extend(str(p.relative_to(ROOT)) for folder in ("LLaMA-Factory/src/peft", "LLaMA-Factory/src/llamafactory")
+                  for p in (ROOT / folder).rglob("*.py"))
+     harness = ROOT / "scripts/eval/latest_checkpoint/lm-evaluation-harness/lm_eval"
+-    paths.append("configs/cross_arch_study/noctua2_runtime.json")
+-    paths.extend(str(p.relative_to(ROOT)) for folder in ("belebele", "flores_en_perplexity", "sib200", "taxi1500")
++    paths.extend(str(p.relative_to(ROOT)) for folder in ("belebele", "flores", "sib200", "taxi1500")
+                  for p in (harness / "tasks" / folder).rglob("*") if p.suffix in {".py", ".yaml"})
+     paths.extend(str((harness / p).relative_to(ROOT)) for p in ("models/huggingface.py", "evaluator.py"))
+     # Every file is still hashed. Bound concurrent reads to avoid serial
+@@ -81,7 +80,6 @@
+ 
+ 
+ def benchmark_command(model, run_id, checkpoint, tasks_file, output, *, limit=None):
+-    from pipeline_tools.cross_arch_model_cache import local_model_path
+     cmd = [str(PYTHON), str(ROOT / "scripts/eval/lm_eval_language_ids.py"),
+            "--checkpoint", str(checkpoint), "--tokenizer", str(model_root(model) / "model"),
+            "--tasks", str(tasks_file), "--output-dir", str(output), "--batch-size", "1",
+@@ -90,8 +88,6 @@
+            "--seed", "42", "--numpy-seed", "42", "--torch-seed", "42", "--fewshot-seed", "42"]
+     if limit is not None:
+         cmd += ["--limit", str(limit)]
+-    cmd += ["--base-model-copy", str(local_model_path(model)),
+-            "--base-model-origin", str(model_root(model) / "model")]
+     return cmd
+ 
+ 
+@@ -153,7 +149,10 @@
+             result["reason"] = "Insufficient VRAM safety margin"
+     except subprocess.CalledProcessError as exc:
+         text = log.read_text(errors="replace") if log.exists() else ""
+-        if any(marker in text for marker in ("CUDA out of memory", "OutOfMemoryError", "CUBLAS_STATUS_ALLOC_FAILED", "CUDNN_STATUS_ALLOC_FAILED")):
++        if any(marker in text for marker in (
++            "CUDA out of memory", "OutOfMemoryError",
++            "CUBLAS_STATUS_ALLOC_FAILED", "CUDNN_STATUS_ALLOC_FAILED",
++        )):
+             result["reason"] = "OOM"
+         elif not disable_gc and "CheckpointError" in text:
+             result["reason"] = "Unsupported checkpoint recomputation"
+@@ -256,21 +255,27 @@
+             state = subprocess.check_output(["squeue", "-h", "-j", job["job_id"], "-o", "%T"], text=True).strip()
+             if state != "PENDING":
+                 raise ValueError(f"Cannot refresh pilot code after execution began: {job['job_id']} {state}")
+-    data_jobs = {j["model"]: j["job_id"] for j in read_json(root / "preparation_jobs.json")["jobs"] if j["stage"] == "data_acceptance"}
+-    backend_jobs = {j["model"]: j["job_id"] for j in read_json(root / "backend_jobs.json")["jobs"]}
++    recovery = read_json(root / "artifact_sources.json")
++    ready_path = root / "recovery_ready.json"
++    if submit:
++        ready = read_json(ready_path) if ready_path.exists() else {}
++        if not ready.get("pass") or ready.get("code_signature") != code_signature():
++            raise ValueError("Recovery GPU checks and source freeze are required before calibration submission")
++    # Inputs/backends are already validated; one failed adapter must not block another.
++    for model in contract()["models"]:
++        for name in ("data_ready.json", "backend_ready.json"):
++            if read_json(model_root(model) / name) != read_json(Path(recovery["original_campaign"]) / model / name):
++                raise ValueError(f"Recovery input/backend mismatch: {model}/{name}")
+     jobs = prior["jobs"]
+     if submit: write_json(receipt, {"status": "submitting", "jobs": jobs, "code_signature": code_signature()})
+     for model in contract()["models"]:
+-        first_job = None
+-        for run_id in ["lora_r2", *[r for r in contract()["run_ids"] if r != "lora_r2"]]:
++        for run_id in recovery["recalibrate"][model]:
+             existing = next((j for j in jobs if j["model"] == model and j["run_id"] == run_id), None)
+             if existing:
+-                if run_id == "lora_r2": first_job = existing["job_id"]
+                 continue
+             command = [str(PYTHON), "-m", "pipeline_tools.cross_arch_pilot", "run", "--model", model, "--run-id", run_id]
+             job_id = sbatch(command, f"xa_pilot_{model}_{run_id}", gpu=True, hours="08:00:00", submit=submit,
+-                            dependency=f"afterok:{data_jobs[model]}:{backend_jobs[model]}" + (f":{first_job}" if first_job else ""))
+-            if run_id == "lora_r2": first_job = job_id
++                            dependency=None)
+             jobs.append({"model": model, "run_id": run_id, "stage": "pilot", "job_id": job_id})
+             if submit:
+                 write_json(receipt, {"status": "submitting", "jobs": jobs, "code_signature": code_signature()})
+--- a/pipeline_tools/cross_arch_launch.py
++++ b/pipeline_tools/cross_arch_launch.py
+@@ -16,7 +16,6 @@
+ from pipeline_tools.cross_arch_study import (
+     ROOT, PYTHON, CONDA_BASE, CONTRACT, campaign_root, model_root, contract,
+     read_json, write_json, sha256, capacity_check, sbatch, utc_now, runtime_pythonpath,
+-    runtime_profile, training_runtime_environment, attempt_logs,
+ )
+ from pipeline_tools.cross_arch_pilot import code_signature, load_profile, find_run
+ 
+@@ -69,12 +68,13 @@
+     if os.environ.get("HALA_MAX_STEPS_OVERRIDE") or os.environ.get("PROOF_PIPELINE_CROSS_ARCH_STOP_STEPS"):
+         raise ValueError("Pilot/max-step override present in production environment")
+     env = dict(os.environ)
++    from pipeline_tools.cross_arch_study import training_runtime_environment
+     env.update(training_runtime_environment(model, run_id))
+     env.update(PYTHONPATH=runtime_pythonpath(model),
+                PROOF_PIPELINE_REPO_ROOT=str(ROOT), PROOF_PIPELINE_PYTHON=str(PYTHON),
+                PROOF_PIPELINE_PRESERVE_ENV="1", WANDB_MODE="disabled",
+-               HF_HOME=runtime_profile()["hf_home"],
+-               HF_DATASETS_CACHE=str(Path(runtime_profile()["hf_home"]) / "datasets"),
++               HF_HOME="/scratch/hpc-prf-merlin/shared_cache/huggingface",
++               HF_DATASETS_CACHE="/scratch/hpc-prf-merlin/shared_cache/huggingface/datasets",
+                PROOF_PIPELINE_CROSS_ARCH_MODEL=model, PROOF_PIPELINE_CROSS_ARCH_RUN=run_id,
+                PROOF_PIPELINE_CROSS_ARCH_PRODUCTION="1", OMP_NUM_THREADS="2", MKL_NUM_THREADS="2")
+     return env
+@@ -114,15 +114,14 @@
+                     run_cfg=run, common=profile["training"], language_map_path=root / "inputs/language_map.json",
+                     tokenized_path=out / "tokenized", embedding_training_cfg={"enabled": False}, run_name=f"{m}/{rid}")
+                 cmd[0] = str(PYTHON.parent / "accelerate")
+-                runtime = runtime_profile()
+-                executor = CrossArchSlurmExecutor(partition=runtime["gpu_partition"], gres=f"gpu:{runtime['gpu_type']}:4", **runtime["resources"]["train"],
+-                    time_limit=contract()["slurm_time"], modules=runtime["modules"], conda_base=CONDA_BASE, conda_env=str(PYTHON.parent.parent),
++                executor = CrossArchSlurmExecutor(partition="gpu", gres="gpu:a100:4", cpus_per_task=64, mem="384G",
++                    time_limit=contract()["slurm_time"], conda_base=CONDA_BASE, conda_env=str(PYTHON.parent.parent),
+                     extra_sbatch_flags=["--nodes=1", "--ntasks-per-node=1", "--signal=B:USR1@1200", "--kill-on-invalid-dep=yes",
+                                         "--exclude=" + ",".join(excluded_nodes())],
+                     preflight={"enabled": True, "required_gpu_count": 4, "required_gpu_name": "A100",
+                                "timeout_seconds": 300, "check_ecc": True, "check_nvlink": True, "check_torch_distributed": True})
+-                log = attempt_logs(out) / f"production_{rid}.log"
+-                slurm_log = log.with_suffix(".slurm.log")
++                log = out / "logs" / f"production_{rid}.log"
++                slurm_log = out / "logs" / f"production_{rid}.slurm.log"
+                 if submit:
+                     destination.mkdir(parents=True, exist_ok=True)
+                     write_json(destination / "frozen_run.json", run)
+@@ -174,15 +173,16 @@
+         model, run_id = pilot["model"], pilot["run_id"]
+         job_id = sbatch([str(PYTHON), "-m", "pipeline_tools.cross_arch_launch", "advance",
+                         "--model", model, "--run-id", run_id, "--submit"],
+-                       f"xa_promote_{model}_{run_id}", hours="00:20:00", submit=submit,
++                       f"xa_promote_{model}_{run_id}", hours="01:00:00", submit=submit,
+                        dependency=f"afterok:{pilot['job_id']}")
+         record["jobs"].append({"model": model, "run_id": run_id, "job_id": job_id})
+         if submit: write_json(path, record)
+     # The native baselines are evaluations, not additional training runs.
+     from pipeline_tools.cross_arch_eval import submit_evaluation
+     for model in contract()["models"]:
+-        first = next(j["job_id"] for j in pilots if j["model"] == model and j["run_id"] == "lora_r2")
+-        submit_evaluation(model, "baseline", f"afterok:{first}", submit=submit)
++        if model == "gemma2_9b":
++            # Validated model/backend already exists; baseline does not depend on LoRA.
++            submit_evaluation(model, "baseline", None, submit=submit)
+     if submit:
+         from pipeline_tools.cross_arch_report import submit_ready_reports
+         submit_ready_reports(submit=True)
+--- a/pipeline_tools/cross_arch_report.py
++++ b/pipeline_tools/cross_arch_report.py
+@@ -201,6 +201,14 @@
+     with (root / ".report_submission.lock").open("a") as lock:
+         fcntl.flock(lock, fcntl.LOCK_EX)
+         evaluation = read_json(root / "evaluation_jobs.json")["jobs"]
++        mapping = read_json(root / "artifact_sources.json")
++        original = Path(mapping["original_campaign"])
++        for job in read_json(original / "evaluation_jobs.json")["jobs"]:
++            model, run = job["model"], job["run_id"]
++            source = (mapping["baseline_sources"][model] if run == "baseline"
++                      else mapping["run_sources"][model].get(run))
++            if source == str(original):
++                evaluation.append(job)
+         path = root / "report_jobs.json"
+         record = read_json(path) if path.exists() else {"jobs": []}
+         for model in contract()["models"]:
+@@ -214,10 +222,20 @@
+             if submit:
+                 record["jobs"].append({"stage": "report", "model": model, "job_id": job})
+                 write_json(path, record)
+-        reports = [j["job_id"] for j in record["jobs"] if j["stage"] == "report"]
++        reports = [j for j in record["jobs"] if j["stage"] == "report"]
+         if len(reports) == 2 and not any(j["stage"] == "correlations" for j in record["jobs"]):
++            dependencies = []
++            for report_job in reports:
++                ready_path = model_root(report_job["model"]) / "report_ready.json"
++                if not ready_path.exists():
++                    dependencies.append(report_job["job_id"])
++                    continue
++                ready = read_json(ready_path)
++                if not ready.get("pass") or ready.get("sha256") != sha256(ready["path"]):
++                    raise ValueError(f"Invalid completed workbook: {ready_path}")
+             job = sbatch([str(PYTHON), "-m", "pipeline_tools.cross_arch_report", "correlations"], "xa_correlations",
+-                hours="00:30:00", submit=submit, dependency="afterok:" + ":".join(reports))
++                hours="00:30:00", submit=submit,
++                dependency="afterok:" + ":".join(dependencies) if dependencies else None)
+             if submit:
+                 record["jobs"].append({"stage": "correlations", "job_id": job})
+                 write_json(path, record)
+--- a/pipeline_tools/cross_arch_debug.py
++++ b/pipeline_tools/cross_arch_debug.py
+@@ -46,8 +46,6 @@
+         raise ValueError(f"Use a new label; diagnostic evidence is preserved: {out}")
+     out.mkdir(parents=True)
+     env = dict(os.environ)
+-    from pipeline_tools.cross_arch_study import training_runtime_environment
+-    env.update(training_runtime_environment(model, run_id))
+     env.update(PYTHONPATH=runtime_pythonpath(model), PROOF_PIPELINE_CROSS_ARCH_STOP_STEPS=str(steps),
+                PROOF_PIPELINE_PREFLIGHT_COMPLETE="1", OMP_NUM_THREADS="2", MKL_NUM_THREADS="2",
+                WANDB_MODE="disabled", TOKENIZERS_PARALLELISM="false")
+--- a/pipeline/gpu_preflight.py
++++ b/pipeline/gpu_preflight.py
+@@ -22,25 +22,26 @@
+             text=True,
+             start_new_session=True,
+         )
+-        try:
+-            stdout, stderr = process.communicate(timeout=max(1.0, timeout_seconds))
+-        except subprocess.TimeoutExpired:
+-            # Kill the whole torchrun group, including NCCL workers.
+-            try:
+-                os.killpg(process.pid, signal.SIGKILL)
+-            except ProcessLookupError:
+-                pass
+-            process.communicate()
+-            raise
+-        if process.returncode:
+-            raise subprocess.CalledProcessError(process.returncode, command, stdout, stderr)
+     except FileNotFoundError as exc:
+         raise SystemExit(f"GPU preflight command not found: {command[0]}") from exc
++    try:
++        stdout, stderr = process.communicate(timeout=max(1.0, timeout_seconds))
+     except subprocess.TimeoutExpired as exc:
++        # torchrun owns worker children: terminate the entire private group.
++        for sig in (signal.SIGTERM, signal.SIGKILL):
++            try:
++                os.killpg(process.pid, sig)
++            except ProcessLookupError:
++                pass
++            try:
++                process.communicate(timeout=5)
++            except subprocess.TimeoutExpired:
++                continue
++            # Still send KILL after TERM: a child may have closed its pipes.
+         raise SystemExit(f"GPU preflight timed out: {' '.join(command)}") from exc
+-    except subprocess.CalledProcessError as exc:
+-        detail = (exc.stderr or exc.stdout or "").strip()
+-        raise SystemExit(f"GPU preflight command failed ({exc.returncode}): {' '.join(command)}\n{detail}") from exc
++    if process.returncode:
++        detail = (stderr or stdout or "").strip()
++        raise SystemExit(f"GPU preflight command failed ({process.returncode}): {' '.join(command)}\n{detail}")
+     return stdout
+ 
+ 
+--- a/configs/cross_arch_study/96_languages.json
++++ b/configs/cross_arch_study/96_languages.json
+@@ -1,30 +1,55 @@
+ {
+-  "campaign_id": "gemma2_falcon_96_languages_2026-09-13",
+   "archive_commit": "225ec98bd3662cb4cc0cd2a78d3fe96704e53bec",
+-  "models": {
+-    "gemma2_9b": {"repo_id": "google/gemma-2-9b", "revision": "33c193028431c2fde6c6e51f29e6f17b60cbfac6", "model_type": "gemma2", "attention_backend": "disabled"},
+-    "falcon_7b": {"repo_id": "tiiuae/falcon-7b", "revision": "ec89142b67d748a1865ea4451372db8313ada0d8", "model_type": "falcon", "attention_backend": "sdpa"}
++  "campaign_id": "gemma2_falcon_96_languages_recovery_2026-09-14",
++  "capacity_margin": 1.25,
++  "exclude_gpu_nodes": [
++    "n2gpu1211"
++  ],
++  "exhaustion_policy": "hold_without_repetition_or_expansion",
++  "expected_benchmarks": {
++    "Belebele": 40,
++    "FLORES": 100,
++    "SIB200": 51,
++    "Taxi1500": 58
+   },
+-  "run_ids": ["moelora_tr32_e16_k8", "moelora_tr64_e32_k8", "hydralora_r2", "mtllora_lr5e5_r8_nup16", "mola_tr16_e8_k6", "lora_r2", "lora_r4"],
+-  "trainer_seconds": 122400,
+-  "runtime_tolerance_seconds": 1200,
+-  "slurm_time": "34:30:00",
++  "global_batch": 48,
+   "gpus": 4,
++  "minimum_free_vram_fraction": 0.1,
++  "models": {
++    "falcon_7b": {
++      "attention_backend": "sdpa",
++      "model_type": "falcon",
++      "repo_id": "tiiuae/falcon-7b",
++      "revision": "ec89142b67d748a1865ea4451372db8313ada0d8"
++    },
++    "gemma2_9b": {
++      "attention_backend": "disabled",
++      "model_type": "gemma2",
++      "repo_id": "google/gemma-2-9b",
++      "revision": "33c193028431c2fde6c6e51f29e6f17b60cbfac6"
++    }
++  },
++  "node_exclusion_evidence": "2026-09-13 Slurm drain: NHC check_nvlink_errors_dmesg reports two NVlink errors on n2gpu1211; no historical whitelist is inherited.",
+   "nodes": 1,
+-  "global_batch": 48,
+-  "sequence_length": 1024,
+-  "seed": 42,
+-  "sampling_seed": 1234,
+-  "validation_seed": 42,
+-  "tokenization_ranks": 50,
+-  "capacity_margin": 1.25,
+-  "minimum_free_vram_fraction": 0.10,
+-  "exhaustion_policy": "hold_without_repetition_or_expansion",
+   "original_data_root": "outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h",
+-  "raw_shards": "outputs/sharded_samples",
+   "original_panel": "outputs/pipeline_runs/moe_study_final_lora_r2_r4_shared/panels/lm_eval_tasks_96_langs_v2_plus_english.txt",
+   "panel_sha256": "bc6fddb4999dae0ce3e555878b33cc337dbe452938066bcc7011ab03c95e1f62",
+-  "expected_benchmarks": {"Belebele": 40, "FLORES": 100, "SIB200": 51, "Taxi1500": 58},
+-  "exclude_gpu_nodes": ["n2gpu1211"],
+-  "node_exclusion_evidence": "2026-09-13 Slurm drain: NHC check_nvlink_errors_dmesg reports two NVlink errors on n2gpu1211; no historical whitelist is inherited."
++  "raw_shards": "outputs/sharded_samples",
++  "run_ids": [
++    "moelora_tr32_e16_k8",
++    "moelora_tr64_e32_k8",
++    "hydralora_r2",
++    "mtllora_lr5e5_r8_nup16",
++    "mola_tr16_e8_k6",
++    "lora_r2",
++    "lora_r4"
++  ],
++  "runtime_tolerance_seconds": 1200,
++  "sampling_seed": 1234,
++  "seed": 42,
++  "sequence_length": 1024,
++  "slurm_time": "34:30:00",
++  "tokenization_ranks": 50,
++  "trainer_seconds": 122400,
++  "validation_seed": 42
+ }

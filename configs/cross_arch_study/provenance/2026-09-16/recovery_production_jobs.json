@@ -1,0 +1,149 @@
+{
+  "created_utc": "2026-09-14T13:30:26.141698+00:00",
+  "jobs": [
+    {
+      "acceptance": "34377831",
+      "evaluation": {
+        "benchmark": "34377832",
+        "collect": "34377834",
+        "final_loss": "34377833",
+        "model": "falcon_7b",
+        "run_id": "hydralora_r2",
+        "status": "submitted"
+      },
+      "model": "falcon_7b",
+      "run_id": "hydralora_r2",
+      "status": "submitted",
+      "train": "34377830",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14/falcon_7b/logs/production_hydralora_r2.slurm.log"
+    },
+    {
+      "acceptance": "34384131",
+      "evaluation": {
+        "benchmark": "34384132",
+        "collect": "34384134",
+        "final_loss": "34384133",
+        "model": "falcon_7b",
+        "run_id": "mtllora_lr5e5_r8_nup16",
+        "status": "submitted"
+      },
+      "model": "falcon_7b",
+      "run_id": "mtllora_lr5e5_r8_nup16",
+      "status": "submitted",
+      "train": "34384130",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14/falcon_7b/logs/production_mtllora_lr5e5_r8_nup16.slurm.log"
+    },
+    {
+      "acceptance": "34384755",
+      "evaluation": {
+        "benchmark": "34384756",
+        "collect": "34384758",
+        "final_loss": "34384757",
+        "model": "falcon_7b",
+        "run_id": "mola_tr16_e8_k6",
+        "status": "submitted"
+      },
+      "model": "falcon_7b",
+      "run_id": "mola_tr16_e8_k6",
+      "status": "submitted",
+      "train": "34384754",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14/falcon_7b/logs/production_mola_tr16_e8_k6.slurm.log"
+    },
+    {
+      "acceptance": "34387879",
+      "evaluation": {
+        "benchmark": "34387880",
+        "collect": "34387882",
+        "final_loss": "34387881",
+        "model": "gemma2_9b",
+        "run_id": "moelora_tr32_e16_k8",
+        "status": "submitted"
+      },
+      "model": "gemma2_9b",
+      "run_id": "moelora_tr32_e16_k8",
+      "status": "submitted",
+      "train": "34387878",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14/gemma2_9b/logs/production_moelora_tr32_e16_k8.slurm.log"
+    },
+    {
+      "acceptance": "34388141",
+      "evaluation": {
+        "benchmark": "34388142",
+        "collect": "34388144",
+        "final_loss": "34388143",
+        "model": "gemma2_9b",
+        "run_id": "hydralora_r2",
+        "status": "submitted"
+      },
+      "model": "gemma2_9b",
+      "run_id": "hydralora_r2",
+      "status": "submitted",
+      "train": "34388140",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14/gemma2_9b/logs/production_hydralora_r2.slurm.log"
+    },
+    {
+      "acceptance": "34388286",
+      "evaluation": {
+        "benchmark": "34388287",
+        "collect": "34388289",
+        "final_loss": "34388288",
+        "model": "gemma2_9b",
+        "run_id": "mtllora_lr5e5_r8_nup16",
+        "status": "submitted"
+      },
+      "model": "gemma2_9b",
+      "run_id": "mtllora_lr5e5_r8_nup16",
+      "status": "submitted",
+      "train": "34388285",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14/gemma2_9b/logs/production_mtllora_lr5e5_r8_nup16.slurm.log"
+    },
+    {
+      "acceptance": "34389015",
+      "evaluation": {
+        "benchmark": "34389016",
+        "collect": "34389018",
+        "final_loss": "34389017",
+        "model": "gemma2_9b",
+        "run_id": "lora_r2",
+        "status": "submitted"
+      },
+      "model": "gemma2_9b",
+      "run_id": "lora_r2",
+      "status": "submitted",
+      "train": "34389014",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14/gemma2_9b/logs/production_lora_r2.slurm.log"
+    },
+    {
+      "acceptance": "34389161",
+      "evaluation": {
+        "benchmark": "34389164",
+        "collect": "34389166",
+        "final_loss": "34389165",
+        "model": "gemma2_9b",
+        "run_id": "mola_tr16_e8_k6",
+        "status": "submitted"
+      },
+      "model": "gemma2_9b",
+      "run_id": "mola_tr16_e8_k6",
+      "status": "submitted",
+      "train": "34389160",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14/gemma2_9b/logs/production_mola_tr16_e8_k6.slurm.log"
+    },
+    {
+      "acceptance": "34392511",
+      "evaluation": {
+        "benchmark": "34392513",
+        "collect": "34392515",
+        "final_loss": "34392514",
+        "model": "gemma2_9b",
+        "run_id": "lora_r4",
+        "status": "submitted"
+      },
+      "model": "gemma2_9b",
+      "run_id": "lora_r4",
+      "status": "submitted",
+      "train": "34392510",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14/gemma2_9b/logs/production_lora_r4.slurm.log"
+    }
+  ]
+}

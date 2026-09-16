@@ -1,0 +1,69 @@
+{
+  "created_utc": "2026-09-13T16:11:08.969013+00:00",
+  "jobs": [
+    {
+      "acceptance": "34426145",
+      "evaluation": {
+        "benchmark": "34426146",
+        "collect": "34426148",
+        "final_loss": "34426147",
+        "model": "falcon_7b",
+        "run_id": "lora_r2",
+        "status": "submitted"
+      },
+      "model": "falcon_7b",
+      "run_id": "lora_r2",
+      "status": "submitted",
+      "train": "34349875",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/pipeline_runs/gemma2_falcon_96_languages_2026-09-13/falcon_7b/logs/production_lora_r2.slurm.log"
+    },
+    {
+      "acceptance": "34354206",
+      "evaluation": {
+        "benchmark": "34354207",
+        "collect": "34354209",
+        "final_loss": "34354208",
+        "model": "falcon_7b",
+        "run_id": "lora_r4",
+        "status": "submitted"
+      },
+      "model": "falcon_7b",
+      "run_id": "lora_r4",
+      "status": "submitted",
+      "train": "34354205",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/pipeline_runs/gemma2_falcon_96_languages_2026-09-13/falcon_7b/logs/production_lora_r4.slurm.log"
+    },
+    {
+      "acceptance": "34355500",
+      "evaluation": {
+        "benchmark": "34355501",
+        "collect": "34355503",
+        "final_loss": "34355502",
+        "model": "falcon_7b",
+        "run_id": "moelora_tr32_e16_k8",
+        "status": "submitted"
+      },
+      "model": "falcon_7b",
+      "run_id": "moelora_tr32_e16_k8",
+      "status": "submitted",
+      "train": "34355499",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/pipeline_runs/gemma2_falcon_96_languages_2026-09-13/falcon_7b/logs/production_moelora_tr32_e16_k8.slurm.log"
+    },
+    {
+      "acceptance": "34374755",
+      "evaluation": {
+        "benchmark": "34374756",
+        "collect": "34374758",
+        "final_loss": "34374757",
+        "model": "falcon_7b",
+        "run_id": "moelora_tr64_e32_k8",
+        "status": "submitted"
+      },
+      "model": "falcon_7b",
+      "run_id": "moelora_tr64_e32_k8",
+      "status": "submitted",
+      "train": "34374754",
+      "train_log": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/pipeline_runs/gemma2_falcon_96_languages_2026-09-13/falcon_7b/logs/production_moelora_tr64_e32_k8.slurm.log"
+    }
+  ]
+}

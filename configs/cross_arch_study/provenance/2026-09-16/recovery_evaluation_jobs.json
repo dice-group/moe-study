@@ -1,0 +1,83 @@
+{
+  "jobs": [
+    {
+      "benchmark": "34375243",
+      "collect": "34375244",
+      "model": "gemma2_9b",
+      "run_id": "baseline",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34377832",
+      "collect": "34377834",
+      "final_loss": "34377833",
+      "model": "falcon_7b",
+      "run_id": "hydralora_r2",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34384132",
+      "collect": "34384134",
+      "final_loss": "34384133",
+      "model": "falcon_7b",
+      "run_id": "mtllora_lr5e5_r8_nup16",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34384756",
+      "collect": "34384758",
+      "final_loss": "34384757",
+      "model": "falcon_7b",
+      "run_id": "mola_tr16_e8_k6",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34387880",
+      "collect": "34387882",
+      "final_loss": "34387881",
+      "model": "gemma2_9b",
+      "run_id": "moelora_tr32_e16_k8",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34388142",
+      "collect": "34388144",
+      "final_loss": "34388143",
+      "model": "gemma2_9b",
+      "run_id": "hydralora_r2",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34388287",
+      "collect": "34388289",
+      "final_loss": "34388288",
+      "model": "gemma2_9b",
+      "run_id": "mtllora_lr5e5_r8_nup16",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34389016",
+      "collect": "34389018",
+      "final_loss": "34389017",
+      "model": "gemma2_9b",
+      "run_id": "lora_r2",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34389164",
+      "collect": "34389166",
+      "final_loss": "34389165",
+      "model": "gemma2_9b",
+      "run_id": "mola_tr16_e8_k6",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34392513",
+      "collect": "34392515",
+      "final_loss": "34392514",
+      "model": "gemma2_9b",
+      "run_id": "lora_r4",
+      "status": "submitted"
+    }
+  ]
+}

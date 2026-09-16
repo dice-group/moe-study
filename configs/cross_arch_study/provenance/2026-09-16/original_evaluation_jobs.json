@@ -1,0 +1,50 @@
+{
+  "jobs": [
+    {
+      "benchmark": "34342382",
+      "collect": "34342383",
+      "model": "gemma2_9b",
+      "run_id": "baseline",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34342384",
+      "collect": "34342385",
+      "model": "falcon_7b",
+      "run_id": "baseline",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34426146",
+      "collect": "34426148",
+      "final_loss": "34426147",
+      "model": "falcon_7b",
+      "run_id": "lora_r2",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34354207",
+      "collect": "34354209",
+      "final_loss": "34354208",
+      "model": "falcon_7b",
+      "run_id": "lora_r4",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34355501",
+      "collect": "34355503",
+      "final_loss": "34355502",
+      "model": "falcon_7b",
+      "run_id": "moelora_tr32_e16_k8",
+      "status": "submitted"
+    },
+    {
+      "benchmark": "34374756",
+      "collect": "34374758",
+      "final_loss": "34374757",
+      "model": "falcon_7b",
+      "run_id": "moelora_tr64_e32_k8",
+      "status": "submitted"
+    }
+  ]
+}

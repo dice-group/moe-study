@@ -1,0 +1,44 @@
+{
+  "baseline_sources": {
+    "falcon_7b": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/pipeline_runs/gemma2_falcon_96_languages_2026-09-13",
+    "gemma2_9b": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14"
+  },
+  "original_campaign": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/pipeline_runs/gemma2_falcon_96_languages_2026-09-13",
+  "recalibrate": {
+    "falcon_7b": [
+      "hydralora_r2",
+      "mtllora_lr5e5_r8_nup16",
+      "mola_tr16_e8_k6"
+    ],
+    "gemma2_9b": [
+      "moelora_tr32_e16_k8",
+      "moelora_tr64_e32_k8",
+      "hydralora_r2",
+      "mtllora_lr5e5_r8_nup16",
+      "mola_tr16_e8_k6",
+      "lora_r2",
+      "lora_r4"
+    ]
+  },
+  "recovery_campaign": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14",
+  "run_sources": {
+    "falcon_7b": {
+      "hydralora_r2": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14",
+      "lora_r2": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/pipeline_runs/gemma2_falcon_96_languages_2026-09-13",
+      "lora_r4": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/pipeline_runs/gemma2_falcon_96_languages_2026-09-13",
+      "moelora_tr32_e16_k8": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/pipeline_runs/gemma2_falcon_96_languages_2026-09-13",
+      "moelora_tr64_e32_k8": "/scratch/hpc-prf-merlin/joel/moe-study/outputs/pipeline_runs/gemma2_falcon_96_languages_2026-09-13",
+      "mola_tr16_e8_k6": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14",
+      "mtllora_lr5e5_r8_nup16": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14"
+    },
+    "gemma2_9b": {
+      "hydralora_r2": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14",
+      "lora_r2": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14",
+      "lora_r4": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14",
+      "moelora_tr32_e16_k8": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14",
+      "moelora_tr64_e32_k8": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14",
+      "mola_tr16_e8_k6": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14",
+      "mtllora_lr5e5_r8_nup16": "/scratch/hpc-prf-merlin/joel/moe-study/tmp/cross_arch_recovery_20260914/source/outputs/pipeline_runs/gemma2_falcon_96_languages_recovery_2026-09-14"
+    }
+  }
+}

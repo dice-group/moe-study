@@ -32,3 +32,6 @@ sampled_data/*
 tokenized_data/*
 logs/*
 .codex
+# Local recovery sources and evidence; do not delete without a verified backup.
+tmp/cross_arch_recovery_20260914/
+tmp/cross_arch_repairs_20260915/
