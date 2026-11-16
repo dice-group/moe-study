@@ -1,0 +1,102 @@
+code,subset,split,script,name,family,words,documents,utf8_bytes,utf8_bytes_human,parquet_bytes,parquet_bytes_human,bible_ratio,wiki_ratio,resource_category
+azj,azj_Latn,train,Latn,North Azerbaijani,Turkic,3894255826,7291231,28882728457,26.90GB,11261369599,10.49GB,-,-,medium
+azj,azj_Cyrl,train,Cyrl,North Azerbaijani,Turkic,3785133,5748,40426372,38.55MB,11991063,11.44MB,0.574,0.000,low
+rus,rus_Cyrl,train,Cyrl,Russian,Indo-European,588579493780,699083579,6400108560340,5.82TB,1987554520397,1.81TB,-,-,high
+cmn,cmn_Hani,train,Hani,Mandarin Chinese,Sino-Tibetan,543543038750,636058984,2665362545414,2.42TB,1621984299196,1.48TB,-,-,high
+jpn,jpn_Jpan,train,Jpan,Japanese,Japonic,331144301801,400138563,1650248456871,1.50TB,716653211753,667.44GB,-,-,high
+ind,ind_Latn,train,Latn,Indonesian,Austronesian,60264322142,100238529,374364271538,348.65GB,152153987480,141.70GB,-,-,high
+arb,arb_Arab,train,Arab,Standard Arabic,Afro-Asiatic,32812858120,61977525,315241517028,293.59GB,105963830058,98.69GB,-,-,high
+arb,arb_Latn,train,Latn,Standard Arabic,Afro-Asiatic,1717224,1965,10755618,10.26MB,4558351,4.35MB,0.001,0.001,low
+vie,vie_Latn,train,Latn,Vietnamese,Austro-Asiatic,50886874358,61064248,343416915256,319.83GB,130131724878,121.19GB,-,-,high
+kor,kor_Hang,train,Hang,Korean,Koreanic,48613120582,60874355,229164863492,213.43GB,105767105257,98.50GB,-,-,high
+fas,fas_Arab,train,Arab,Persian,Indo-European,39705799658,58843652,327079306116,304.62GB,102358723163,95.33GB,-,-,high
+hun,hun_Latn,train,Latn,Hungarian,Uralic,30919839164,49935986,214420647030,199.69GB,98497079849,91.73GB,-,-,high
+nob,nob_Latn,train,Latn,Norwegian Bokmål,Indo-European,32008904934,38144343,184736905731,172.05GB,84016343532,78.25GB,-,-,high
+tha,tha_Thai,train,Thai,Thai,Kra-Dai,24662748945,35897202,299226473998,278.68GB,75060919293,69.91GB,-,-,high
+ekk,ekk_Latn,train,Latn,Standard Estonian,Uralic,6564292000,10218587,43834195267,40.82GB,19704343263,18.35GB,-,-,medium
+lvs,lvs_Latn,train,Latn,Standard Latvian,Indo-European,5371151279,8030316,35823658462,33.36GB,15786398599,14.70GB,-,-,medium
+tam,tam_Taml,train,Taml,Tamil,Dravidian,1937150898,5528854,39693515188,36.97GB,9438382231,8.79GB,-,-,medium
+tam,tam_Latn,train,Latn,Tamil,Dravidian,4597393,4828,31618243,30.15MB,13266958,12.65MB,0.000,0.000,low
+kat,kat_Geor,train,Geor,Georgian,Kartvelian,1439572993,3706659,27094494127,25.23GB,6795455104,6.33GB,-,-,medium
+khk,khk_Cyrl,train,Cyrl,Halh Mongolian,Mongolic,824211882,1622882,9147689411,8.52GB,2775563579,2.58GB,-,-,low
+eus,eus_Latn,train,Latn,Basque,Language isolate,711939889,1569434,4616894404,4.30GB,2036142953,1.90GB,-,-,low
+nno,nno_Latn,train,Latn,Norwegian Nynorsk,Indo-European,522740774,1214870,2882129938,2.68GB,1396085164,1.30GB,-,-,low
+swh,swh_Latn,train,Latn,Swahili (individual language),Niger-Congo,569542024,1206300,3311669706,3.08GB,1428385709,1.33GB,-,-,low
+epo,epo_Latn,train,Latn,Esperanto,Constructed language,239172962,335993,1303689462,1.21GB,596021566,568.41MB,0.004,0.241,low
+mww,mww_Latn,train,Latn,Hmong Daw,Hmong-Mien,130993837,158808,596736621,569.09MB,219129607,208.98MB,0.044,0.000,low
+kal,kal_Latn,train,Latn,Kalaallisut,Eskimo-Aleut,14916751,40164,158054011,150.73MB,56629739,54.01MB,0.011,0.002,low
+srd,srd_Latn,train,Latn,Sardinian,Indo-European,12753682,26072,69299310,66.09MB,32694576,31.18MB,0.000,0.110,low
+che,che_Cyrl,train,Cyrl,Chechen,Nakh-Daghestanian,12803288,22345,126235719,120.39MB,39088503,37.28MB,0.015,0.050,low
+ido,ido_Latn,train,Latn,Ido,Artificial Language,4326238,10640,22501566,21.46MB,10642139,10.15MB,0.000,0.879,low
+gug,gug_Latn,train,Latn,Paraguayan Guaraní,Tupian,6568686,10551,41606719,39.68MB,18392339,17.54MB,0.163,0.138,low
+ltg,ltg_Latn,train,Latn,Latgalian,Indo-European,5252618,10010,32321727,30.82MB,15924791,15.19MB,0.000,0.023,low
+vro,vro_Latn,train,Latn,Võro,Uralic,4716657,8200,28147517,26.84MB,13255609,12.64MB,0.000,0.120,low
+kbd,kbd_Cyrl,train,Cyrl,Kabardian,Abkhaz-Adyghe,4435271,6937,51098197,48.73MB,15987920,15.25MB,0.003,0.131,low
+twi,twi_Latn,train,Latn,Twi,Atlantic-Congo,5881761,6023,33003790,31.47MB,14834674,14.15MB,0.833,0.037,low
+cak,cak_Latn,train,Latn,Kaqchikel,Mayan,3215997,5769,15324109,14.61MB,5419453,5.17MB,0.949,0.016,low
+vol,vol_Latn,train,Latn,Volapük,Artificial Language,1077214,4136,5995586,5.72MB,2737383,2.61MB,0.000,0.922,low
+abt,abt_Latn,train,Latn,Ambulas,Sepik,1214742,4098,7193487,6.86MB,2172204,2.07MB,1.000,0.000,low
+ayr,ayr_Latn,train,Latn,Central Aymara,Aymaran,1705732,3395,11492144,10.96MB,5073317,4.84MB,0.039,0.205,low
+nhe,nhe_Latn,train,Latn,Eastern Huasteca Nahuatl,Uto-Aztecan,1359662,3293,9366996,8.93MB,3091223,2.95MB,0.999,0.000,low
+tlh,tlh_Latn,train,Latn,Klingon,Artificial Language,1352328,2959,6416297,6.12MB,2537232,2.42MB,0.000,0.000,low
+quy,quy_Latn,train,Latn,Ayacucho Quechua,Quechuan,1280177,2903,8685023,8.28MB,3788785,3.61MB,0.075,0.617,low
+dyu,dyu_Latn,train,Latn,Dyula,Niger-Congo,1364581,2752,5989252,5.71MB,2250070,2.15MB,0.972,0.000,low
+luo,luo_Latn,train,Latn,Luo (Kenya and Tanzania),Nilo-Saharan,1969599,2698,9703111,9.25MB,4063651,3.88MB,0.490,0.005,low
+wal,wal_Latn,train,Latn,Wolaytta,Afro-Asiatic,1686197,2590,11297077,10.77MB,4123538,3.93MB,0.990,0.008,low
+sgs,sgs_Latn,train,Latn,Samogitian,Indo-European,946282,2382,5858113,5.59MB,2926701,2.79MB,0.000,0.821,low
+aau,aau_Latn,train,Latn,Abau,Sepik,734116,1992,3011948,2.87MB,994780,971.46KB,0.997,0.000,low
+arn,arn_Latn,train,Latn,Mapudungun,Mapudungu,1327974,1927,7467324,7.12MB,3139608,2.99MB,0.631,0.080,low
+ape,ape_Latn,train,Latn,Bukiyip,Torricelli,872676,1924,4999373,4.77MB,1588378,1.51MB,0.999,0.000,low
+gym,gym_Latn,train,Latn,Ngäbere,Chibchan,1226582,1908,6722361,6.41MB,2126042,2.03MB,0.998,0.000,low
+tlf,tlf_Latn,train,Latn,Telefol,Trans-New Guinea,751849,1897,3253057,3.10MB,1009500,985.84KB,0.999,0.000,low
+maq,maq_Latn,train,Latn,Chiquihuitlán Mazatec,Otomanguean,425338,1798,2194855,2.09MB,741764,724.38KB,0.991,0.000,low
+hmo,hmo_Latn,train,Latn,Hiri Motu,Pidgin,1518107,1750,7518598,7.17MB,2116527,2.02MB,0.983,0.002,low
+bvr,bvr_Latn,train,Latn,Burarra,Australian,527381,1586,2264376,2.16MB,666113,650.50KB,0.999,0.000,low
+aak,aak_Latn,train,Latn,Ankave,Trans-New Guinea,860882,1560,7405380,7.06MB,1899659,1.81MB,0.999,0.000,low
+khs,khs_Latn,train,Latn,Kasua,Trans-New Guinea,491911,1553,2465608,2.35MB,782050,763.72KB,1.000,0.000,low
+bjv,bjv_Latn,train,Latn,Bedjond,Nilo-Saharan,485834,1484,2011145,1.92MB,715686,698.91KB,1.000,0.000,low
+cav,cav_Latn,train,Latn,Cavineña,Tacanan,377229,1293,2415476,2.30MB,769823,751.78KB,1.000,0.000,low
+cab,cab_Latn,train,Latn,Garifuna,Maipurean,939310,1268,6005890,5.73MB,2169028,2.07MB,0.797,0.001,low
+aom,aom_Latn,train,Latn,Ömie,Trans-New Guinea,521350,1176,3399808,3.24MB,1056806,1.01MB,1.000,0.000,low
+doi,doi_Deva,train,Deva,Dogri (macrolanguage),Indo-European,617515,1174,6983023,6.66MB,1876481,1.79MB,0.016,0.010,low
+bsn,bsn_Latn,train,Latn,Barasana-Eduria,Tucanoan,414146,1166,2578102,2.46MB,789202,770.71KB,1.000,0.000,low
+top,top_Latn,train,Latn,Papantla Totonac,Totonacan,764454,1165,5194064,4.95MB,1852230,1.77MB,0.891,0.000,low
+ile,ile_Latn,train,Latn,Interlingue,Artificial Language,374006,1160,1937625,1.85MB,857687,837.58KB,0.000,0.741,low
+wrk,wrk_Latn,train,Latn,Garrwa,Australian,360150,1147,2428179,2.32MB,642955,627.89KB,1.000,0.000,low
+bon,bon_Latn,train,Latn,Bine,Eastern Trans-Fly,434448,1125,2442158,2.33MB,771035,752.96KB,0.999,0.000,low
+aby,aby_Latn,train,Latn,Aneme Wake,Trans-New Guinea,394073,1080,2227052,2.12MB,681883,665.90KB,1.000,0.000,low
+cbs,cbs_Latn,train,Latn,Cashinahua,Panoan,325599,1020,2092044,2.00MB,733581,716.39KB,0.996,0.000,low
+fra,fra_Latn,train,Latn,French,Indo-European,220662584640,360058973,1220202265605,1.11TB,539897427722,502.82GB,-,-,high
+wol,wol_Latn,train,Latn,Wolof,Niger-Congo,3821770,6621,19017020,18.14MB,9563351,9.12MB,0.062,0.144,low
+brh,brh_Arab,train,Arab,Brahui,Dravidian,3525701,6795,25541907,24.36MB,9521421,9.08MB,0.000,0.002,low
+yre,yre_Latn,train,Latn,Yaouré,Niger-Congo,394176,1308,1336442,1.27MB,475346,464.21KB,1.000,0.000,low
+som,som_Latn,train,Latn,Somali,Afro-Asiatic,368770065,1070384,2204199720,2.05GB,998755699,952.49MB,-,-,low
+hin,hin_Deva,train,Deva,Hindi,Indo-European,11173681651,22095985,129902413849,120.98GB,34272968716,31.92GB,-,-,high
+hin,hin_Latn,train,Latn,Hindi,Indo-European,100975057,97024,517908506,493.92MB,198462618,189.27MB,0.000,0.000,low
+gle,gle_Latn,train,Latn,Irish,Indo-European,415191949,646842,2330152361,2.17GB,980691197,935.26MB,0.001,0.038,low
+dag,dag_Latn,train,Latn,Dagbani,Niger-Congo,713710,1035,4804020,4.58MB,1807364,1.72MB,0.007,0.868,low
+deu,deu_Latn,train,Latn,German,Indo-European,262271052199,495964485,1654784757688,1.51TB,772108850771,719.08GB,-,-,high
+ote,ote_Latn,train,Latn,Mezquital Otomi,Otomanguean,642495,1221,3202076,3.05MB,1197386,1.14MB,0.773,0.000,low
+agd,agd_Latn,train,Latn,Agarabi,Trans-New Guinea,377755,1111,2075992,1.98MB,673341,657.56KB,1.000,0.000,low
+ell,ell_Grek,train,Grek,Modern Greek (1453-),Indo-European,22827957288,47421073,238423993714,222.05GB,78555662908,73.16GB,-,-,high
+kha,kha_Latn,train,Latn,Khasi,Austro-Asiatic,13071578,29993,61611510,58.76MB,24524853,23.39MB,0.000,0.000,low
+med,med_Latn,train,Latn,Melpa,Trans-New Guinea,759887,1093,3374491,3.22MB,1034177,1009.94KB,0.999,0.000,low
+mri,mri_Latn,train,Latn,Maori,Austronesian,121260744,166938,539994062,514.98MB,211571007,201.77MB,0.006,0.004,low
+mya,mya_Mymr,train,Mymr,Burmese,Sino-Tibetan,854400671,1558304,13261245557,12.35GB,3111606360,2.90GB,-,-,low
+bod,bod_Tibt,train,Tibt,Tibetan,Sino-Tibetan,143822443,161076,2067569611,1.93GB,419509894,400.08MB,0.000,0.005,low
+lus,lus_Latn,train,Latn,Lushai,Sino-Tibetan,48966586,90564,232200665,221.44MB,102022499,97.30MB,0.005,0.002,low
+new,new_Deva,train,Deva,Newari,Sino-Tibetan,9095000,17464,118278603,112.80MB,29197358,27.84MB,0.001,0.031,low
+kac,kac_Latn,train,Latn,Kachin,Sino-Tibetan,5983052,7493,26466558,25.24MB,8936522,8.52MB,0.094,0.000,low
+sag,sag_Latn,train,Latn,Sango,Creole,4816892,4428,19959041,19.03MB,6927034,6.61MB,0.895,0.022,low
+tzm,tzm_Tfng,train,Tfng,Central Atlas Tamazight,Afro-Asiatic,965408,2736,12129981,11.57MB,3383434,3.23MB,0.000,0.194,low
+ksw,ksw_Mymr,train,Mymr,S'gaw Karen,Sino-Tibetan,768396,2611,21438913,20.45MB,4678683,4.46MB,0.067,0.008,low
+acd,acd_Latn,train,Latn,Gikyode,Niger-Congo,661837,2546,3102043,2.96MB,1058691,1.01MB,0.999,0.000,low
+yor,yor_Latn,train,Latn,Yoruba,Niger-Congo,58861990,79999,306731770,292.52MB,122318650,116.65MB,0.045,0.008,low
+fin,fin_Latn,train,Latn,Finnish,Uralic,20343096672,36710816,153578789445,143.03GB,66505424415,61.94GB,-,-,high
+als,als_Latn,train,Latn,Tosk Albanian,Indo-European,3454387059,8597826,19522049281,18.18GB,9038429238,8.42GB,-,-,medium
+tel,tel_Telu,train,Telu,Telugu,Dravidian,891002487,1964395,15478493847,14.42GB,3950350913,3.68GB,-,-,medium
+tel,tel_Latn,train,Latn,Telugu,Dravidian,17857579,24103,106047535,101.13MB,46935113,44.76MB,0.000,0.000,low
+hye,hye_Armn,train,Armn,Armenian,Indo-European,634273060,1757415,7697017226,7.17GB,2422275652,2.26GB,-,-,medium
+tgk,tgk_Cyrl,train,Cyrl,Tajik,Indo-European,396209383,688384,4031127806,3.75GB,1233926771,1.15GB,0.001,0.023,low
+ava,ava_Cyrl,train,Cyrl,Avaric,Nakh-Daghestanian,4576467,8766,57776413,55.10MB,16337388,15.58MB,0.000,0.104,low
+cmo,cmo_Latn,train,Latn,Central Mnong,Austro-Asiatic,943465,2413,4094129,3.90MB,1538358,1.47MB,0.862,0.002,low
