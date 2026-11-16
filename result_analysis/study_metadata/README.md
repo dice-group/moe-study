@@ -58,6 +58,6 @@ GPU allocations are verified as A100 for every run; use `allocated_gpu_type`.
 For definitions, provenance, and methodological notes, see [technical notes](technical_notes.md).
 
 Active counts are derived from saved checkpoint shapes and routing settings, not measured averages: 123 runs have configured counts and 36 have bounds. `active_parameters_basis` distinguishes configured counts from bounds. The frozen backbone is listed separately in `frozen_backbone_parameters`; active counts are not FLOP estimates.
-AdaMoLE uses adptive routing and has therefore no fixed number of active paramters. Therefore I choose to document min - max bounds of active paramters.
+AdaMoLE and AdaMoE (the `mola` runs) route adaptively, so neither has a fixed number of active parameters. Their 36 runs report minimum and maximum bounds instead.
 
-Detailed checkpoint paths, scheduler records, and source references are in `sources.json`, `dataset_sources.json`, `scheduler_accounting.json`, and `enrichment_audit.json`. Redundant audit columns were removed from the CSVs; the committed intermediate version preserves the original detailed tables.
+Dataset source references are in `dataset_sources.json`. Redundant audit columns were removed from the CSVs. The earlier, more detailed tables remain in the history of `dice-group/moe-study` (`result_analysis/study_metadata/` at commit `ef83f20`).

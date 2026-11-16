@@ -1,17 +1,17 @@
 paths:
-  results_root: reports/moe_study
-  selection_notebook: notebooks/moe_study_final_analysis.ipynb
+  results_root: paper_artifact/input/reports
+  selection_notebook: result_analysis/notebooks/moe_study_final_analysis.ipynb
   rank_sweep_xlsx: moe_study_rank_sweep.xlsx
   component_sweep_xlsx: moe_study_expert_sweep.xlsx
   mixed_followup_xlsx: moe_study_mixed_followup.xlsx
   final_96_xlsx: moe_study_final_96_languages_2026-07-25.xlsx
   final_200_xlsx: moe_study_final_200_languages_2026-07-25.xlsx
-  resource_labels_csv: languages/fw2_metadata_with_resource_category.csv
-  figures_dir: paper_latex/data/figures
+  resource_labels_csv: paper_artifact/input/languages/fw2_metadata_with_resource_category.csv
+  figures_dir: paper_artifact/output/figures
 
 output:
-  tables_dir: paper_resources/output/tables
-  data_dir: paper_resources/output/data
+  tables_dir: paper_artifact/output/tables
+  data_dir: paper_artifact/output/data
 
 analysis:
   alpha: 0.05
@@ -61,6 +61,13 @@ rq3:
     - {run_id: hydralora_r2, followup_run_id: hydralora_r2, label: "HydraLoRA r2"}
     - {run_id: moelora_tr64_e32_k8, followup_run_id: moelora_tr64_e32_k8, label: "MOELoRA r2/32 k8"}
     - {run_id: mola_tr16_e8_k6, followup_run_id: mola_tr16_e8_k6, label: "AdaMoE r2/8 k6"}
+    # Added for the ARR rebuttal round: the plain-LoRA baselines were trained in
+    # both broader regimes under the same wall-clock budget. They were never in
+    # the ten-language mixed follow-up, so followup_run_id is null and they are
+    # left out of the cross-stage transfer table, which only compares stages a
+    # configuration actually took part in.
+    - {run_id: lora_r2, followup_run_id: null, label: "LoRA r2"}
+    - {run_id: lora_r4, followup_run_id: null, label: "LoRA r4"}
   resource_groups: [HIGH, MEDIUM, LOW]
 
 rq2:

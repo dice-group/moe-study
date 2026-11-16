@@ -1,8 +1,13 @@
 """Appendix table listing the configurations actually trained per method.
 
-Table~\\ref{tab:method-coverage} gives the endpoints of each grid; this table
-gives the grid itself, so that the per-stage run counts in
+This is the grid itself, so that the per-stage run counts in
 Table~\\ref{tab:study-funnel} can be reconstructed method by method.
+
+Consolidated for the rebuttal round. A separate coverage table used to give the
+endpoints of each grid, which this table already lists in full, plus a
+shared-panel flag and a per-method note. The flag is now a column here and the
+notes are the "What the searches leave out" paragraph of the appendix, which
+states the same four reasons at greater length.
 """
 from __future__ import annotations
 
@@ -73,6 +78,9 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
         "movlora": "MoV",
         "mtllora": "MTL-LoRA",
     }
+    # The six methods run at every rank from 2 to 64, which is the panel the
+    # controlled method comparison of Section~5.2 is restricted to.
+    shared = {"hmora", "hydralora", "lora", "moelora", "mola", "mtllora"}
 
     frames = {}
     for stage, key in [("rank", "rank_sweep_xlsx"), ("component", "component_sweep_xlsx")]:
@@ -98,11 +106,13 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
                 "rank_runs": len(rank_frame),
                 "component_configurations": component_cell,
                 "component_runs": len(component_frame),
+                "shared_rank_panel": family in shared,
             }
         )
         rows.append(
             " & ".join([label, rank_cell, str(len(rank_frame) or "--"),
-                        component_cell, str(len(component_frame) or "--")])
+                        component_cell, str(len(component_frame) or "--"),
+                        "yes" if family in shared else "no"])
             + r" \\"
         )
 
@@ -111,19 +121,21 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
     if totals != (expected["rank"], expected["component"]):
         raise ValueError(f"Grid enumeration misses runs: {totals} vs {dict(expected)}")
     rows.append(r"\midrule")
-    rows.append(" & ".join(["Total", "", str(totals[0]), "", str(totals[1])]) + r" \\")
+    rows.append(" & ".join(["Total", "", str(totals[0]), "", str(totals[1]), ""]) + r" \\")
 
     C.write_table(
         C.output_dir(cfg, "tables") / "tabA0b_config_grid.tex",
-        "llcll",
-        [r"Method & Rank search & Runs & Expert-count search ($E$:~top-$k$) & Runs \\"],
+        "llcllc",
+        [r"Method & Rank search & Runs & Expert-count search ($E$:~top-$k$) & Runs & Panel \\"],
         rows,
         "Every configuration trained in the two one-factor searches. $r$ is the "
         "rank of one expert, $E$ the number of experts, and $k$ the number of "
         "experts routed to per token. Methods without a router define no $k$. "
         "The rank search holds $E$ and $k$ fixed, and the expert-count search "
-        "holds $r{=}2$. Counts exclude CoLA "
-        "(Appendix~\\ref{sec:appendix-coverage}).",
+        "holds $r{=}2$. Panel marks the six methods run at every rank from 2 to "
+        "64, which are the ones compared in Table~\\ref{tab:rq2-family}. The gaps "
+        "are explained in Appendix~\\ref{sec:appendix-coverage}, which also "
+        "states why the counts exclude CoLA.",
         "tab:config-grid",
         environment="table*",
         placement="tp",

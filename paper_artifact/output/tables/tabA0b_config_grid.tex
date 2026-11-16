@@ -4,23 +4,23 @@
 \footnotesize
 \setlength{\tabcolsep}{4pt}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{llcll}
+\begin{tabular}{llcllc}
 \toprule
-Method & Rank search & Runs & Expert-count search ($E$:~top-$k$) & Runs \\
+Method & Rank search & Runs & Expert-count search ($E$:~top-$k$) & Runs & Panel \\
 \midrule
-AdaMoE & $r \in \{2, 4, 8, 16, 32, 64, 128\}$ at $E{=}8$, $k{=}6$ & 7 & $2$:~1; $4$:~1, 2; $8$:~1, 2, 4; $16$:~1, 2, 4, 8; $32$:~1, 2, 4, 8, 16 & 15 \\
-AdaMoLE & -- & -- & $2$, $4$, $8$, $16$ & 4 \\
-HMoRA & $r \in \{2, 4, 8, 16, 32, 64, 128\}$ at $E{=}8$, $k{=}2$ & 7 & $2$:~1; $4$:~1, 2; $8$:~1, 2, 4; $16$:~1, 2, 4, 8; $32$:~1, 2, 4, 8, 16 & 15 \\
-HydraLoRA & $r \in \{2, 4, 8, 16, 32, 64, 128, 256\}$ & 8 & $2$, $4$, $8$, $16$, $32$ & 5 \\
-LoRA & $r \in \{2, 4, 8, 16, 32, 64, 128, 256, 512, 1024\}$ & 10 & -- & -- \\
-MOELoRA & $r \in \{2, 4, 8, 16, 32, 64\}$ at $E{=}8$, $k{=}2$ & 6 & $2$:~1; $4$:~1, 2; $8$:~1, 2, 4; $16$:~1, 2, 4, 8; $32$:~1, 2, 4, 8 & 14 \\
-MoV & no rank at $E{=}8$ & 1 & $2$, $4$, $8$, $16$, $32$ & 5 \\
-MTL-LoRA & $r \in \{2, 4, 8, 16, 32, 64, 128, 256\}$ & 8 & $2$, $4$, $8$, $16$, $32$ & 5 \\
+AdaMoE & $r \in \{2, 4, 8, 16, 32, 64, 128\}$ at $E{=}8$, $k{=}6$ & 7 & $2$:~1; $4$:~1, 2; $8$:~1, 2, 4; $16$:~1, 2, 4, 8; $32$:~1, 2, 4, 8, 16 & 15 & yes \\
+AdaMoLE & -- & -- & $2$, $4$, $8$, $16$ & 4 & no \\
+HMoRA & $r \in \{2, 4, 8, 16, 32, 64, 128\}$ at $E{=}8$, $k{=}2$ & 7 & $2$:~1; $4$:~1, 2; $8$:~1, 2, 4; $16$:~1, 2, 4, 8; $32$:~1, 2, 4, 8, 16 & 15 & yes \\
+HydraLoRA & $r \in \{2, 4, 8, 16, 32, 64, 128, 256\}$ & 8 & $2$, $4$, $8$, $16$, $32$ & 5 & yes \\
+LoRA & $r \in \{2, 4, 8, 16, 32, 64, 128, 256, 512, 1024\}$ & 10 & -- & -- & yes \\
+MOELoRA & $r \in \{2, 4, 8, 16, 32, 64\}$ at $E{=}8$, $k{=}2$ & 6 & $2$:~1; $4$:~1, 2; $8$:~1, 2, 4; $16$:~1, 2, 4, 8; $32$:~1, 2, 4, 8 & 14 & yes \\
+MoV & no rank at $E{=}8$ & 1 & $2$, $4$, $8$, $16$, $32$ & 5 & no \\
+MTL-LoRA & $r \in \{2, 4, 8, 16, 32, 64, 128, 256\}$ & 8 & $2$, $4$, $8$, $16$, $32$ & 5 & yes \\
 \midrule
-Total &  & 47 &  & 63 \\
+Total &  & 47 &  & 63 &  \\
 \bottomrule
 \end{tabular}
 }
-\caption{Every configuration trained in the two one-factor searches. $r$ is the rank of one expert, $E$ the number of experts, and $k$ the number of experts routed to per token. Methods without a router define no $k$. The rank search holds $E$ and $k$ fixed, and the expert-count search holds $r{=}2$. Counts exclude CoLA (Appendix~\ref{sec:appendix-coverage}).}
+\caption{Every configuration trained in the two one-factor searches. $r$ is the rank of one expert, $E$ the number of experts, and $k$ the number of experts routed to per token. Methods without a router define no $k$. The rank search holds $E$ and $k$ fixed, and the expert-count search holds $r{=}2$. Panel marks the six methods run at every rank from 2 to 64, which are the ones compared in Table~\ref{tab:rq2-family}. The gaps are explained in Appendix~\ref{sec:appendix-coverage}, which also states why the counts exclude CoLA.}
 \label{tab:config-grid}
 \end{table*}

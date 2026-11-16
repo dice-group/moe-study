@@ -8,20 +8,24 @@
 System & \multicolumn{2}{c}{Belebele} & \multicolumn{2}{c}{FLORES} & \multicolumn{2}{c}{SIB-200} & \multicolumn{2}{c}{Taxi1500} & Overall \\
 \midrule
 \multicolumn{10}{l}{\textit{96 training languages}} \\
-MOELoRA r2/32 k8 & 3.48 & \lossmark & \textbf{2.56} & \gainmark & \textbf{1.44} & \gainmark & 4.13 & \tiemark & \textbf{2.90} \\
-MOELoRA r2/16 k8 & 3.49 & \lossmark & 3.16 & \gainmark & 3.54 & \tiemark & \textbf{2.32} & \gainmark & 3.13 \\
-MTL-LoRA r8/16 & 4.08 & \lossmark & 2.88 & \gainmark & 4.81 & \lossmark & 2.47 & \gainmark & 3.56 \\
-Base model & \textbf{1.77} &  & 5.21 &  & 3.34 &  & 3.98 &  & 3.58 \\
-HydraLoRA r2 & 3.24 & \lossmark & 3.98 & \gainmark & 3.16 & \tiemark & 4.64 & \tiemark & 3.75 \\
-AdaMoE r2/8 k6 & 4.95 & \lossmark & 3.22 & \gainmark & 4.71 & \lossmark & 3.46 & \tiemark & 4.08 \\
+MOELoRA r2/32 k8 & 4.25 & \lossmark & \textbf{3.35} & \gainmark & \textbf{1.49} & \gainmark & 5.36 & \tiemark & \textbf{3.61} \\
+LoRA r2 & 4.08 & \lossmark & 4.38 & \gainmark & 4.19 & \tiemark & \textbf{2.86} & \gainmark & 3.88 \\
+MOELoRA r2/16 k8 & 4.28 & \lossmark & 4.11 & \gainmark & 4.14 & \tiemark & 3.04 & \gainmark & 3.89 \\
+MTL-LoRA r8/16 & 5.22 & \lossmark & 3.76 & \gainmark & 5.92 & \lossmark & 3.27 & \gainmark & 4.54 \\
+Base model & \textbf{2.08} &  & 6.87 &  & 4.00 &  & 5.24 &  & 4.55 \\
+HydraLoRA r2 & 4.00 & \lossmark & 5.28 & \gainmark & 3.59 & \tiemark & 6.12 & \tiemark & 4.75 \\
+AdaMoE r2/8 k6 & 6.30 & \lossmark & 4.23 & \gainmark & 5.76 & \lossmark & 4.53 & \tiemark & 5.21 \\
+LoRA r4 & 5.80 & \lossmark & 4.02 & \gainmark & 6.91 & \lossmark & 5.58 & \tiemark & 5.58 \\
 \addlinespace
 \multicolumn{10}{l}{\textit{200 training languages}} \\
-HydraLoRA r2 & 3.53 & \lossmark & \textbf{2.07} & \gainmark & \textbf{1.59} & \gainmark & 3.51 & \tiemark & \textbf{2.67} \\
-Base model & \textbf{1.51} &  & 4.44 &  & 3.27 &  & 3.94 &  & 3.29 \\
-MOELoRA r2/32 k8 & 3.11 & \lossmark & 3.52 & \gainmark & 3.68 & \tiemark & \textbf{3.01} & \tiemark & 3.33 \\
-MTL-LoRA r8/16 & 3.75 & \lossmark & 3.96 & \gainmark & 3.24 & \tiemark & 3.18 & \tiemark & 3.53 \\
-AdaMoE r2/8 k6 & 5.08 & \lossmark & 2.59 & \gainmark & 3.64 & \tiemark & 4.27 & \tiemark & 3.90 \\
-MOELoRA r2/16 k8 & 4.02 & \lossmark & 4.42 & \tiemark & 5.58 & \lossmark & 3.10 & \tiemark & 4.28 \\
+HydraLoRA r2 & 4.35 & \lossmark & \textbf{2.62} & \gainmark & \textbf{1.64} & \gainmark & 5.18 & \tiemark & \textbf{3.45} \\
+LoRA r4 & 5.71 & \lossmark & 4.28 & \gainmark & 5.36 & \lossmark & \textbf{1.41} & \gainmark & 4.19 \\
+Base model & \textbf{1.79} &  & 6.04 &  & 3.54 &  & 5.59 &  & 4.24 \\
+MOELoRA r2/32 k8 & 3.89 & \lossmark & 4.77 & \gainmark & 4.01 & \tiemark & 4.51 & \tiemark & 4.29 \\
+MTL-LoRA r8/16 & 4.77 & \lossmark & 5.54 & \gainmark & 3.44 & \tiemark & 4.72 & \tiemark & 4.62 \\
+LoRA r2 & 4.01 & \lossmark & 3.14 & \gainmark & 7.78 & \lossmark & 3.91 & \gainmark & 4.71 \\
+AdaMoE r2/8 k6 & 6.47 & \lossmark & 3.48 & \gainmark & 3.88 & \tiemark & 5.98 & \tiemark & 4.95 \\
+MOELoRA r2/16 k8 & 5.01 & \lossmark & 6.14 & \tiemark & 6.36 & \lossmark & 4.70 & \tiemark & 5.55 \\
 \bottomrule
 \end{tabular}
 \caption{Each system within its training regime, showing its average position on every benchmark (lower is better, best per column in bold) followed by the outcome of its paired comparison against the base model, \gainmark~better, \tiemark~not distinguishable, \lossmark~worse. Underlying tests in Tables~\ref{tab:rq3-vs-baseline-tests} and~\ref{tab:rq3-omnibus}.}

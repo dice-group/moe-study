@@ -99,7 +99,8 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
     for index, regime in enumerate(regimes):
         if index:
             body.append(r"\addlinespace")
-        body.append(rf"\multicolumn{{10}}{{l}}{{\textit{{{regime} training languages}}}} \\")
+        span = 2 + 2 * len(benchmarks)
+        body.append(rf"\multicolumn{{{span}}}{{l}}{{\textit{{{regime} training languages}}}} \\")
         body.extend(
             _ranking_rows(rankings[regime], labels, benchmarks, verdicts[regime], baseline)
         )
@@ -262,6 +263,10 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
     # ------------------------------------------------------------- transfer
     followup = C.load_primary(C.results_path(cfg, "mixed_followup_xlsx"), cfg)
     followup_ranking, _ = C.followup_ranking(followup, benchmarks)
+    # Only configurations that were actually in the ten-language follow-up can
+    # appear here: the table is about how a stage reorders the same systems, and
+    # the plain-LoRA baselines joined at the broader regimes.
+    promoted = [entry for entry in cfg["rq3"]["finalists"] if entry.get("followup_run_id")]
     transfer = pd.DataFrame(
         [
             {
@@ -271,12 +276,13 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
                     followup_ranking.loc[entry["followup_run_id"], "overall_rank"]
                 ),
             }
-            for entry in cfg["rq3"]["finalists"]
+            for entry in promoted
         ]
     )
     transfer["followup"] = transfer["followup_rank_of_22"].rank().astype(int)
     for regime in regimes:
         adapted = rankings[regime].drop(index=baseline)
+        adapted = adapted[adapted.index.isin(transfer["run_id"])]
         places = {run_id: place for place, run_id in enumerate(adapted.index, 1)}
         transfer[str(regime)] = transfer["run_id"].map(places)
 

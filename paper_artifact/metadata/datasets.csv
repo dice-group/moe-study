@@ -1,0 +1,6 @@
+dataset,stages,language_script_labels,training_documents,validation_documents,training_examples,validation_examples,training_token_positions,sampling_recipe_note
+outputs/pipeline_runs/moe_study_profile_otus_cluster_10_langs/tokenized,expert_sweep;rank_sweep,13,56240,1148,99410,1915,101795840,frozen dataset shard plan; English override and minimum-count rounding apply
+outputs/pipeline_runs/moe_study_movlora_dense_expert_sweep_sf0005/tokenized_clean,expert_sweep,13,112482,2296,198533,3870,203297792,frozen dataset shard plan; English override and minimum-count rounding apply
+outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_200_langs_72h/tokenized,final_200,215,2219542,45384,3875724,78809,3968741376,frozen dataset shard plan; English override and minimum-count rounding apply
+outputs/pipeline_runs/moe_study_final_winners_noctua2_a100_4gpu_96_langs_34p5h/tokenized,final_96,102,861773,17634,1513560,30718,1549885440,frozen dataset shard plan; English override and minimum-count rounding apply
+outputs/pipeline_runs/moe_study_mixed_followup_expanded_data_rerun_10_langs/tokenized_expanded_400k_train,mixed_followup,13,226741,4484,400000,7705,409600000,expanded to 400000 train examples; copied base-plan fraction is not the expansion recipe

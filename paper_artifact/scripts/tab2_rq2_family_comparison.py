@@ -87,7 +87,7 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
         "2--64 on Belebele, FLORES, SIB-200 and Taxi1500. Lower is better, "
         # The caption carries the pointer to the appendix coverage matrix so
         # that the main-text prose does not have to spend a sentence on it.
-        r"best per column in bold. Coverage matrix in Table~\ref{tab:method-coverage}.",
+        r"best per column in bold. Coverage matrix in Table~\ref{tab:config-grid}.",
         "tab:rq2-family",
         environment="table",
         placement="t",
