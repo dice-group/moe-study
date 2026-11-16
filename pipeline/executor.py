@@ -15,6 +15,7 @@ import os
 import re
 import signal
 import subprocess
+import sys
 import textwrap
 import time
 
@@ -23,6 +24,196 @@ from pathlib import Path
 from typing import Any, Protocol, Sequence
 
 LOGGER = logging.getLogger("proof_pipeline")
+
+_SLURM_JOB_ID_TOKEN = "__PROOF_PIPELINE_SLURM_JOB_ID__"
+
+
+def _as_bool(value: Any, *, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def _normalize_preflight_config(raw: object) -> dict[str, Any]:
+    cfg = dict(raw) if isinstance(raw, dict) else {}
+    enabled = _as_bool(cfg.get("enabled", False))
+    try:
+        required_gpu_count = int(cfg.get("required_gpu_count", 1))
+        timeout_seconds = int(cfg.get("timeout_seconds", 300))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("preflight.required_gpu_count and preflight.timeout_seconds must be integers") from exc
+    if enabled and required_gpu_count <= 0:
+        raise ValueError("preflight.required_gpu_count must be positive")
+    if enabled and timeout_seconds <= 0:
+        raise ValueError("preflight.timeout_seconds must be positive")
+    return {
+        "enabled": enabled,
+        "required_gpu_count": required_gpu_count,
+        "required_gpu_name": str(cfg.get("required_gpu_name", "")).strip(),
+        "check_ecc": _as_bool(cfg.get("check_ecc", False)),
+        "check_nvlink": _as_bool(cfg.get("check_nvlink", False)),
+        "check_torch_distributed": _as_bool(cfg.get("check_torch_distributed", False)),
+        "timeout_seconds": timeout_seconds,
+    }
+
+
+def _preflight_args(cfg: dict[str, Any], *, python_executable: str) -> list[str]:
+    args = [
+        python_executable,
+        "-m",
+        "pipeline.gpu_preflight",
+        "--required-gpu-count",
+        str(cfg["required_gpu_count"]),
+        "--required-gpu-name",
+        str(cfg["required_gpu_name"]),
+        "--timeout-seconds",
+        str(cfg["timeout_seconds"]),
+    ]
+    for key, flag in (
+        ("check_ecc", "--check-ecc"),
+        ("check_nvlink", "--check-nvlink"),
+        ("check_torch_distributed", "--check-torch-distributed"),
+    ):
+        if cfg[key]:
+            args.append(flag)
+    return args
+
+
+def _replace_job_id_token(value: str, job_id: str) -> str:
+    return value.replace(_SLURM_JOB_ID_TOKEN, job_id)
+
+
+def _shell_quote_runtime_arg(value: str) -> str:
+    """Quote an argument while leaving the Slurm job-id placeholder expandable."""
+    if _SLURM_JOB_ID_TOKEN not in value:
+        return _shell_quote(value)
+    parts = value.split(_SLURM_JOB_ID_TOKEN)
+    quoted: list[str] = []
+    for index, part in enumerate(parts):
+        quoted.append(_shell_quote(part))
+        if index < len(parts) - 1:
+            quoted.append('"${SLURM_JOB_ID:?SLURM_JOB_ID is required for job-scoped paths}"')
+    return "".join(quoted)
+
+
+def _tokenized_copy_shell_lines(*, cleanup_trap: bool) -> list[str]:
+    lines = [
+        'if [[ "${PROOF_PIPELINE_TOKENIZED_LOCAL_COPY:-0}" == "1" ]]; then',
+        '  TOKENIZED_SRC="${PROOF_PIPELINE_TOKENIZED_SRC:?PROOF_PIPELINE_TOKENIZED_SRC is required}"',
+        '  TOKENIZED_DST_RAW="${PROOF_PIPELINE_TOKENIZED_DST:?PROOF_PIPELINE_TOKENIZED_DST is required}"',
+        f'  TOKENIZED_DST="${{TOKENIZED_DST_RAW//{_SLURM_JOB_ID_TOKEN}/${{SLURM_JOB_ID:-local-$$}}}}"',
+    ]
+    if cleanup_trap:
+        # Install cleanup before copying so timeouts and verification failures
+        # cannot strand a multi-gigabyte job-scoped dataset in /dev/shm.
+        lines.extend(
+            [
+                '  cleanup_tokenized_copy() {',
+                '    if [[ "${PROOF_PIPELINE_TOKENIZED_CLEANUP:-0}" == "1" && -n "${TOKENIZED_DST:-}" && "${TOKENIZED_DST}" != "/" && "${TOKENIZED_DST}" != "${TOKENIZED_SRC:-}" ]]; then',
+                '      echo "[TOKENIZED_COPY] cleaning job-scoped copy ${TOKENIZED_DST:-}"',
+                '      rm -rf "${TOKENIZED_DST:-}" "${TOKENIZED_TMP:-}" "${TOKENIZED_LOCK:-}"',
+                '    fi',
+                '  }',
+                '  trap cleanup_tokenized_copy EXIT',
+            ]
+        )
+    lines.extend(
+        [
+        '  TOKENIZED_COPY_TIMEOUT="${PROOF_PIPELINE_TOKENIZED_COPY_TIMEOUT_SECONDS:-900}"',
+        '  TOKENIZED_VERIFY_FILES="${PROOF_PIPELINE_TOKENIZED_VERIFY_FILES:-}"',
+        '  if [[ ! "${TOKENIZED_COPY_TIMEOUT}" =~ ^[1-9][0-9]*$ ]]; then',
+        '    echo "[TOKENIZED_COPY_ERROR] timeout must be a positive integer: ${TOKENIZED_COPY_TIMEOUT}"',
+        '    exit 96',
+        '  fi',
+        '  if [[ -z "${TOKENIZED_DST}" || "${TOKENIZED_DST}" == "/" || "${TOKENIZED_DST}" == "${TOKENIZED_SRC}" ]]; then',
+        '    echo "[TOKENIZED_COPY_ERROR] unsafe destination: ${TOKENIZED_DST}"',
+        '    exit 96',
+        '  fi',
+        '  if [[ ! -d "${TOKENIZED_SRC}" ]]; then',
+        '    echo "[TOKENIZED_COPY_ERROR] source directory does not exist: ${TOKENIZED_SRC}"',
+        '    exit 96',
+        '  fi',
+        '  TOKENIZED_PARENT="$(dirname "${TOKENIZED_DST}")"',
+        '  mkdir -p "${TOKENIZED_PARENT}"',
+        '  TOKENIZED_LOCK="${TOKENIZED_DST}.lock"',
+        '  exec 9>"${TOKENIZED_LOCK}"',
+        '  if ! flock -w "${TOKENIZED_COPY_TIMEOUT}" 9; then',
+        '    echo "[TOKENIZED_COPY_ERROR] timed out waiting for lock: ${TOKENIZED_LOCK}"',
+        '    exit 98',
+        '  fi',
+        '  tokenized_arrow_stats() {',
+        '    find -L "$1" -type f -name "*.arrow" -printf "%s\\n" | awk \'{count += 1; bytes += $1} END {print count + 0 ":" bytes + 0}\'',
+        '  }',
+        '  verify_tokenized_copy() {',
+        '    local src_stats dst_stats relative src_hash dst_hash',
+        '    src_stats="$(tokenized_arrow_stats "${TOKENIZED_SRC}")"',
+        '    dst_stats="$(tokenized_arrow_stats "${TOKENIZED_DST}")"',
+        '    if [[ "${src_stats}" == "0:0" || "${src_stats}" != "${dst_stats}" ]]; then',
+        '      echo "[TOKENIZED_COPY_ERROR] Arrow count/bytes mismatch src=${src_stats} dst=${dst_stats}"',
+        '      return 1',
+        '    fi',
+        '    if [[ -n "${TOKENIZED_VERIFY_FILES}" ]]; then',
+        '      IFS=\',\' read -r -a required_files <<< "${TOKENIZED_VERIFY_FILES}"',
+        '      for relative in "${required_files[@]}"; do',
+        '        if [[ ! -f "${TOKENIZED_SRC}/${relative}" || ! -f "${TOKENIZED_DST}/${relative}" ]]; then',
+        '          echo "[TOKENIZED_COPY_ERROR] required file missing: ${relative}"',
+        '          return 1',
+        '        fi',
+        '        src_hash="$(sha256sum "${TOKENIZED_SRC}/${relative}" | awk \'{print $1}\')"',
+        '        dst_hash="$(sha256sum "${TOKENIZED_DST}/${relative}" | awk \'{print $1}\')"',
+        '        if [[ "${src_hash}" != "${dst_hash}" ]]; then',
+        '          echo "[TOKENIZED_COPY_ERROR] checksum mismatch: ${relative}"',
+        '          return 1',
+        '        fi',
+        '      done',
+        '    fi',
+        '  }',
+        '  if [[ -f "${TOKENIZED_DST}/.proof_local_copy_complete" ]] && verify_tokenized_copy; then',
+        '    echo "[TOKENIZED_COPY] reusing verified local copy at ${TOKENIZED_DST}"',
+        '  else',
+        '    TOKENIZED_TMP="${TOKENIZED_DST}.tmp.${SLURM_JOB_ID:-$$}"',
+        '    echo "[TOKENIZED_COPY] src=${TOKENIZED_SRC} dst=${TOKENIZED_DST} tmp=${TOKENIZED_TMP}"',
+        '    rm -rf "${TOKENIZED_TMP}"',
+        '    mkdir -p "${TOKENIZED_TMP}"',
+        '    if command -v rsync >/dev/null 2>&1; then',
+        '      if [[ "${PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE:-1}" == "1" ]]; then',
+        '        copy_cmd=(rsync -aL --delete "${TOKENIZED_SRC%/}/" "${TOKENIZED_TMP}/")',
+        '      else',
+        '        copy_cmd=(rsync -a --delete "${TOKENIZED_SRC%/}/" "${TOKENIZED_TMP}/")',
+        '      fi',
+        '    elif [[ "${PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE:-1}" == "1" ]]; then',
+        '      copy_cmd=(cp -aL "${TOKENIZED_SRC%/}/." "${TOKENIZED_TMP}/")',
+        '    else',
+        '      copy_cmd=(cp -a "${TOKENIZED_SRC%/}/." "${TOKENIZED_TMP}/")',
+        '    fi',
+        '    timeout --signal=TERM --kill-after=30 "${TOKENIZED_COPY_TIMEOUT}s" "${copy_cmd[@]}"',
+        '    rc=$?',
+        '    if [[ "${rc}" -ne 0 ]]; then',
+        '      echo "[TOKENIZED_COPY_ERROR] bounded copy failed rc=${rc}"',
+        '      rm -rf "${TOKENIZED_TMP}"',
+        '      exit 98',
+        '    fi',
+        '    rm -rf "${TOKENIZED_DST}"',
+        '    mv "${TOKENIZED_TMP}" "${TOKENIZED_DST}"',
+        '    if ! verify_tokenized_copy; then',
+        '      rm -rf "${TOKENIZED_DST}"',
+        '      exit 97',
+        '    fi',
+        '    touch "${TOKENIZED_DST}/.proof_local_copy_complete"',
+        '  fi',
+        '  flock -u 9',
+        '  exec 9>&-',
+        'fi',
+        ]
+    )
+    return lines
 
 
 def _is_llamafactory_train_cmd(cmd: Sequence[str]) -> bool:
@@ -68,6 +259,8 @@ class Executor(Protocol):
 class LocalExecutor:
     """Run commands as local subprocesses — the default."""
 
+    preflight: dict[str, Any] = field(default_factory=lambda: _normalize_preflight_config({}))
+
     def run(
         self,
         cmd: list[str],
@@ -75,6 +268,9 @@ class LocalExecutor:
         dry_run: bool,
         log_path: Path,
     ) -> None:
+        local_job_id = str(env.get("SLURM_JOB_ID") or f"local-{os.getpid()}")
+        cmd = [_replace_job_id_token(str(arg), local_job_id) for arg in cmd]
+        env = {key: _replace_job_id_token(str(value), local_job_id) for key, value in env.items()}
         started_at = _utc_stamp()
         started_perf = time.perf_counter()
         LOGGER.info("[CMD] %s", " ".join(cmd))
@@ -122,6 +318,34 @@ class LocalExecutor:
         with log_path.open("a", encoding="utf-8") as fh:
             fh.write(f"\n[START_UTC] {started_at}\n")
             fh.write(f"\n[CMD] {' '.join(cmd)}\n")
+            if self.preflight.get("enabled") and env.get("PROOF_PIPELINE_PREFLIGHT_COMPLETE") != "1":
+                preflight_cmd = _preflight_args(self.preflight, python_executable=sys.executable)
+                fh.write(f"[PREFLIGHT_CMD] {' '.join(preflight_cmd)}\n")
+                result = subprocess.run(
+                    preflight_cmd,
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    timeout=int(self.preflight["timeout_seconds"]) + 30,
+                )
+                fh.write(result.stdout or "")
+                if result.returncode != 0:
+                    raise subprocess.CalledProcessError(result.returncode, preflight_cmd)
+                env["PROOF_PIPELINE_PREFLIGHT_COMPLETE"] = "1"
+            if env.get("PROOF_PIPELINE_TOKENIZED_LOCAL_COPY") == "1":
+                copy_script = "\n".join(_tokenized_copy_shell_lines(cleanup_trap=False))
+                fh.write("[TOKENIZED_COPY] staging through LocalExecutor\n")
+                result = subprocess.run(
+                    ["bash", "-c", copy_script],
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                fh.write(result.stdout or "")
+                if result.returncode != 0:
+                    raise subprocess.CalledProcessError(result.returncode, ["bash", "-c", "tokenized-local-copy"])
             signal.signal(signal.SIGTERM, _forward_signal)
             signal.signal(signal.SIGUSR1, _forward_signal)
             try:
@@ -152,6 +376,13 @@ class LocalExecutor:
             finally:
                 signal.signal(signal.SIGTERM, previous_sigterm_handler)
                 signal.signal(signal.SIGUSR1, previous_sigusr1_handler)
+                if (
+                    env.get("PROOF_PIPELINE_TOKENIZED_LOCAL_COPY") == "1"
+                    and env.get("PROOF_PIPELINE_TOKENIZED_CLEANUP") == "1"
+                ):
+                    destination = env.get("PROOF_PIPELINE_TOKENIZED_DST", "")
+                    if destination and destination != "/":
+                        subprocess.run(["rm", "-rf", destination, f"{destination}.lock"], check=False)
             duration = time.perf_counter() - started_perf
             fh.write(f"[END] dry_run=false exit_code={code} duration_seconds={duration:.3f}\n")
             if code != 0:
@@ -207,6 +438,7 @@ class SlurmExecutor:
     conda_env: str = _SLURM_DEFAULTS["conda_env"]
     poll_interval: int = _SLURM_DEFAULTS["poll_interval_seconds"]
     extra_sbatch_flags: list[str] = field(default_factory=list)
+    preflight: dict[str, Any] = field(default_factory=lambda: _normalize_preflight_config({}))
 
     # ------------------------------------------------------------------
     # public interface
@@ -260,6 +492,7 @@ class SlurmExecutor:
         dependency: str | None = None,
         job_name: str | None = None,
         script_dir: Path | None = None,
+        script_path: Path | None = None,
         slurm_output: str | Path | None = None,
     ) -> str | None:
         """Submit a single job, optionally with a dependency (e.g. afterok:<jobid>)."""
@@ -271,6 +504,7 @@ class SlurmExecutor:
             dependency=dependency,
             job_name=job_name,
             script_dir=script_dir,
+            script_path=script_path,
             slurm_output=slurm_output,
         )
 
@@ -315,6 +549,7 @@ class SlurmExecutor:
         slurm_output: str | Path | None = None,
         job_name: str | None = None,
         script_dir: Path | None = None,
+        script_path: Path | None = None,
     ) -> str | None:
         """Write a job script and submit it.  Returns the Slurm job ID."""
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -336,9 +571,10 @@ class SlurmExecutor:
         script = self._build_job_script(cmd, env, job_name, slurm_log)
 
         # Write the job script to a temp file next to the log.
-        script_root = script_dir if script_dir is not None else log_path.parent
-        script_root.mkdir(parents=True, exist_ok=True)
-        script_path = script_root / log_path.with_suffix(".sbatch.sh").name
+        if script_path is None:
+            script_root = script_dir if script_dir is not None else log_path.parent
+            script_path = script_root / log_path.with_suffix(".sbatch.sh").name
+        script_path.parent.mkdir(parents=True, exist_ok=True)
         script_path.write_text(script, encoding="utf-8")
 
         LOGGER.info("[SBATCH] Submitting %s", script_path)
@@ -430,9 +666,9 @@ class SlurmExecutor:
         for key in sorted(env):
             # Only export vars the pipeline explicitly sets.
             if key.startswith(("PYTHONPATH", "PROOF_PIPELINE_", "WANDB_", "CUDA_", "HF_", "PYTORCH_")):
-                env_exports.append(f'export {key}="{env[key]}"')
+                env_exports.append(f"export {key}={_shell_quote(str(env[key]))}")
 
-        cmd_str = " ".join(_shell_quote(c) for c in cmd)
+        cmd_str = " ".join(_shell_quote_runtime_arg(c) for c in cmd)
         # Wrap in a new session so signal forwarding can target the whole subtree reliably.
         cmd_str_for_bash = cmd_str.replace("'", "'\"'\"'")
         script_lines: list[str] = ["#!/bin/bash", *sbatch_lines, "", "set -uo pipefail", ""]
@@ -474,43 +710,30 @@ class SlurmExecutor:
                 "export PYTHONUNBUFFERED=1",
                 "",
                 'echo "[SLURM_START] $(date -u +%Y-%m-%dT%H:%M:%SZ) job=$SLURM_JOB_ID"',
-                'if [[ "${PROOF_PIPELINE_TOKENIZED_LOCAL_COPY:-0}" == "1" ]]; then',
-                '  TOKENIZED_SRC="${PROOF_PIPELINE_TOKENIZED_SRC:?PROOF_PIPELINE_TOKENIZED_SRC is required}"',
-                '  TOKENIZED_DST="${PROOF_PIPELINE_TOKENIZED_DST:?PROOF_PIPELINE_TOKENIZED_DST is required}"',
-                '  TOKENIZED_PARENT="$(dirname "${TOKENIZED_DST}")"',
-                '  mkdir -p "${TOKENIZED_PARENT}"',
-                '  TOKENIZED_LOCK="${TOKENIZED_DST}.lock"',
-                '  exec 9>"${TOKENIZED_LOCK}"',
-                '  flock 9',
-                '  if [[ ! -f "${TOKENIZED_DST}/.proof_local_copy_complete" ]]; then',
-                '    TOKENIZED_TMP="${TOKENIZED_DST}.tmp.${SLURM_JOB_ID:-$$}"',
-                '    echo "[TOKENIZED_COPY] src=${TOKENIZED_SRC} dst=${TOKENIZED_DST} tmp=${TOKENIZED_TMP}"',
-                '    rm -rf "${TOKENIZED_TMP}"',
-                '    mkdir -p "${TOKENIZED_TMP}"',
-                '    if command -v rsync >/dev/null 2>&1; then',
-                '      if [[ "${PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE:-1}" == "1" ]]; then',
-                '        rsync -aL --delete "${TOKENIZED_SRC%/}/" "${TOKENIZED_TMP}/"',
-                '      else',
-                '        rsync -a --delete "${TOKENIZED_SRC%/}/" "${TOKENIZED_TMP}/"',
-                '      fi',
-                '    else',
-                '      if [[ "${PROOF_PIPELINE_TOKENIZED_COPY_DEREFERENCE:-1}" == "1" ]]; then',
-                '        cp -aL "${TOKENIZED_SRC%/}/." "${TOKENIZED_TMP}/"',
-                '      else',
-                '        cp -a "${TOKENIZED_SRC%/}/." "${TOKENIZED_TMP}/"',
-                '      fi',
-                '    fi',
-                '    if ! find "${TOKENIZED_TMP}" -name "*.arrow" -print -quit | grep -q .; then',
-                '      echo "[TOKENIZED_COPY_ERROR] local copy has no Arrow shards: ${TOKENIZED_TMP}"',
-                '      exit 97',
-                '    fi',
-                '    rm -rf "${TOKENIZED_DST}"',
-                '    mv "${TOKENIZED_TMP}" "${TOKENIZED_DST}"',
-                '    touch "${TOKENIZED_DST}/.proof_local_copy_complete"',
-                '  else',
-                '    echo "[TOKENIZED_COPY] reusing existing local copy at ${TOKENIZED_DST}"',
-                '  fi',
-                'fi',
+            ]
+        )
+        if self.preflight.get("enabled"):
+            preflight_args = _preflight_args(self.preflight, python_executable="python3")
+            preflight_command = " ".join(_shell_quote(arg) for arg in preflight_args)
+            timeout_seconds = int(self.preflight["timeout_seconds"])
+            script_lines.extend(
+                [
+                    f'echo "[GPU_PREFLIGHT] timeout_seconds={timeout_seconds}"',
+                    (
+                        f"timeout --signal=TERM --kill-after=30 {timeout_seconds + 30}s "
+                        f"{preflight_command}"
+                    ),
+                    "PREFLIGHT_RC=$?",
+                    'if [[ "${PREFLIGHT_RC}" -ne 0 ]]; then',
+                    '  echo "[GPU_PREFLIGHT_ERROR] exit_code=${PREFLIGHT_RC}"',
+                    '  exit "${PREFLIGHT_RC}"',
+                    "fi",
+                    "export PROOF_PIPELINE_PREFLIGHT_COMPLETE=1",
+                ]
+            )
+        script_lines.extend(_tokenized_copy_shell_lines(cleanup_trap=True))
+        script_lines.extend(
+            [
                 "EXIT_CODE=0",
                 "CHILD_PID=",
                 "CHILD_PGID=",
@@ -719,9 +942,16 @@ def build_executor(
             base_cfg.update(stage_exec)
 
     exec_type = base_cfg.pop("type", "local")
+    preflight_cfg: dict[str, Any] = {}
+    profile_preflight = profile.get("preflight", {})
+    if isinstance(profile_preflight, dict):
+        preflight_cfg.update(profile_preflight)
+    if stage_cfg and isinstance(stage_cfg.get("preflight"), dict):
+        preflight_cfg.update(stage_cfg["preflight"])
+    preflight = _normalize_preflight_config(preflight_cfg)
 
     if exec_type == "local":
-        return LocalExecutor()
+        return LocalExecutor(preflight=preflight)
 
     if exec_type != "slurm":
         raise ValueError(f"Unknown executor type: {exec_type!r}  (expected 'local' or 'slurm')")
@@ -737,6 +967,7 @@ def build_executor(
         conda_env=str(base_cfg.get("conda_env", _SLURM_DEFAULTS["conda_env"])),
         poll_interval=int(base_cfg.get("poll_interval_seconds", _SLURM_DEFAULTS["poll_interval_seconds"])),
         extra_sbatch_flags=list(base_cfg.get("extra_sbatch_flags", [])),
+        preflight=preflight,
     )
 
 

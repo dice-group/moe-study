@@ -1,0 +1,284 @@
+{
+  "moe_study_final_macro3_96_langs_benchmark_v2": {
+    "extends": "moe_study_final_macro3_noctua2_a100_4gpu_96_langs_34p5h_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_96",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_96/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-macro3-96langs-benchmark-v2"
+    },
+    "study_contract": {
+      "benchmark_panel_version": "v2-full-language-intersection",
+      "benchmark_panel_manifest": "configs/benchmark_panels/v2/manifest.json",
+      "benchmark_task_panel_sha256": "45f8ca8c965473e04defb3b61fd18178642102a8e6214ad3cbf6aecfe3c19a68"
+    },
+    "benchmark": {
+      "tasks_file": "configs/benchmark_panels/v2/lm_eval_tasks_96_langs_v2.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_96/benchmarks",
+      "expected_task_count": 246,
+      "expected_task_breakdown": {
+        "Belebele": 39,
+        "FLORES": 100,
+        "SIB200": 50,
+        "Taxi1500": 57
+      }
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_96/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_96/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_96/report.xlsx"
+    },
+    "stage_executors": {
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "24:00:00",
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--ntasks=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1222,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,CUDA_VISIBLE_DEVICES=0"
+        ]
+      }
+    }
+  },
+  "moe_study_final_macro3_200_langs_benchmark_v2": {
+    "extends": "moe_study_final_macro3_noctua2_a100_4gpu_200_langs_72h_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_200",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_200/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-macro3-200langs-benchmark-v2"
+    },
+    "study_contract": {
+      "benchmark_panel_version": "v2-full-language-intersection",
+      "benchmark_panel_manifest": "configs/benchmark_panels/v2/manifest.json",
+      "benchmark_task_panel_sha256": "ce1e056942bee9e70db44fb76de188fc8428a45fcae758bd5f2a198917428e08"
+    },
+    "benchmark": {
+      "tasks_file": "configs/benchmark_panels/v2/lm_eval_tasks_200_langs_v2.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_200/benchmarks",
+      "expected_task_count": 405,
+      "expected_task_breakdown": {
+        "Belebele": 64,
+        "FLORES": 166,
+        "SIB200": 83,
+        "Taxi1500": 92
+      }
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_200/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_200/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro3_200/report.xlsx"
+    },
+    "stage_executors": {
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "24:00:00",
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--ntasks=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1222,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,CUDA_VISIBLE_DEVICES=0"
+        ]
+      }
+    }
+  },
+  "moe_study_final_macro45_96_langs_benchmark_v2": {
+    "extends": "moe_study_final_macro45_noctua2_a100_4gpu_96_langs_34p5h_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_96",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_96/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-macro45-96langs-benchmark-v2"
+    },
+    "study_contract": {
+      "benchmark_panel_version": "v2-full-language-intersection",
+      "benchmark_panel_manifest": "configs/benchmark_panels/v2/manifest.json",
+      "benchmark_task_panel_sha256": "45f8ca8c965473e04defb3b61fd18178642102a8e6214ad3cbf6aecfe3c19a68"
+    },
+    "benchmark": {
+      "tasks_file": "configs/benchmark_panels/v2/lm_eval_tasks_96_langs_v2.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_96/benchmarks",
+      "expected_task_count": 246,
+      "expected_task_breakdown": {
+        "Belebele": 39,
+        "FLORES": 100,
+        "SIB200": 50,
+        "Taxi1500": 57
+      }
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_96/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_96/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_96/report.xlsx"
+    },
+    "stage_executors": {
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "24:00:00",
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--ntasks=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1222,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,CUDA_VISIBLE_DEVICES=0"
+        ]
+      }
+    }
+  },
+  "moe_study_final_macro45_200_langs_benchmark_v2": {
+    "extends": "moe_study_final_macro45_noctua2_a100_4gpu_200_langs_72h_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_200",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_200/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-macro45-200langs-benchmark-v2"
+    },
+    "study_contract": {
+      "benchmark_panel_version": "v2-full-language-intersection",
+      "benchmark_panel_manifest": "configs/benchmark_panels/v2/manifest.json",
+      "benchmark_task_panel_sha256": "ce1e056942bee9e70db44fb76de188fc8428a45fcae758bd5f2a198917428e08"
+    },
+    "benchmark": {
+      "tasks_file": "configs/benchmark_panels/v2/lm_eval_tasks_200_langs_v2.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_200/benchmarks",
+      "expected_task_count": 405,
+      "expected_task_breakdown": {
+        "Belebele": 64,
+        "FLORES": 166,
+        "SIB200": 83,
+        "Taxi1500": 92
+      }
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_200/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_200/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/macro45_200/report.xlsx"
+    },
+    "stage_executors": {
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "24:00:00",
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--ntasks=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1222,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,CUDA_VISIBLE_DEVICES=0"
+        ]
+      }
+    }
+  },
+  "moe_study_final_mtllora_lr5e5_96_langs_benchmark_v2": {
+    "extends": "moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_96_langs_34p5h_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_96",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_96/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-mtllora-lr5e5-96langs-benchmark-v2"
+    },
+    "study_contract": {
+      "benchmark_panel_version": "v2-full-language-intersection",
+      "benchmark_panel_manifest": "configs/benchmark_panels/v2/manifest.json",
+      "benchmark_task_panel_sha256": "45f8ca8c965473e04defb3b61fd18178642102a8e6214ad3cbf6aecfe3c19a68"
+    },
+    "benchmark": {
+      "tasks_file": "configs/benchmark_panels/v2/lm_eval_tasks_96_langs_v2.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_96/benchmarks",
+      "expected_task_count": 246,
+      "expected_task_breakdown": {
+        "Belebele": 39,
+        "FLORES": 100,
+        "SIB200": 50,
+        "Taxi1500": 57
+      }
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_96/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_96/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_96/report.xlsx"
+    },
+    "stage_executors": {
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "24:00:00",
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--ntasks=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1222,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,CUDA_VISIBLE_DEVICES=0"
+        ]
+      }
+    }
+  },
+  "moe_study_final_mtllora_lr5e5_200_langs_benchmark_v2": {
+    "extends": "moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_200",
+    "logs_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_200/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-final-mtllora-lr5e5-200langs-benchmark-v2"
+    },
+    "study_contract": {
+      "benchmark_panel_version": "v2-full-language-intersection",
+      "benchmark_panel_manifest": "configs/benchmark_panels/v2/manifest.json",
+      "benchmark_task_panel_sha256": "ce1e056942bee9e70db44fb76de188fc8428a45fcae758bd5f2a198917428e08"
+    },
+    "benchmark": {
+      "tasks_file": "configs/benchmark_panels/v2/lm_eval_tasks_200_langs_v2.txt",
+      "output_dir": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_200/benchmarks",
+      "expected_task_count": 405,
+      "expected_task_breakdown": {
+        "Belebele": 64,
+        "FLORES": 166,
+        "SIB200": 83,
+        "Taxi1500": 92
+      }
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_200/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_200/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_final_benchmark_panel_v2/mtllora5e5_200/report.xlsx"
+    },
+    "stage_executors": {
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "24:00:00",
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--ntasks=1",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1222,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,CUDA_VISIBLE_DEVICES=0"
+        ]
+      }
+    }
+  }
+}

@@ -10,10 +10,12 @@ from .stages.final_eval_loss import stage_final_eval_loss
 from .stages.report import stage_report
 from .stages.summary import stage_summary
 from .stages.train import stage_train
+from .stages.train_acceptance import stage_train_acceptance
 
 
 MODEL_STAGE_HANDLERS = {
     "train": stage_train,
+    "train_acceptance": stage_train_acceptance,
     "final_eval_loss": stage_final_eval_loss,
     "embedding_verify": stage_embedding_verify,
     "benchmark": stage_benchmark,
