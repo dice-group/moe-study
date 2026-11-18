@@ -2,7 +2,7 @@
 
 Code for our study comparing LoRA and routed-LoRA (MoE–LoRA) methods for
 massively multilingual continued pretraining, scaling language coverage from 10
-to 200 languages. Paper: [arXiv:2611.23158](https://arxiv.org/abs/2611.23158).
+to 200 languages. Preprint: [arXiv:2611.23158](https://arxiv.org/abs/2611.23158).
 
 ## News
 

@@ -1,6 +1,6 @@
 [submodule "data_prep/merlin_data_prep"]
 	path = data_prep/merlin_data_prep
-	url = git@github.com:dice-group/merlin_data_prep.git
+	url = https://github.com/dice-group/merlin_data_prep.git
 	branch = main
 [submodule "LLaMA-Factory"]
 	path = LLaMA-Factory
@@ -8,4 +8,4 @@
 	branch = main
 [submodule "scripts/eval/latest_checkpoint/lm-evaluation-harness"]
 	path = scripts/eval/latest_checkpoint/lm-evaluation-harness
-	url = git@github.com:dice-group/lm-evaluation-harness.git
+	url = https://github.com/dice-group/lm-evaluation-harness.git
