@@ -114,7 +114,7 @@ def _resource_table(cfg: dict, runs: pd.DataFrame, table_dir: Path, data_dir: Pa
     for index, regime in enumerate(cfg["rq3"]["regimes"]):
         if index:
             rows.append(r"\addlinespace")
-        rows.append(rf"\multicolumn{{10}}{{l}}{{\textit{{{regime} training languages}}}} \\")
+        rows.append(rf"\multicolumn{{12}}{{l}}{{\textit{{{regime} training languages}}}} \\")
         stage = runs[runs["stage"].eq(f"final_{regime}")].set_index("run_id")
         for run_id in order:
             run = stage.loc[run_id]
@@ -123,6 +123,8 @@ def _resource_table(cfg: dict, runs: pd.DataFrame, table_dir: Path, data_dir: Pa
                 C.latex_escape(labels[run_id]),
                 experts,
                 top_k,
+                f"{run['implementation_rank']:.0f}",
+                f"{run['alpha']:.0f}",
                 f"{run['trainable_parameters'] / 1e6:.1f}",
                 _active_cell(run),
                 f"{run['optimizer_steps'] / 1e3:.1f}",
@@ -138,7 +140,7 @@ def _resource_table(cfg: dict, runs: pd.DataFrame, table_dir: Path, data_dir: Pa
                 "label": labels[run_id],
                 "experts": experts,
                 "top_k": top_k,
-                "per_expert_rank": run["implementation_rank"],
+                "implementation_rank": run["implementation_rank"],
                 "alpha": run["alpha"],
                 "scaling_factor": run["scaling_factor"],
                 "learning_rate": run["learning_rate"],
@@ -160,26 +162,17 @@ def _resource_table(cfg: dict, runs: pd.DataFrame, table_dir: Path, data_dir: Pa
 
     C.write_table(
         table_dir / "tabA5_resource_accounting.tex",
-        "lccrrrrrrr",
+        "lccrrrrrrrrr",
         [
-            r"Configuration & $E$ & $k$ & Train.\ & Active & Steps & Tokens & Tok./s & Corpus & GPU \\",
-            r" & & & (M) & (M) & (k) & (B) & (k) & (\%) & (h) \\",
+            r"Configuration & $E$ & $k$ & $r$ & $\alpha$ & Train.\ & Active & Steps & Tokens & Tok./s & Corpus & GPU \\",
+            r" & & & & & (M) & (M) & (k) & (B) & (k) & (\%) & (h) \\",
         ],
         rows,
-        "Training budget actually consumed in each broader regime. $E$ is the "
-        "expert count and $k$ the number of experts routed per token, \\emph{dense} "
-        "where a method combines all of them. Train.\\ is trainable adapter "
-        "parameters and Active those reached on a forward pass, given as a range "
-        "for \\baseline{AdaMoE}, whose null experts make the count input-dependent. "
-        "Tokens counts input token positions processed, Corpus the share of the "
-        "training set seen once, and GPU the hours over the four A100 40GB GPUs of "
-        "the run. Every run in a regime had the same wall clock, so the spread in "
-        "steps and tokens is the throughput difference between methods. The frozen "
-        "backbone adds 8.03B parameters to every row and is excluded throughout.",
+        "Training budget consumed by each configuration in the broader regimes.",
         "tab:resource-accounting",
         environment="table*",
         placement="tp",
-        col_sep="5pt",
+        col_sep="4pt",
     )
     C.write_csv(pd.DataFrame(records), data_dir / "tabA5_resource_accounting.csv")
 
@@ -237,20 +230,13 @@ def _language_table(table_dir: Path, data_dir: Path) -> None:
             r" & & (M) & (\%) & (\%) & & & (\%) \\",
         ],
         rows,
-        "Composition of each prepared training set. Labels counts language--script "
-        "labels, which exceeds the nominal language count because a language can "
-        "appear in more than one script. Ex.\\ is packed training sequences of "
-        "1{,}024 tokens. Top-1 and Top-5 give the share of training sequences held "
-        "by the largest labels, and the 50\\% and 90\\% columns the number of labels "
-        "needed to reach that share. Construction draws the same fraction of every "
-        "language's available documents, 0.0025 at 96 languages and 0.005 at 200, "
-        "so the mixture follows FineWeb2's own distribution rather than being "
-        "temperature-rebalanced. These are shares of the prepared split and not "
-        "measured per-run consumption. Per-language rows are released with the "
-        "analysis.",
+        "Composition of each prepared training set.",
         "tab:language-mixture",
         placement="tbp",
-        col_sep="4pt",
+        # Eight columns overflow a single column by ~37pt at 4pt; 2pt recovers
+        # most of it and the resize absorbs the last few points (~2% shrink).
+        col_sep="2pt",
+        resize_to=r"\columnwidth",
     )
     C.write_csv(pd.DataFrame(records), data_dir / "tabA6_language_mixture.csv")
 

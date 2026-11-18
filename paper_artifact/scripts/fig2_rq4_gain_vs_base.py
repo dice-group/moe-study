@@ -23,6 +23,9 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
+# Embed TrueType (Type 42) fonts instead of Type 3, which ACL's PDF checks flag.
+matplotlib.rcParams["pdf.fonttype"] = 42
+matplotlib.rcParams["ps.fonttype"] = 42
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -234,7 +237,7 @@ def _cross_benchmark_table(cfg: dict, baseline: str, regimes: list[int], benchma
         # start of the next page, never in the second column of the same one, so
         # the gap at the foot of that column is unreachable by any float
         # parameter. This is the table its closing paragraph ends on.
-        placement="H",
+        placement="tbp",
         col_sep="3pt",
     )
     C.write_csv(pd.DataFrame(records), C.output_dir(cfg, "data") / "tabA4_rq4_cross_benchmark.csv")

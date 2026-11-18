@@ -174,6 +174,9 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
             rf"\multicolumn{{5}}{{l}}{{\textit{{{regime} training languages}}}} \\"
         )
         first = tests[regime].groupby("benchmark", sort=False).first().reset_index()
+        # Holm over the four benchmarks inside each regime, the same family
+        # tab:rq1-omnibus uses for each factor.
+        first["p_friedman_holm"] = C.holm(first["p_friedman"])
         for row in first.itertuples(index=False):
             omnibus_rows.append(
                 " & ".join(
@@ -182,7 +185,7 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
                         str(row.n_units),
                         f"{row.friedman_q:.2f}",
                         f"{row.kendalls_w:.3f}",
-                        "$" + C.fmt_p(row.p_friedman) + "$" + C.sig_stars(row.p_friedman),
+                        "$" + C.fmt_p(row.p_friedman_holm) + "$" + C.sig_stars(row.p_friedman_holm),
                     ]
                 )
                 + r" \\"
@@ -193,10 +196,12 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
     C.write_table(
         table_dir / "tabA3_rq3_omnibus.tex",
         "lrrrr",
-        [r"Benchmark & $n$ & $Q$ & $W$ & $p$ \\"],
+        [r"Benchmark & $n$ & $Q$ & $W$ & $p_{\mathrm{Holm}}$ \\"],
         omnibus_rows,
-        "Friedman tests over the six systems in each broader regime. $Q$ is the "
-        "Friedman statistic and $W$ Kendall's coefficient of concordance.",
+        f"Friedman tests over the {C.spell_count(len(cfg['rq3']['finalists']) + 1)} systems "
+        "in each broader regime. $Q$ is the "
+        "Friedman statistic and $W$ Kendall's coefficient of concordance. Holm "
+        "correction is applied over the four benchmarks within each regime.",
         "tab:rq3-omnibus",
         placement="tbp",
         col_sep="3pt",

@@ -128,14 +128,7 @@ def main(config_path: Path = C.CONFIG_PATH) -> None:
         "llcllc",
         [r"Method & Rank search & Runs & Expert-count search ($E$:~top-$k$) & Runs & Panel \\"],
         rows,
-        "Every configuration trained in the two one-factor searches. $r$ is the "
-        "rank of one expert, $E$ the number of experts, and $k$ the number of "
-        "experts routed to per token. Methods without a router define no $k$. "
-        "The rank search holds $E$ and $k$ fixed, and the expert-count search "
-        "holds $r{=}2$. Panel marks the six methods run at every rank from 2 to "
-        "64, which are the ones compared in Table~\\ref{tab:rq2-family}. The gaps "
-        "are explained in Appendix~\\ref{sec:appendix-coverage}, which also "
-        "states why the counts exclude CoLA.",
+        "Every configuration trained in the two one-factor searches.",
         "tab:config-grid",
         environment="table*",
         placement="tp",
