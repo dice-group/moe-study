@@ -908,7 +908,14 @@ def check_train(train_root: Path, runs: list[dict[str, Any]], *, dry_run: bool):
 # benchmark
 # ---------------------------------------------------------------------------
 
-def check_benchmark(benchmark_root: Path, summary_path: Path, *, dry_run: bool):
+def check_benchmark(
+    benchmark_root: Path,
+    summary_path: Path,
+    *,
+    dry_run: bool,
+    check_path: Path | None = None,
+    run_ids: set[str] | None = None,
+):
     """Verify benchmark: all runs have expected task count."""
 
     if dry_run:
@@ -922,17 +929,45 @@ def check_benchmark(benchmark_root: Path, summary_path: Path, *, dry_run: bool):
     out: dict[str, Any] = {"stage": "benchmark", "pass": True, "runs": {}}
     for run_info in summary.get("runs", []):
         run_id = run_info.get("run_id", "?")
+        if run_ids is not None and str(run_id) not in run_ids:
+            continue
         expected = run_info.get("num_tasks_expected", 0)
         seen = run_info.get("num_tasks_seen", 0)
         missing = run_info.get("missing_tasks", [])
-        entry = {"expected": expected, "seen": seen, "missing_count": len(missing)}
-        if expected > 0 and seen == 0:
+        strict = bool(run_info.get("strict_completeness", summary.get("strict_completeness", False)))
+        expected_breakdown = run_info.get("expected_task_breakdown", summary.get("expected_task_breakdown", {}))
+        seen_breakdown = run_info.get("seen_task_breakdown", {})
+        entry = {
+            "expected": expected,
+            "seen": seen,
+            "missing_count": len(missing),
+            "strict_completeness": strict,
+            "expected_task_breakdown": expected_breakdown,
+            "seen_task_breakdown": seen_breakdown,
+        }
+        if strict:
+            passed = (
+                expected > 0
+                and seen == expected
+                and len(missing) == 0
+                and (not expected_breakdown or seen_breakdown == expected_breakdown)
+            )
+        else:
+            passed = not (expected > 0 and seen == 0)
+        if not passed:
             entry["pass"] = False
             out["pass"] = False
         else:
             entry["pass"] = True
         out["runs"][run_id] = entry
-    _write_check(benchmark_root / "_check.json", out)
+    if run_ids is not None:
+        missing_summary_rows = sorted(run_ids - {str(run_id) for run_id in out["runs"]})
+        if missing_summary_rows:
+            out["pass"] = False
+            out["missing_summary_rows"] = missing_summary_rows
+    resolved_check_path = check_path or (benchmark_root / "_check.json")
+    _write_check(resolved_check_path, out)
     if not out["pass"]:
         failed = [rid for rid, v in out["runs"].items() if not v.get("pass")]
-        raise SystemExit(f"[CHECK FAIL] benchmark: runs with 0 tasks evaluated: {failed}")
+        failed.extend(out.get("missing_summary_rows", []))
+        raise SystemExit(f"[CHECK FAIL] benchmark: incomplete task results: {failed}")

@@ -1,0 +1,51 @@
+{
+  "base_model": "meta-llama/Llama-3.1-8B",
+  "sample_root": "outputs/sharded_samples",
+  "sample_manifest": "outputs/routing_analysis/moe_study_final_top5_shared_215x1000_sample_manifest.json",
+  "languages_csv": "result_analysis/l2v_nested_samples/200.csv",
+  "languages_csv_column": "subset",
+  "languages_csv_split_column": "split",
+  "languages_csv_split": "train",
+  "languages_extra": ["english"],
+  "output_root": "outputs/routing_analysis/moe_study_final_top5_200_langs_initial_1000seq",
+  "batch_size": 8,
+  "max_sequences": 1000,
+  "max_length": 1024,
+  "text_field": "text",
+  "device": "cuda",
+  "torch_dtype": "bfloat16",
+  "use_language_ids": true,
+  "create_figures": true,
+  "auto_find_batch_size": true,
+  "length_sort_batches": true,
+  "strict_samples": true,
+  "checkpoint_hashes": true,
+  "static_validation_languages": ["english", "arb_Arab", "jpn_Jpan"],
+  "adapters": [
+    {
+      "run_id": "moelora_tr32_e16_k8",
+      "label": "MoE-LoRA tr32 e16 k8",
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_macro3_noctua2_a100_4gpu_200_langs_72h_v1/runs/moelora_tr32_e16_k8/checkpoint-15947_adapter"
+    },
+    {
+      "run_id": "hydralora_r2",
+      "label": "HydraLoRA r2",
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_macro3_noctua2_a100_4gpu_200_langs_72h_v1/runs/hydralora_r2/checkpoint-21829_adapter"
+    },
+    {
+      "run_id": "moelora_tr64_e32_k8",
+      "label": "MoE-LoRA tr64 e32 k8",
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_macro45_noctua2_a100_4gpu_200_langs_72h_v1/runs/moelora_tr64_e32_k8/checkpoint-10175_adapter"
+    },
+    {
+      "run_id": "mola_tr16_e8_k6",
+      "label": "MoLA tr16 e8 k6",
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_macro45_noctua2_a100_4gpu_200_langs_72h_v1/runs/mola_tr16_e8_k6/checkpoint-10427_adapter"
+    },
+    {
+      "run_id": "mtllora_lr5e5_r8_nup16",
+      "label": "MTL-LoRA lr5e-5 r8 nup16",
+      "checkpoint": "outputs/pipeline_runs/moe_study_final_mtllora_lr5e5_noctua2_a100_4gpu_200_langs_72h_v1/runs/mtllora_lr5e5_r8_nup16/checkpoint-30555_adapter"
+    }
+  ]
+}

@@ -1,0 +1,1373 @@
+{
+  "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4": {
+    "extends": "moe_study_mixed_rank_expert_followup_central_noctua2_a100_4gpu_10_langs_7p6h",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-active7p2h-v4",
+      "language_count_hint": 10
+    },
+    "study_contract": {
+      "selection_notebook": "result_analysis/notebooks/best_rank_expert_selection.ipynb",
+      "selection_manifest_variable": "SELECTED_FOLLOWUP_RUNS",
+      "language_panel_sha256": "58cd8ab0a86bfe501dcff0abce5e992b9d0f690a975ab119aea458a2820475d9",
+      "benchmark_task_panel_sha256": "dade9b0c002bbcbb8d34a266c5c9dc69ca84f3fe4f1f4fb310ff7a9952b7bba8",
+      "dataset_fingerprint": "d1e7b8f8dfb754d2",
+      "dataset_arrow_shards": 11,
+      "dataset_arrow_bytes": 5481980800,
+      "llama_factory_revision": "a71512ae4ba5b9c4174593f24012d3919c18d5e4",
+      "lm_eval_revision": "b4359724f0e13dd89ffb788ec2d712e7a73f3be4",
+      "model_snapshot_revision": "d04e592bb4f6aa9cfee91e2e20afa771667e1d4b",
+      "global_batch_size": 48,
+      "active_trainer_seconds": 25920,
+      "retry_policy": "fresh_attempt_only_no_performance_cherry_picking"
+    },
+    "tokenization": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_followup_expanded_data_rerun_10_langs/tokenized_expanded_400k_train",
+      "languages_csv": "result_analysis/l2v_nested_samples/10.csv",
+      "language_rates_csv": "result_analysis/l2v_nested_samples/10.csv"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4/runs",
+      "distributed": {
+        "enabled": true,
+        "num_processes": 4,
+        "num_machines": 1,
+        "machine_rank": 0,
+        "main_process_ip": "127.0.0.1",
+        "main_process_port": 29501,
+        "config_file": "configs/accelerate/fsdp_4gpu_config_size_sharded.yaml"
+      },
+      "tokenized_local_copy": {
+        "enabled": true,
+        "root": "/dev/shm/moe-study-tokenized",
+        "dereference_symlinks": true,
+        "job_scoped": true,
+        "cleanup": true,
+        "timeout_seconds": 600,
+        "verify_files": [
+          "state.json",
+          "dataset_info.json"
+        ]
+      },
+      "preflight": {
+        "enabled": true,
+        "required_gpu_count": 4,
+        "required_gpu_name": "A100",
+        "check_ecc": true,
+        "check_nvlink": true,
+        "check_torch_distributed": true,
+        "timeout_seconds": 300
+      },
+      "executor": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "07:36:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "train": {
+        "batch_size": 1,
+        "grad_accum": 12,
+        "max_steps": 8333,
+        "num_train_epochs": 1.0,
+        "logging_steps": 50,
+        "save_steps": 999999,
+        "save_strategy": "no",
+        "save_total_limit": 1,
+        "save_only_model": false,
+        "skip_final_save": false,
+        "cleanup_large_artifacts_after_train": false,
+        "disable_gradient_checkpointing": false,
+        "use_reentrant_gc": true,
+        "bf16": true,
+        "fp16": false,
+        "flash_attn": "sdpa",
+        "report_to": "none"
+      },
+      "runs": [
+        {
+          "id": "moelora_tr64_e32_k8",
+          "kind": "moelora",
+          "lora": {"rank": 64, "alpha": 128, "target": "q_proj,k_proj,v_proj,o_proj"},
+          "params": {"moelora_num_experts": 32, "moelora_sparse_top_k": 8, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}
+        },
+        {
+          "id": "moelora_tr256_e32_k8",
+          "kind": "moelora",
+          "lora": {"rank": 256, "alpha": 512, "target": "q_proj,k_proj,v_proj,o_proj"},
+          "params": {"moelora_num_experts": 32, "moelora_sparse_top_k": 8, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}
+        },
+        {
+          "id": "moelora_tr64_e32_k4",
+          "kind": "moelora",
+          "lora": {"rank": 64, "alpha": 128, "target": "q_proj,k_proj,v_proj,o_proj"},
+          "params": {"moelora_num_experts": 32, "moelora_sparse_top_k": 4, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false},
+          "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}
+        },
+        {
+          "id": "moelora_tr256_e32_k4",
+          "kind": "moelora",
+          "lora": {"rank": 256, "alpha": 512, "target": "q_proj,k_proj,v_proj,o_proj"},
+          "params": {"moelora_num_experts": 32, "moelora_sparse_top_k": 4, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}
+        },
+        {
+          "id": "moelora_tr32_e16_k8",
+          "kind": "moelora",
+          "lora": {"rank": 32, "alpha": 64, "target": "q_proj,k_proj,v_proj,o_proj"},
+          "params": {"moelora_num_experts": 16, "moelora_sparse_top_k": 8, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}
+        },
+        {
+          "id": "moelora_tr128_e16_k8",
+          "kind": "moelora",
+          "lora": {"rank": 128, "alpha": 256, "target": "q_proj,k_proj,v_proj,o_proj"},
+          "params": {"moelora_num_experts": 16, "moelora_sparse_top_k": 8, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}
+        },
+        {
+          "id": "moelora_tr16_e8_k2",
+          "kind": "moelora",
+          "lora": {"rank": 16, "alpha": 32, "target": "q_proj,k_proj,v_proj,o_proj"},
+          "params": {"moelora_num_experts": 8, "moelora_sparse_top_k": 2, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}
+        },
+        {
+          "id": "moelora_tr64_e8_k2",
+          "kind": "moelora",
+          "lora": {"rank": 64, "alpha": 128, "target": "q_proj,k_proj,v_proj,o_proj"},
+          "params": {"moelora_num_experts": 8, "moelora_sparse_top_k": 2, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}
+        },
+        {
+          "id": "mola_tr64_e32_k4",
+          "kind": "mola",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mola_num_experts": 32, "mola_top_k": 4, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 64},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mola_tr256_e32_k4",
+          "kind": "mola",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mola_num_experts": 32, "mola_top_k": 4, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 64},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mola_tr32_e16_k1",
+          "kind": "mola",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mola_num_experts": 16, "mola_top_k": 1, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 32},
+          "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mola_tr128_e16_k1",
+          "kind": "mola",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mola_num_experts": 16, "mola_top_k": 1, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 32},
+          "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mola_tr32_e16_k8",
+          "kind": "mola",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mola_num_experts": 16, "mola_top_k": 8, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 32},
+          "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mola_tr128_e16_k8",
+          "kind": "mola",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mola_num_experts": 16, "mola_top_k": 8, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 32},
+          "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mola_tr16_e8_k6",
+          "kind": "mola",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mola_num_experts": 8, "mola_top_k": 6, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 16},
+          "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mola_tr64_e8_k6",
+          "kind": "mola",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mola_num_experts": 8, "mola_top_k": 6, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 16},
+          "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "hydralora_r2_heads32",
+          "kind": "hydralora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"},
+          "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"hydralora_lora_num": 32, "hydralora_use_experts": false, "language_guidance_scope": "none", "language_prior_weight": 0.0},
+          "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "hydralora_r2_heads16",
+          "kind": "hydralora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"},
+          "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"hydralora_lora_num": 16, "hydralora_use_experts": false, "language_guidance_scope": "none", "language_prior_weight": 0.0},
+          "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "hydralora_r2",
+          "kind": "hydralora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"},
+          "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"hydralora_lora_num": 8, "hydralora_use_experts": false, "language_guidance_scope": "none", "language_prior_weight": 0.0},
+          "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mtllora_r8_nup32",
+          "kind": "mtllora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mtllora_num_up_projections": 32, "mtllora_temperature": 0.1, "mtllora_lambda_format": "full", "mtllora_use_language_ids_as_task_ids": true},
+          "train": {"batch_size": 4, "grad_accum": 3, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mtllora_r8_nup16",
+          "kind": "mtllora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mtllora_num_up_projections": 16, "mtllora_temperature": 0.1, "mtllora_lambda_format": "full", "mtllora_use_language_ids_as_task_ids": true},
+          "train": {"batch_size": 4, "grad_accum": 3, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mtllora_r8",
+          "kind": "mtllora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mtllora_num_up_projections": 8, "mtllora_temperature": 0.1, "mtllora_lambda_format": "full", "mtllora_use_language_ids_as_task_ids": true},
+          "train": {"batch_size": 4, "grad_accum": 3, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        }
+      ]
+    },
+    "train_acceptance": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4/acceptance",
+      "target_runtime_seconds": 25920,
+      "runtime_tolerance_seconds": 600,
+      "require_direct_save_marker": true,
+      "require_slurm_completed": true,
+      "reject_log_patterns": [
+        "CUDA out of memory|OutOfMemoryError",
+        "NCCL.*(?:error|timeout|timed out|watchdog)",
+        "NODE_FAIL|node failure",
+        "Input/output error|I/O error|Stale file handle",
+        "Traceback \\(most recent call last\\)"
+      ],
+      "required_log_patterns": [
+        "\\[SLURM_SIGNAL\\].*signal=USR1",
+        "Signal received.*SIGUSR1",
+        "Received SIGUSR1: will save a checkpoint",
+        "Adapter checkpoint saved at:",
+        "Skipping final save_model after signal-triggered checkpoint save"
+      ]
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4/final_eval_loss",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state",
+      "preflight": {
+        "enabled": true,
+        "required_gpu_count": 1,
+        "required_gpu_name": "A100",
+        "check_ecc": true,
+        "check_nvlink": false,
+        "check_torch_distributed": false,
+        "timeout_seconds": 300
+      }
+    },
+    "benchmark": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4/benchmarks",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state",
+      "allow_missing_lm_eval": false,
+      "fail_if_no_tasks": true,
+      "strict_completeness": true,
+      "expected_task_count": 42,
+      "expected_task_breakdown": {
+        "Belebele": 9,
+        "FLORES": 18,
+        "SIB200": 9,
+        "Taxi1500": 6
+      },
+      "preflight": {
+        "enabled": true,
+        "required_gpu_count": 1,
+        "required_gpu_name": "A100",
+        "check_ecc": true,
+        "check_nvlink": false,
+        "check_torch_distributed": false,
+        "timeout_seconds": 300
+      }
+    },
+    "summary": {
+      "baseline_id": "moelora_tr64_e32_k8",
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4/gate.json"
+    },
+    "report": {
+      "enabled": true,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "07:36:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "train_acceptance": {
+        "type": "slurm",
+        "partition": "normal",
+        "gres": "none",
+        "cpus_per_task": 2,
+        "mem": "8G",
+        "time": "00:15:00"
+      },
+      "final_eval_loss": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": ["--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228"]
+      },
+      "benchmark": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:1",
+        "cpus_per_task": 16,
+        "mem": "128G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": ["--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228"]
+      },
+      "summary": {
+        "type": "slurm",
+        "partition": "normal",
+        "gres": "none",
+        "cpus_per_task": 4,
+        "mem": "32G",
+        "time": "01:00:00"
+      },
+      "report": {
+        "type": "slurm",
+        "partition": "normal",
+        "gres": "none",
+        "cpus_per_task": 2,
+        "mem": "16G",
+        "time": "01:00:00"
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-signal-smoke-v4"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4/runs",
+      "runs": [
+        {
+          "id": "moelora_tr256_e32_k8",
+          "kind": "moelora",
+          "lora": {"rank": 256, "alpha": 512, "target": "q_proj,k_proj,v_proj,o_proj"},
+          "params": {"moelora_num_experts": 32, "moelora_sparse_top_k": 8, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}
+        },
+        {
+          "id": "mola_tr256_e32_k4",
+          "kind": "mola",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mola_num_experts": 32, "mola_top_k": 4, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 64},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "hydralora_r2_heads32",
+          "kind": "hydralora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"},
+          "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"hydralora_lora_num": 32, "hydralora_use_experts": false, "language_guidance_scope": "none", "language_prior_weight": 0.0},
+          "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mtllora_r8_nup32",
+          "kind": "mtllora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mtllora_num_up_projections": 32, "mtllora_temperature": 0.1, "mtllora_lambda_format": "full", "mtllora_use_language_ids_as_task_ids": true},
+          "train": {"batch_size": 4, "grad_accum": 3, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        }
+      ],
+      "executor": {
+        "time": "00:20:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4/acceptance",
+      "target_runtime_seconds": 600,
+      "runtime_tolerance_seconds": 300,
+      "minimum_global_step": 3,
+      "require_direct_save_marker": true,
+      "require_slurm_completed": true
+    },
+    "final_eval_loss": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4/final_eval_loss"
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4/benchmarks"
+    },
+    "summary": {
+      "enabled": false,
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4/gate.json"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "00:20:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "train_acceptance": {
+        "type": "slurm",
+        "partition": "normal",
+        "gres": "none",
+        "cpus_per_task": 2,
+        "mem": "8G",
+        "time": "00:15:00"
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v4",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-active7p2h-v5"
+    },
+    "executor": {
+      "extra_sbatch_flags": [
+        "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228,n2gpu1229"
+      ]
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5/runs",
+      "executor": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228,n2gpu1229",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228,n2gpu1229",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228,n2gpu1229"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228,n2gpu1229"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v5": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v4",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v5",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v5/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-signal-smoke-v5"
+    },
+    "executor": {
+      "extra_sbatch_flags": [
+        "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228,n2gpu1229"
+      ]
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v5/runs",
+      "executor": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228,n2gpu1229",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v5/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v5/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v5/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v5/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v5/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_v5/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1228,n2gpu1229",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v5",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-active7p2h-v6"
+    },
+    "executor": {
+      "extra_sbatch_flags": [
+        "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"
+      ]
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6/runs",
+      "executor": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_signal_smoke_retry_v6": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_retry_v6",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_retry_v6/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-signal-smoke-retry-v6"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_retry_v6/runs",
+      "runs": [
+        {
+          "id": "moelora_tr256_e32_k8",
+          "kind": "moelora",
+          "lora": {"rank": 256, "alpha": 512, "target": "q_proj,k_proj,v_proj,o_proj"},
+          "params": {"moelora_num_experts": 32, "moelora_sparse_top_k": 8, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}
+        },
+        {
+          "id": "hydralora_r2_heads32",
+          "kind": "hydralora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"},
+          "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"hydralora_lora_num": 32, "hydralora_use_experts": false, "language_guidance_scope": "none", "language_prior_weight": 0.0},
+          "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        },
+        {
+          "id": "mtllora_r8_nup32",
+          "kind": "mtllora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mtllora_num_up_projections": 32, "mtllora_temperature": 0.1, "mtllora_lambda_format": "full", "mtllora_use_language_ids_as_task_ids": true},
+          "train": {"batch_size": 4, "grad_accum": 3, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        }
+      ],
+      "executor": {
+        "time": "00:20:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_retry_v6/acceptance",
+      "target_runtime_seconds": 600,
+      "runtime_tolerance_seconds": 300,
+      "minimum_global_step": 1,
+      "require_direct_save_marker": true,
+      "require_slurm_completed": true
+    },
+    "final_eval_loss": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_retry_v6/final_eval_loss"
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_retry_v6/benchmarks"
+    },
+    "summary": {
+      "enabled": false,
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_retry_v6/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_retry_v6/gate.json"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_retry_v6/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "time": "00:20:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v6",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-active7p2h-v7"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/runs",
+      "executor": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_signal_smoke_hydra_retry_v7": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_hydra_retry_v7",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_hydra_retry_v7/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-signal-smoke-hydra-retry-v7"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_hydra_retry_v7/runs",
+      "runs": [
+        {
+          "id": "hydralora_r2_heads32",
+          "kind": "hydralora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"},
+          "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"hydralora_lora_num": 32, "hydralora_use_experts": false, "language_guidance_scope": "none", "language_prior_weight": 0.0},
+          "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        }
+      ],
+      "executor": {
+        "time": "00:20:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_hydra_retry_v7/acceptance",
+      "target_runtime_seconds": 600,
+      "runtime_tolerance_seconds": 300,
+      "minimum_global_step": 1,
+      "require_direct_save_marker": true,
+      "require_slurm_completed": true
+    },
+    "final_eval_loss": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_hydra_retry_v7/final_eval_loss"
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_hydra_retry_v7/benchmarks"
+    },
+    "summary": {
+      "enabled": false,
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_hydra_retry_v7/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_hydra_retry_v7/gate.json"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_hydra_retry_v7/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "time": "00:20:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mtl_retry_v7": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mtl_retry_v7",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mtl_retry_v7/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-signal-smoke-mtl-retry-v7"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mtl_retry_v7/runs",
+      "runs": [
+        {
+          "id": "mtllora_r8_nup32",
+          "kind": "mtllora",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mtllora_num_up_projections": 32, "mtllora_temperature": 0.1, "mtllora_lambda_format": "full", "mtllora_use_language_ids_as_task_ids": true},
+          "train": {"batch_size": 4, "grad_accum": 3, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        }
+      ],
+      "executor": {
+        "time": "00:20:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mtl_retry_v7/acceptance",
+      "target_runtime_seconds": 600,
+      "runtime_tolerance_seconds": 300,
+      "minimum_global_step": 1,
+      "require_direct_save_marker": true,
+      "require_slurm_completed": true
+    },
+    "final_eval_loss": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mtl_retry_v7/final_eval_loss"
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mtl_retry_v7/benchmarks"
+    },
+    "summary": {
+      "enabled": false,
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mtl_retry_v7/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mtl_retry_v7/gate.json"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mtl_retry_v7/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "time": "00:20:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mola_retry_v7": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mola_retry_v7",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mola_retry_v7/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-signal-smoke-mola-retry-v7"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mola_retry_v7/runs",
+      "runs": [
+        {
+          "id": "mola_tr256_e32_k4",
+          "kind": "mola",
+          "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"},
+          "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"},
+          "params": {"mola_num_experts": 32, "mola_top_k": 4, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 64},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}
+        }
+      ],
+      "executor": {
+        "time": "00:20:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mola_retry_v7/acceptance",
+      "target_runtime_seconds": 600,
+      "runtime_tolerance_seconds": 300,
+      "minimum_global_step": 1,
+      "require_direct_save_marker": true,
+      "require_slurm_completed": true
+    },
+    "final_eval_loss": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mola_retry_v7/final_eval_loss"
+    },
+    "benchmark": {
+      "enabled": false,
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mola_retry_v7/benchmarks"
+    },
+    "summary": {
+      "enabled": false,
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mola_retry_v7/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mola_retry_v7/gate.json"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_signal_smoke_mola_retry_v7/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "time": "00:20:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@300",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-recovery18-active7p2h-v8"
+    },
+    "executor": {
+      "extra_sbatch_flags": []
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8/runs",
+      "runs": [
+        {"id": "moelora_tr64_e32_k8", "kind": "moelora", "lora": {"rank": 64, "alpha": 128, "target": "q_proj,k_proj,v_proj,o_proj"}, "params": {"moelora_num_experts": 32, "moelora_sparse_top_k": 8, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false}, "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}},
+        {"id": "moelora_tr64_e32_k4", "kind": "moelora", "lora": {"rank": 64, "alpha": 128, "target": "q_proj,k_proj,v_proj,o_proj"}, "params": {"moelora_num_experts": 32, "moelora_sparse_top_k": 4, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false}, "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}},
+        {"id": "moelora_tr256_e32_k4", "kind": "moelora", "lora": {"rank": 256, "alpha": 512, "target": "q_proj,k_proj,v_proj,o_proj"}, "params": {"moelora_num_experts": 32, "moelora_sparse_top_k": 4, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false}, "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}},
+        {"id": "moelora_tr32_e16_k8", "kind": "moelora", "lora": {"rank": 32, "alpha": 64, "target": "q_proj,k_proj,v_proj,o_proj"}, "params": {"moelora_num_experts": 16, "moelora_sparse_top_k": 8, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false}, "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}},
+        {"id": "moelora_tr128_e16_k8", "kind": "moelora", "lora": {"rank": 128, "alpha": 256, "target": "q_proj,k_proj,v_proj,o_proj"}, "params": {"moelora_num_experts": 16, "moelora_sparse_top_k": 8, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false}, "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}},
+        {"id": "moelora_tr64_e8_k2", "kind": "moelora", "lora": {"rank": 64, "alpha": 128, "target": "q_proj,k_proj,v_proj,o_proj"}, "params": {"moelora_num_experts": 8, "moelora_sparse_top_k": 2, "moelora_task_embedding_dim": 64, "moelora_gate_temperature": 1.0, "moelora_force_disable_gradient_checkpointing": false}, "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": true, "use_reentrant_gc": false}},
+        {"id": "mola_tr64_e32_k4", "kind": "mola", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"}, "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"mola_num_experts": 32, "mola_top_k": 4, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 64}, "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "mola_tr256_e32_k4", "kind": "mola", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"}, "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"mola_num_experts": 32, "mola_top_k": 4, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 64}, "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "mola_tr32_e16_k1", "kind": "mola", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"}, "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"mola_num_experts": 16, "mola_top_k": 1, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 32}, "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "mola_tr32_e16_k8", "kind": "mola", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"}, "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"mola_num_experts": 16, "mola_top_k": 8, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 32}, "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "mola_tr128_e16_k8", "kind": "mola", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"}, "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"mola_num_experts": 16, "mola_top_k": 8, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 32}, "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "mola_tr16_e8_k6", "kind": "mola", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"}, "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"mola_num_experts": 8, "mola_top_k": 6, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 16}, "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "mola_tr64_e8_k6", "kind": "mola", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"}, "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"mola_num_experts": 8, "mola_top_k": 6, "mola_router_aux_loss_coef": 0.01, "mola_num_null_experts": 16}, "train": {"batch_size": 6, "grad_accum": 2, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "hydralora_r2_heads32", "kind": "hydralora", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"}, "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"hydralora_lora_num": 32, "hydralora_use_experts": false, "language_guidance_scope": "none", "language_prior_weight": 0.0}, "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "hydralora_r2_heads16", "kind": "hydralora", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"}, "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"hydralora_lora_num": 16, "hydralora_use_experts": false, "language_guidance_scope": "none", "language_prior_weight": 0.0}, "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "hydralora_r2", "kind": "hydralora", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config_noprefetch_sharded.yaml"}, "lora": {"rank": 2, "alpha": 4, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"hydralora_lora_num": 8, "hydralora_use_experts": false, "language_guidance_scope": "none", "language_prior_weight": 0.0}, "train": {"batch_size": 2, "grad_accum": 6, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "mtllora_r8_nup16", "kind": "mtllora", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"}, "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"mtllora_num_up_projections": 16, "mtllora_temperature": 0.1, "mtllora_lambda_format": "full", "mtllora_use_language_ids_as_task_ids": true}, "train": {"batch_size": 4, "grad_accum": 3, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}},
+        {"id": "mtllora_r8", "kind": "mtllora", "distributed": {"config_file": "configs/accelerate/fsdp_4gpu_config.yaml"}, "lora": {"rank": 8, "alpha": 16, "target": "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"}, "params": {"mtllora_num_up_projections": 8, "mtllora_temperature": 0.1, "mtllora_lambda_format": "full", "mtllora_use_language_ids_as_task_ids": true}, "train": {"batch_size": 4, "grad_accum": 3, "disable_gradient_checkpointing": false, "use_reentrant_gc": true}}
+      ],
+      "executor": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231",
+          "--nodelist=n2gpu1212,n2gpu1217,n2gpu1222,n2gpu1227",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8/benchmarks"
+    },
+    "summary": {
+      "enabled": false,
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8/gate.json"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--exclude=n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231",
+          "--nodelist=n2gpu1212,n2gpu1217,n2gpu1222,n2gpu1227",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231",
+          "--nodelist=n2gpu1212,n2gpu1217,n2gpu1222,n2gpu1227"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--exclude=n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231",
+          "--nodelist=n2gpu1212,n2gpu1217,n2gpu1222,n2gpu1227"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v8",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-recovery18-active7p2h-v9"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9/runs"
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9/report.xlsx"
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_v9",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-recovery18-active7p2h-one-node-v11"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/runs",
+      "executor": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--nodes=1",
+          "--exclude=n2gpu1201,n2gpu1202,n2gpu1203,n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1207,n2gpu1208,n2gpu1209,n2gpu1210,n2gpu1211,n2gpu1213,n2gpu1214,n2gpu1215,n2gpu1216,n2gpu1218,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1223,n2gpu1224,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231,n2gpu1232",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      }
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@1200",
+          "--nodes=1",
+          "--exclude=n2gpu1201,n2gpu1202,n2gpu1203,n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1207,n2gpu1208,n2gpu1209,n2gpu1210,n2gpu1211,n2gpu1213,n2gpu1214,n2gpu1215,n2gpu1216,n2gpu1218,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1223,n2gpu1224,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231,n2gpu1232",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "train_acceptance": {
+        "time": "01:00:00",
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2cn0167"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2gpu1201,n2gpu1202,n2gpu1203,n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1207,n2gpu1208,n2gpu1209,n2gpu1210,n2gpu1211,n2gpu1213,n2gpu1214,n2gpu1215,n2gpu1216,n2gpu1218,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1223,n2gpu1224,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231,n2gpu1232"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2gpu1201,n2gpu1202,n2gpu1203,n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1207,n2gpu1208,n2gpu1209,n2gpu1210,n2gpu1211,n2gpu1213,n2gpu1214,n2gpu1215,n2gpu1216,n2gpu1218,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1223,n2gpu1224,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231,n2gpu1232"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_v7_completed4_acceptance_repair_v11": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_v7_completed4_acceptance_repair_v11",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_v7_completed4_acceptance_repair_v11/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-v7-completed4-acceptance-repair-v11"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/runs"
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7/benchmarks"
+    },
+    "summary": {
+      "enabled": false
+    },
+    "report": {
+      "enabled": false
+    },
+    "stage_executors": {
+      "train_acceptance": {
+        "time": "01:00:00",
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2cn0167"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2gpu1201,n2gpu1202,n2gpu1203,n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1207,n2gpu1208,n2gpu1209,n2gpu1210,n2gpu1211,n2gpu1213,n2gpu1214,n2gpu1215,n2gpu1216,n2gpu1218,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1223,n2gpu1224,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231,n2gpu1232"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--nodes=1",
+          "--exclude=n2gpu1201,n2gpu1202,n2gpu1203,n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1207,n2gpu1208,n2gpu1209,n2gpu1210,n2gpu1211,n2gpu1213,n2gpu1214,n2gpu1215,n2gpu1216,n2gpu1218,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1223,n2gpu1224,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231,n2gpu1232"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_recovery18_evaluation_repair_v13": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_evaluation_repair_v13",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_evaluation_repair_v13/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-recovery18-evaluation-repair-v13"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/runs"
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_recovery18_active7p2h_one_node_v11/benchmarks"
+    },
+    "summary": {
+      "enabled": false
+    },
+    "report": {
+      "enabled": false
+    },
+    "stage_executors": {
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--ntasks=1",
+          "--exclude=n2gpu1203,n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1207,n2gpu1208,n2gpu1209,n2gpu1210,n2gpu1211,n2gpu1213,n2gpu1214,n2gpu1215,n2gpu1216,n2gpu1218,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1223,n2gpu1224,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231,n2gpu1232"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--ntasks=1",
+          "--exclude=n2gpu1203,n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1207,n2gpu1208,n2gpu1209,n2gpu1210,n2gpu1211,n2gpu1213,n2gpu1214,n2gpu1215,n2gpu1216,n2gpu1218,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1223,n2gpu1224,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231,n2gpu1232"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_v7_evaluation_repair_v13": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_v7_completed4_acceptance_repair_v11",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_v7_evaluation_repair_v13",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_v7_evaluation_repair_v13/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-v7-evaluation-repair-v13"
+    },
+    "stage_executors": {
+      "train_acceptance": {
+        "cpus_per_task": 4,
+        "mem": "16G",
+        "time": "02:00:00",
+        "extra_sbatch_flags": [
+          "--ntasks=1",
+          "--exclude=n2cn0167"
+        ]
+      },
+      "final_eval_loss": {
+        "extra_sbatch_flags": [
+          "--ntasks=1",
+          "--exclude=n2gpu1203,n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1207,n2gpu1208,n2gpu1209,n2gpu1210,n2gpu1211,n2gpu1213,n2gpu1214,n2gpu1215,n2gpu1216,n2gpu1218,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1223,n2gpu1224,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231,n2gpu1232"
+        ]
+      },
+      "benchmark": {
+        "extra_sbatch_flags": [
+          "--ntasks=1",
+          "--exclude=n2gpu1203,n2gpu1204,n2gpu1205,n2gpu1206,n2gpu1207,n2gpu1208,n2gpu1209,n2gpu1210,n2gpu1211,n2gpu1213,n2gpu1214,n2gpu1215,n2gpu1216,n2gpu1218,n2gpu1219,n2gpu1220,n2gpu1221,n2gpu1223,n2gpu1224,n2gpu1225,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1230,n2gpu1231,n2gpu1232"
+        ]
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_consolidated_v10": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_active7p2h_v7",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v10",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v10/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-consolidated-v10"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v10/runs"
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v10/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v10/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v10/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v10/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v10/gate.json"
+    },
+    "report": {
+      "enabled": true,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v10/report.xlsx"
+    },
+    "stage_executors": {
+      "summary": {
+        "type": "local"
+      },
+      "report": {
+        "type": "local"
+      }
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_consolidated_v12": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_consolidated_v10",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v12",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v12/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-consolidated-v12"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v12/runs"
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v12/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v12/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v12/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v12/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v12/gate.json"
+    },
+    "report": {
+      "enabled": true,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v12/report.xlsx"
+    }
+  },
+  "moe_study_mixed_rank_expert_followup_clean22_consolidated_v13": {
+    "extends": "moe_study_mixed_rank_expert_followup_clean22_consolidated_v12",
+    "output_root": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v13",
+    "logs_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v13/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-mixed-followup-clean22-consolidated-v13"
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v13/runs"
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v13/acceptance"
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v13/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v13/benchmarks"
+    },
+    "summary": {
+      "summary_csv": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v13/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v13/gate.json"
+    },
+    "report": {
+      "enabled": true,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_mixed_rank_expert_followup_clean22_consolidated_v13/report.xlsx"
+    }
+  }
+}

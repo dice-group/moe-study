@@ -53,6 +53,8 @@ def parse_task_identity(task: str, metric: str) -> tuple[str, str, str]:
         return "Belebele", task.replace("belebele_", ""), metric_base or "acc_norm"
     if task.startswith("sib200_"):
         return "SIB200", task.replace("sib200_", ""), metric_base or "acc"
+    if task.startswith("taxi1500_v2_"):
+        return "Taxi1500", task.replace("taxi1500_v2_", ""), metric_base or "acc"
     if task.startswith("taxi1500_"):
         return "Taxi1500", task.replace("taxi1500_", ""), metric_base or "acc"
     if task.startswith("flores_en_perplexity_"):

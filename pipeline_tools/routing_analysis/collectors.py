@@ -77,6 +77,7 @@ class RoutingCollector:
         self.by_language: dict[str, RoutingAccumulator] = {}
         self.axis_name = "expert"
         self.num_choices = self._num_choices()
+        self.token_mask: Any = None
 
     def _num_choices(self) -> int:
         if self.method == "MOLA":
@@ -104,6 +105,23 @@ class RoutingCollector:
 
     def set_language(self, language: str) -> None:
         self.current_language = language
+
+    def set_token_mask(self, token_mask: Any) -> None:
+        self.token_mask = token_mask
+
+    def clear_token_mask(self) -> None:
+        self.token_mask = None
+
+    def _valid_rows(self, values: Any) -> Any:
+        flat = values.reshape(-1, values.shape[-1])
+        if self.token_mask is None:
+            return flat
+        mask = self.token_mask.detach().reshape(-1).to(device=flat.device, dtype=bool)
+        if mask.numel() != flat.shape[0]:
+            raise RuntimeError(
+                f"Routing logits have {flat.shape[0]} token rows but attention mask has {mask.numel()} entries"
+            )
+        return flat[mask]
 
     def attach(self, model: Any) -> None:
         if self.method == "MOLA":
@@ -137,6 +155,9 @@ class RoutingCollector:
 
         with torch.no_grad():
             probs = torch.softmax(logits.detach().to(torch.float32), dim=-1)
+            probs = self._valid_rows(probs)
+            if probs.shape[0] == 0:
+                return
             top_k = int(getattr(parent, "top_k", 1))
             num_true = int(getattr(parent, "num_true_experts", self.num_choices))
             total = int(probs.shape[-1])
@@ -199,7 +220,9 @@ class RoutingCollector:
 
         with torch.no_grad():
             probs = torch.softmax(logits.detach().to(torch.float32), dim=-1)
-            flat = probs.reshape(-1, probs.shape[-1])
+            flat = self._valid_rows(probs)
+            if flat.shape[0] == 0:
+                return
             if flat.shape[-1] != self.num_choices:
                 return
             choices = torch.argmax(flat, dim=-1)
@@ -264,6 +287,8 @@ def build_matrices(
         "routing_count_normalized": count_norm,
         "routing_weight_sums": weights,
         "routing_weight_normalized": weight_norm,
+        "routing_probability": probs,
+        "selection_rate": count_norm,
         "tokens": tokens,
         "assignments": assignments,
         "null_assignments": null_assignments,
@@ -272,4 +297,5 @@ def build_matrices(
         "layer_labels": np.array(layer_names, dtype=object),
         "choice_labels": np.array([f"{collector.axis_name}_{idx}" for idx in range(collector.num_choices)], dtype=object),
         "axis_name": collector.axis_name,
+        "routing_basis": "token_conditioned",
     }

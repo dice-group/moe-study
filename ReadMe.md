@@ -1,42 +1,47 @@
-# MoE Study
+# MoE–LoRA Methods for Multilingual Adaptation: A Systematic Empirical Study
 
-This repo contains the implementation of a MoE-LoRA study comparing multiple
-fine-tuning approaches for massively multilingual continual pretraining while
-scaling language coverage from 10 to 200 languages.
+Code for our study comparing LoRA and routed-LoRA (MoE–LoRA) methods for
+massively multilingual continued pretraining, scaling language coverage from 10
+to 200 languages. Preprint: [arXiv:2611.23158](https://arxiv.org/abs/2611.23158).
 
-## Main entry points
-- Main study pipeline executor: `python -m pipeline.run --config configs/pipeline --profile <profile>`
-- Pipeline profiles and generated study configs: `configs/pipeline/profiles`
-- Cluster comparison launcher: `scripts/slurm/comparison/run_comparison.py`
-- Result analysis notebooks: `result_analysis/notebooks`
-- Data tokenization pipeline: `data_prep/merlin_data_prep/distributed_data_processor/scripts/tokenize_and_merge_pipeline.sh`
+## News
 
-## Approaches in this study
-Implemented in LLaMA‑Factory:
-- **LoRA** — `LLaMA-Factory/src/peft/tuners/lora`
-- **AdaMoLE** — `LLaMA-Factory/src/peft/tuners/adamole`
-- **AdaMoE** — `LLaMA-Factory/src/peft/tuners/adamoe_1`
-- **HydraLoRA** — `LLaMA-Factory/src/peft/tuners/hydralora`
-- **HMoRA** — `LLaMA-Factory/src/peft/tuners/hmora`
-- **MTL-LoRA** — `LLaMA-Factory/src/peft/tuners/mtllora`
-- **CoLA** — `LLaMA-Factory/src/peft/tuners/cola`
-- **MoE‑LoRA** — `LLaMA-Factory/src/peft/tuners/moelora`
-- **MoV‑LoRA** — `LLaMA-Factory/src/peft/tuners/movlora`
+- **Nov 2026:** The paper has been accepted to the Findings of EACL 2027.
 
-Training entry code lives under `LLaMA-Factory/src/llamafactory/train`.
+## Repository overview
+
+- **Paper results:** [`paper_artifact/`](paper_artifact/README.md) holds the
+  analysis notebooks, scripts, tables, and figures behind every number in the
+  paper.
+- **Methods:** implemented in our fork of
+  [LLaMA-Factory](https://github.com/dice-group/LLaMA-Factory-Merlin), included
+  as a submodule, under `LLaMA-Factory/src/peft/tuners/`: LoRA (`lora`),
+  AdaMoLE (`adamole`), AdaMoE (`adamoe_1`), HydraLoRA (`hydralora`), HMoRA
+  (`hmora`), MTL-LoRA (`mtllora`), MOELoRA (`moelora`), and MoV (`movlora`).
+  CoLA (`cola`) is also implemented but excluded from the paper.
+- **Study pipeline:** `python -m pipeline.run --config configs/pipeline --profile <profile>`,
+  with profiles in `configs/pipeline/profiles`.
+- **Data preparation:** `data_prep/merlin_data_prep/distributed_data_processor/scripts/tokenize_and_merge_pipeline.sh`.
 
 ## Setup
-Set up the conda environment with `LLaMA-Factory/setup_conda_env.md`.
 
-Quick checklist:
-- Create and activate the main conda env (`merlin`)
-- Install requirements and `flash-attn`
-- Install repo in editable mode
-- (Optional) create separate `lm_eval` env for evaluations
+Clone with submodules (`git clone --recurse-submodules`), then follow
+`LLaMA-Factory/setup_conda_env.md` to create the conda environment, install the
+requirements and `flash-attn`, and install the repository in editable mode. A
+separate `lm_eval` environment is optional for evaluation.
 
-## Study artifacts
-- Main study notes and details: `https://docs.google.com/document/d/1sSwH7xHYJsKHvBT7nrPL2CDcKXo9vIiIb-4YMeuNLPc/edit?tab=t.6ddn6ncjl3yf`
-- Result table Excel workbooks are also backed up in Sciebo: `https://uni-paderborn.sciebo.de/apps/files/files/964369178?dir=/MoE%20%2B%20LoRA%20Empirical%20Study/MoE%20Study`
-- Configuration space spreadsheet: `https://docs.google.com/spreadsheets/d/1w53Qei57JmuF7Kk8X7uVzHTrbkC2Ri2kVV1rCTro0cc/edit?gid=0#gid=0`
-- Final adapter-only BACKUP on PC2DATA: `/pc2/groups/hpc-prf-merlin/joeldag/moe-study-final-results-adapter-only-2026-07-05`
+## Citation
 
+If you use this work, please cite:
+
+```bibtex
+@misc{srivastava2026moeloramethodsmultilingualadaptation,
+      title={MoE--LoRA Methods for Multilingual Adaptation: A Systematic Empirical Study}, 
+      author={Nikit Srivastava and Joel Dag and René Speck and Axel-Cyrille Ngonga Ngomo},
+      year={2026},
+      eprint={2611.23158},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2611.23158}, 
+}
+```

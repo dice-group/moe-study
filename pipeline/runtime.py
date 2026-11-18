@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import fcntl
 import hashlib
 import importlib.util
 import json
@@ -37,7 +38,12 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 def _dump_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    temporary = path.with_name(f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}")
+    try:
+        temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _deep_merge(base: Any, override: Any) -> Any:
@@ -273,15 +279,20 @@ def _save_stage_state(
     signature: str,
     artifacts: list[str],
 ) -> None:
-    state = _load_state(state_path)
-    stages = state.setdefault("stages", {})
-    stages[stage] = {
-        "signature": signature,
-        "status": "completed",
-        "artifacts": artifacts,
-        "updated_at_utc": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-    }
-    _dump_json(state_path, state)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = state_path.with_name(f".{state_path.name}.lock")
+    with lock_path.open("a", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        state = _load_state(state_path)
+        stages = state.setdefault("stages", {})
+        stages[stage] = {
+            "signature": signature,
+            "status": "completed",
+            "artifacts": artifacts,
+            "updated_at_utc": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        }
+        _dump_json(state_path, state)
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
 
 
 def _stage_signature(payload: dict[str, Any]) -> str:
@@ -394,7 +405,8 @@ def _select_tasks_for_languages(
                 continue
 
         if include_taxi1500 and task.startswith("taxi1500_"):
-            lang = task.replace("taxi1500_", "", 1)
+            prefix = "taxi1500_v2_" if task.startswith("taxi1500_v2_") else "taxi1500_"
+            lang = task.replace(prefix, "", 1)
             if lang in lang_set:
                 selected.append(task)
                 continue

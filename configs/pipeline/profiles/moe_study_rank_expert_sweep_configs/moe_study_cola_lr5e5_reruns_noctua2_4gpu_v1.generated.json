@@ -1,0 +1,260 @@
+{
+  "moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1": {
+    "extends": "moe_study_rank_expert_sweep_noctua2_a100_4gpu_10_langs_alltargets_calibrated",
+    "output_root": "outputs/pipeline_runs/moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1",
+    "logs_dir": "outputs/pipeline_runs/moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-cola-rank-sweep-lr5e5-noctua2-4gpu-v1",
+      "language_count_hint": 10
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1/runs",
+      "executor": {
+        "time": "03:51:00"
+      },
+      "preflight": {
+        "enabled": true,
+        "required_gpu_count": 4,
+        "required_gpu_name": "A100",
+        "check_ecc": true,
+        "check_nvlink": true,
+        "check_torch_distributed": true,
+        "timeout_seconds": 300
+      },
+      "train": {
+        "learning_rate": "5e-5",
+        "num_train_epochs": 1.0,
+        "save_steps": 999999,
+        "save_strategy": "no",
+        "save_total_limit": 1,
+        "save_only_model": false,
+        "skip_final_save": false,
+        "cleanup_large_artifacts_after_train": false
+      },
+      "runs": [
+        {
+          "id": "cola_r2",
+          "kind": "cola",
+          "lora": {"rank": 2, "alpha": 4},
+          "params": {"cola_num_A": 5, "cola_num_B": 8, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r4",
+          "kind": "cola",
+          "lora": {"rank": 4, "alpha": 8},
+          "params": {"cola_num_A": 5, "cola_num_B": 8, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r8",
+          "kind": "cola",
+          "lora": {"rank": 8, "alpha": 16},
+          "params": {"cola_num_A": 5, "cola_num_B": 8, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r16",
+          "kind": "cola",
+          "lora": {"rank": 16, "alpha": 32},
+          "params": {"cola_num_A": 5, "cola_num_B": 8, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r32",
+          "kind": "cola",
+          "lora": {"rank": 32, "alpha": 64},
+          "params": {"cola_num_A": 5, "cola_num_B": 8, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r64",
+          "kind": "cola",
+          "lora": {"rank": 64, "alpha": 128},
+          "params": {"cola_num_A": 5, "cola_num_B": 8, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r128",
+          "kind": "cola",
+          "lora": {"rank": 128, "alpha": 256},
+          "params": {"cola_num_A": 5, "cola_num_B": 8, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r256",
+          "kind": "cola",
+          "lora": {"rank": 256, "alpha": 512},
+          "params": {"cola_num_A": 5, "cola_num_B": 8, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 1, "grad_accum": 12, "disable_gradient_checkpointing": false}
+        }
+      ]
+    },
+    "train_acceptance": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1/train_acceptance",
+      "target_runtime_seconds": 12420,
+      "runtime_tolerance_seconds": 900,
+      "require_direct_save_marker": true,
+      "require_slurm_completed": true,
+      "reject_log_patterns": [
+        "CUDA out of memory|OutOfMemoryError",
+        "NCCL.*(?:error|timeout|timed out|watchdog)",
+        "NODE_FAIL|node failure",
+        "Input/output error|I/O error|Stale file handle",
+        "Traceback \\(most recent call last\\)"
+      ],
+      "required_log_patterns": [
+        "Training completed",
+        "Adapter checkpoint saved at:"
+      ]
+    },
+    "final_eval_loss": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1/final_eval_loss",
+      "batch_size": "train",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state",
+      "preflight": {
+        "enabled": true,
+        "required_gpu_count": 1,
+        "required_gpu_name": "A100",
+        "check_ecc": true,
+        "check_nvlink": false,
+        "check_torch_distributed": false,
+        "timeout_seconds": 300
+      }
+    },
+    "benchmark": {
+      "enabled": true,
+      "output_dir": "outputs/pipeline_runs/moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1/benchmarks",
+      "batch_size": "auto",
+      "strict_final_checkpoint": true,
+      "require_direct_save_marker": true,
+      "checkpoint_step_source": "trainer_state",
+      "allow_missing_lm_eval": false,
+      "fail_if_no_tasks": true,
+      "strict_completeness": true,
+      "expected_task_count": 42,
+      "expected_task_breakdown": {"Belebele": 9, "FLORES": 18, "SIB200": 9, "Taxi1500": 6},
+      "preflight": {
+        "enabled": true,
+        "required_gpu_count": 1,
+        "required_gpu_name": "A100",
+        "check_ecc": true,
+        "check_nvlink": false,
+        "check_torch_distributed": false,
+        "timeout_seconds": 300
+      }
+    },
+    "summary": {
+      "enabled": false,
+      "baseline_id": "cola_r2",
+      "summary_csv": "outputs/pipeline_runs/moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1/gate.json"
+    },
+    "report": {
+      "enabled": false,
+      "output_xlsx": "outputs/pipeline_runs/moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {
+        "type": "slurm",
+        "partition": "gpu",
+        "gres": "gpu:a100:4",
+        "cpus_per_task": 64,
+        "mem": "384G",
+        "time": "03:51:00",
+        "extra_sbatch_flags": [
+          "--signal=B:USR1@900",
+          "--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231",
+          "--export=ALL,PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"
+        ]
+      },
+      "train_acceptance": {"type": "slurm", "partition": "normal", "gres": "none", "cpus_per_task": 2, "mem": "8G", "time": "00:15:00"},
+      "final_eval_loss": {
+        "type": "slurm", "partition": "gpu", "gres": "gpu:a100:1", "cpus_per_task": 16, "mem": "128G", "time": "03:51:00",
+        "extra_sbatch_flags": ["--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"]
+      },
+      "benchmark": {
+        "type": "slurm", "partition": "gpu", "gres": "gpu:a100:1", "cpus_per_task": 16, "mem": "128G", "time": "03:51:00",
+        "extra_sbatch_flags": ["--exclude=n2gpu1204,n2gpu1208,n2gpu1211,n2gpu1213,n2gpu1219,n2gpu1226,n2gpu1228,n2gpu1229,n2gpu1231"]
+      }
+    }
+  },
+  "moe_study_cola_expert_sweep_lr5e5_noctua2_4gpu_v1": {
+    "extends": "moe_study_cola_rank_sweep_lr5e5_noctua2_4gpu_v1",
+    "output_root": "outputs/pipeline_runs/moe_study_cola_expert_sweep_lr5e5_noctua2_4gpu_v1",
+    "logs_dir": "outputs/pipeline_runs/moe_study_cola_expert_sweep_lr5e5_noctua2_4gpu_v1/logs",
+    "run_naming": {
+      "experiment_tag": "moe-study-cola-expert-sweep-lr5e5-noctua2-4gpu-v1",
+      "language_count_hint": 10
+    },
+    "training": {
+      "output_dir": "outputs/pipeline_runs/moe_study_cola_expert_sweep_lr5e5_noctua2_4gpu_v1/runs",
+      "executor": {
+        "time": "03:51:00"
+      },
+      "runs": [
+        {
+          "id": "cola_r2_a1_b2",
+          "kind": "cola",
+          "lora": {"rank": 2, "alpha": 4},
+          "params": {"cola_num_A": 1, "cola_num_B": 2, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 8, "grad_accum": 1, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r2_a3_b4",
+          "kind": "cola",
+          "lora": {"rank": 2, "alpha": 4},
+          "params": {"cola_num_A": 3, "cola_num_B": 4, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 8, "grad_accum": 1, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r2_a5_b8",
+          "kind": "cola",
+          "lora": {"rank": 2, "alpha": 4},
+          "params": {"cola_num_A": 5, "cola_num_B": 8, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 8, "grad_accum": 1, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r2_a11_b16",
+          "kind": "cola",
+          "lora": {"rank": 2, "alpha": 4},
+          "params": {"cola_num_A": 11, "cola_num_B": 16, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 8, "grad_accum": 1, "disable_gradient_checkpointing": false}
+        },
+        {
+          "id": "cola_r2_a21_b32",
+          "kind": "cola",
+          "lora": {"rank": 2, "alpha": 4},
+          "params": {"cola_num_A": 21, "cola_num_B": 32, "cola_strategy": "fully", "cola_use_experts": false, "use_cola_pissa_init": true},
+          "train": {"batch_size": 8, "grad_accum": 1, "disable_gradient_checkpointing": false}
+        }
+      ]
+    },
+    "train_acceptance": {
+      "output_dir": "outputs/pipeline_runs/moe_study_cola_expert_sweep_lr5e5_noctua2_4gpu_v1/train_acceptance",
+      "target_runtime_seconds": 12420,
+      "runtime_tolerance_seconds": 900
+    },
+    "final_eval_loss": {
+      "output_dir": "outputs/pipeline_runs/moe_study_cola_expert_sweep_lr5e5_noctua2_4gpu_v1/final_eval_loss"
+    },
+    "benchmark": {
+      "output_dir": "outputs/pipeline_runs/moe_study_cola_expert_sweep_lr5e5_noctua2_4gpu_v1/benchmarks"
+    },
+    "summary": {
+      "baseline_id": "cola_r2_a1_b2",
+      "summary_csv": "outputs/pipeline_runs/moe_study_cola_expert_sweep_lr5e5_noctua2_4gpu_v1/summary.csv",
+      "gate_json": "outputs/pipeline_runs/moe_study_cola_expert_sweep_lr5e5_noctua2_4gpu_v1/gate.json"
+    },
+    "report": {
+      "output_xlsx": "outputs/pipeline_runs/moe_study_cola_expert_sweep_lr5e5_noctua2_4gpu_v1/report.xlsx"
+    },
+    "stage_executors": {
+      "train": {"time": "03:51:00"}
+    }
+  }
+}

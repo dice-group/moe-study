@@ -1,12 +1,11 @@
 import json
+import math
 from pathlib import Path
 from typing import Any
 
 from .runtime import (
     _build_run_label,
-    _dump_json,
     _load_json,
-    _missing_modules,
     _run_stage_cmd,
     _save_stage_state,
     _should_skip_stage,
@@ -15,6 +14,7 @@ from .runtime import (
 from ..runtime import _deep_merge
 from ..context import PipelineContext
 from ..training import adapter_checkpoint_provenance, build_final_eval_cmd, resolve_adapter_eval_path
+from .per_run_summary import write_per_run_summary
 
 
 def _resolve_eval_batch_size(ctx: PipelineContext, run: dict[str, Any]) -> int:
@@ -97,21 +97,32 @@ def stage_final_eval_loss(ctx: PipelineContext) -> None:
             "output_subdir": output_subdir,
         }
     )
+    per_run_summary_root = ctx.final_eval_loss_root / "run_summaries"
     expected = [ctx.train_root / str(run["id"]) / output_subdir / "eval_results.json" for run in runs]
+    expected.extend(per_run_summary_root / f"{run['id']}.json" for run in runs)
+    stage_summary = ctx.final_eval_loss_root / "summary.json"
+    expected.append(stage_summary)
+    state_stage = (
+        f"final_eval_loss:{runs[0]['id']}"
+        if len(runs) == 1 and ctx.args.run_id
+        else "final_eval_loss"
+    )
+    force_stages = set(ctx.force_stages)
+    if "final_eval_loss" in force_stages:
+        force_stages.add(state_stage)
 
     if _should_skip_stage(
         state_path=ctx.state_path,
-        stage="final_eval_loss",
+        stage=state_stage,
         signature=signature,
         expected_artifacts=expected,
-        force_stages=ctx.force_stages,
+        force_stages=force_stages,
         dry_run=ctx.args.dry_run,
     ):
         ctx.logger.info("[SKIP] final_eval_loss stage (cache hit)")
         return
 
     ctx.final_eval_loss_root.mkdir(parents=True, exist_ok=True)
-    eval_rows: list[dict[str, Any]] = []
     for run in runs:
         run_id = str(run["id"])
         run_name_label = _build_run_label(
@@ -151,66 +162,68 @@ def stage_final_eval_loss(ctx: PipelineContext) -> None:
         out_dir = run_dir / output_subdir
         out_dir.mkdir(parents=True, exist_ok=True)
         eval_results_path = out_dir / "eval_results.json"
-        if (
+        already_complete = (
             "final_eval_loss" not in ctx.force_stages
             and (not ctx.args.dry_run)
             and eval_results_path.exists()
-        ):
+        )
+        if already_complete:
             ctx.logger.info("[SKIP] final_eval_loss run %s (already complete)", run_id)
-            continue
-
-        cmd, run_env = build_final_eval_cmd(
-            repo_root=ctx.repo_root,
-            env=ctx.env,
-            output_dir=out_dir,
-            run_cfg=run,
-            common=ctx.train_cfg,
-            language_map_path=ctx.language_map_path,
-            tokenized_path=ctx.tokenized_dir,
-            embedding_training_cfg=ctx.embedding_training_cfg,
-            run_name=run_name_label,
-            model_name_or_path=model_name_or_path,
-            adapter_name_or_path=str(adapter_path),
-            per_device_eval_batch_size=_resolve_eval_batch_size(ctx, run),
-            max_samples=int(ctx.final_eval_loss_cfg["limit"]) if ctx.final_eval_loss_cfg.get("limit") is not None else None,
-            verify_adapter=not ctx.args.dry_run,
-        )
-        _run_stage_cmd(
-            cmd=cmd,
-            env=run_env,
-            dry_run=ctx.args.dry_run,
-            logs_root=ctx.logs_root,
-            stage="final_eval_loss",
-            suffix=run_name_label,
-            executor=ctx.executor,
-        )
+        else:
+            cmd, run_env = build_final_eval_cmd(
+                repo_root=ctx.repo_root,
+                env=ctx.env,
+                output_dir=out_dir,
+                run_cfg=run,
+                common=ctx.train_cfg,
+                language_map_path=ctx.language_map_path,
+                tokenized_path=ctx.tokenized_dir,
+                embedding_training_cfg=ctx.embedding_training_cfg,
+                run_name=run_name_label,
+                model_name_or_path=model_name_or_path,
+                adapter_name_or_path=str(adapter_path),
+                per_device_eval_batch_size=_resolve_eval_batch_size(ctx, run),
+                max_samples=int(ctx.final_eval_loss_cfg["limit"]) if ctx.final_eval_loss_cfg.get("limit") is not None else None,
+                verify_adapter=not ctx.args.dry_run,
+            )
+            _run_stage_cmd(
+                cmd=cmd,
+                env=run_env,
+                dry_run=ctx.args.dry_run,
+                logs_root=ctx.logs_root,
+                stage="final_eval_loss",
+                suffix=run_name_label,
+                executor=ctx.executor,
+            )
 
         if not ctx.args.dry_run:
             if not eval_results_path.exists():
                 raise SystemExit(f"final_eval_loss: missing eval_results.json for run {run_id}: {eval_results_path}")
             payload = json.loads(eval_results_path.read_text(encoding="utf-8"))
             eval_loss = payload.get("eval_loss")
-            if not isinstance(eval_loss, (int, float)):
+            if not isinstance(eval_loss, (int, float)) or not math.isfinite(float(eval_loss)):
                 raise SystemExit(
-                    f"final_eval_loss: eval_loss missing/non-numeric for run {run_id} in {eval_results_path}"
+                    f"final_eval_loss: eval_loss missing/non-finite for run {run_id} in {eval_results_path}"
                 )
-            eval_rows.append(
-                {
-                    "run_id": run_id,
-                    "eval_loss": float(eval_loss),
-                    "adapter_name_or_path": str(adapter_path),
-                    "adapter_provenance": adapter_checkpoint_provenance(
-                        adapter_path,
-                        expected_step=expected_step,
-                        require_direct_save_marker=bool(require_direct_save_marker),
-                    ),
-                    "model_name_or_path": model_name_or_path,
-                    "eval_results": str(eval_results_path),
-                }
+            eval_row = {
+                "run_id": run_id,
+                "eval_loss": float(eval_loss),
+                "adapter_name_or_path": str(adapter_path),
+                "adapter_provenance": adapter_checkpoint_provenance(
+                    adapter_path,
+                    expected_step=expected_step,
+                    require_direct_save_marker=bool(require_direct_save_marker),
+                ),
+                "model_name_or_path": model_name_or_path,
+                "eval_results": str(eval_results_path),
+            }
+            write_per_run_summary(
+                per_run_path=per_run_summary_root / f"{run_id}.json",
+                aggregate_path=stage_summary,
+                metadata={},
+                run=eval_row,
             )
 
     if not ctx.args.dry_run:
-        stage_summary = ctx.final_eval_loss_root / "summary.json"
-        _dump_json(stage_summary, {"runs": eval_rows})
-        _save_stage_state(ctx.state_path, "final_eval_loss", signature, [str(path) for path in expected])
+        _save_stage_state(ctx.state_path, state_stage, signature, [str(path) for path in expected])
         ctx.logger.info("[OK] final_eval_loss_summary=%s", stage_summary)

@@ -1,0 +1,3 @@
+factor,common_architectures,count
+configured_rank,"hmora,hydralora,lora,moelora,mola,mtllora",6
+component_count,"hmora,hydralora,moelora,mola,movlora,mtllora",6

@@ -1,0 +1,5 @@
+training_set,language_script_labels,train_examples,largest_label,largest_share,top5_share,labels_for_50pct,labels_for_90pct,smallest_share,smallest_label
+10 (search),13,99410,rus_Cyrl,0.3553867820138819,0.8588170204204808,2,7,4.023740066391711e-05,azj_Cyrl
+10 (follow-up),13,400000,rus_Cyrl,0.3553875,0.8588199999999999,2,7,4e-05,azj_Cyrl
+96,102,1513560,rus_Cyrl,0.2331007690478078,0.7182629033536825,3,16,1.3213879859404318e-06,yre_Latn
+200,215,3875724,rus_Cyrl,0.181884726569797,0.5738718752934935,5,26,1.03206523477936e-06,cbs_Latn
